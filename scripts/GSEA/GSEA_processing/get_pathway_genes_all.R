@@ -1,3 +1,18 @@
+#' Get Core Enrichment Genes for Significant Pathways Across All Contrasts
+#'
+#' This function extracts core enrichment genes for significant pathways from GSEA results
+#' across all contrasts, and ranks pathways by their minimum adjusted p-value.
+#'
+#' @param gsea_results_list A nested list of GSEA result objects, organized by contrast and database.
+#' @param database Character, name of the database to extract pathways from (e.g., "hallmark", "kegg").
+#' @param top Integer, number of top pathways to return, ranked by minimum adjusted p-value (default: NULL, returns all).
+#'
+#' @return A named list where names are pathway IDs and values are vectors of core enrichment genes.
+#' @export
+#'
+#' @examples
+#' # Assuming gsea_results_list is a nested list of GSEA results by contrast and database
+#' hallmark_genes <- get_pathway_genes_all(gsea_results_list, "hallmark", top = 20)
 get_pathway_genes_all <- function(gsea_results_list, database, top = NULL) {
     # Combine results from all contrasts
     all_pathway_genes <- list()

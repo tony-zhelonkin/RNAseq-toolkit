@@ -1,3 +1,29 @@
+#' Custom GSEA Dotplot Comparison Function
+#'
+#' Creates a side-by-side dotplot comparison of GSEA results from two samples,
+#' allowing for easy visualization of enriched pathways across both datasets.
+#'
+#' @param gsea_obj_x A GSEA result object from clusterProfiler for the first sample.
+#' @param gsea_obj_y A GSEA result object from clusterProfiler for the second sample.
+#' @param pathway_ids Character vector of pathway IDs to include in the plot.
+#' @param font.size Numeric, base font size for the plot (default: 10).
+#' @param title Character, plot title (default: "Combined GSEA Dotplot").
+#' @param replace_ Logical, whether to replace underscores with spaces in descriptions (default: TRUE).
+#' @param capitalize_1 Logical, whether to capitalize the first word in descriptions (default: FALSE).
+#' @param capitalize_all Logical, whether to capitalize all words in descriptions (default: FALSE).
+#' @param min.dotSize Numeric, minimum dot size in the plot (default: 2).
+#' @param sample_x_name Character, name for the first sample (default: "Sample X").
+#' @param sample_y_name Character, name for the second sample (default: "Sample Y").
+#' @param sortBy Character, method to sort pathways: "importance_score", "qvalue", "x", or "y" (default: "importance_score").
+#'
+#' @return A ggplot2 object representing the comparative GSEA dotplot.
+#' @export
+#'
+#' @examples
+#' # Assuming gsea_obj_x and gsea_obj_y are GSEA result objects from clusterProfiler
+#' # and pathway_ids is a vector of pathway IDs to compare
+#' custom_dotplot_comparison(gsea_obj_x, gsea_obj_y, pathway_ids,
+#'                          sample_x_name = "Treatment", sample_y_name = "Control")
 library(ggplot2)
 library(dplyr)
 library(stringr)

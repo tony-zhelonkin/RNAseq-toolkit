@@ -1,13 +1,31 @@
-###############
-### Custom GSEA plot function
-###############
-
+#' Custom GSEA Dotplot Function
+#'
+#' Creates a customizable dotplot visualization for GSEA results with flexible
+#' filtering, sorting, and text processing options.
+#'
+#' @param gsea_obj A GSEA result object from clusterProfiler.
+#' @param showCategory Integer, number of categories to display (default: 10).
+#' @param font.size Numeric, base font size for the plot (default: 10).
+#' @param title Character, plot title (default: "GSEA Dotplot").
+#' @param replace_ Logical, whether to replace underscores with spaces in descriptions (default: TRUE).
+#' @param capitalize_1 Logical, whether to capitalize the first word in descriptions (default: TRUE).
+#' @param capitalize_all Logical, whether to capitalize all words in descriptions (default: FALSE).
+#' @param filterBy Character, method to filter results: "qvalue", "NES", "NES_positive", or "NES_negative" (default: "qvalue").
+#' @param sortBy Character, method to sort results: "GeneRatio" or "qvalue" (default: "GeneRatio").
+#' @param q_cut Numeric, q-value cutoff for significance (default: 0.05).
+#' @param min.dotSize Numeric, minimum dot size in the plot (default: 2).
+#'
+#' @return A ggplot2 object representing the GSEA dotplot.
+#' @export
+#'
+#' @examples
+#' # Assuming gsea_obj is a GSEA result object from clusterProfiler
+#' custom_dotplot(gsea_obj, showCategory = 15, filterBy = "NES", sortBy = "GeneRatio")
 library(ggplot2)
 library(dplyr)
 library(stringr)
 library(scales)
 
-# Define custom dotplot function for GSEA objects with text processing and sorting options
 custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = "GSEA Dotplot",
                            replace_ = TRUE, capitalize_1 = TRUE, capitalize_all = FALSE, 
                            filterBy = "qvalue",

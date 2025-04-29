@@ -1,15 +1,25 @@
-#' Create and save a GSEA enrichment plot
+#' Create and Save a GSEA Running Sum Enrichment Plot
 #' 
-#' @param gse_object A GSE object containing enrichment analysis results
-#' @param gene_set_ids Vector of gene set IDs to plot (numeric or character)
-#' @param title Character string for plot title and filename
-#' @param output_dir Directory path for saving plots (default: "../imgs/RunSum/")
-#' @param width Plot width in inches (default: 10)
-#' @param height Plot height in inches (default: 5)
-#' @param dpi Plot resolution (default: 300)
-#' @param subplots Vector indicating which subplots to include (default: c(1,2,3))
-#' @return The generated plot object
+#' This function creates and saves a GSEA enrichment plot showing the running sum
+#' statistic for specified gene sets, using the enrichplot package.
 #' 
+#' @param gse_object A GSEA result object from clusterProfiler.
+#' @param gene_set_ids Vector of gene set IDs to plot (numeric indices or character IDs).
+#' @param title Character, plot title and base filename for saving (required).
+#' @param output_dir Character, directory path for saving plots (default: "3_Results/imgs/RunSum/").
+#' @param width Numeric, plot width in inches (default: 10).
+#' @param height Numeric, plot height in inches (default: 5).
+#' @param dpi Numeric, plot resolution in dots per inch (default: 300).
+#' @param subplots Numeric vector, indicating which subplots to include (default: c(1,2,3)):
+#'        1 = running enrichment score, 2 = positions of gene set members, 3 = ranking metric scores.
+#'
+#' @return The generated plot object (invisibly).
+#' @export
+#'
+#' @examples
+#' # Assuming gse_object is a GSEA result object from clusterProfiler
+#' runSumGSEAplot(gse_object, gene_set_ids = 1:5, 
+#'               title = "HALLMARK running sum for top 5 pathways")
 runSumGSEAplot <- function(gse_object, 
                             gene_set_ids,
                             title,

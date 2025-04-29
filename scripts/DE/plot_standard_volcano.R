@@ -1,3 +1,31 @@
+#' Create a Standard Volcano Plot for Differential Expression Results
+#'
+#' This function creates a customizable volcano plot from differential expression results,
+#' highlighting significant genes based on p-value and fold change thresholds.
+#'
+#' @param de_results A data frame containing differential expression results with at least
+#'        the following columns: gene identifiers as rownames, logFC, and P.Value.
+#' @param p_cutoff Numeric, p-value cutoff for significance (default: 0.05).
+#' @param fc_cutoff Numeric, fold change cutoff for significance (default: 2.0).
+#' @param max.overlaps Integer, maximum number of label overlaps allowed (default: 10).
+#' @param label_method Character, method to determine which genes to label:
+#'        "sig" (genes significant by both p-value and fold change),
+#'        "p" (genes significant by p-value),
+#'        "log2fc" (genes significant by fold change),
+#'        "none" (no gene labels).
+#' @param x_breaks Numeric, interval between x-axis breaks (default: 1).
+#' @param title Character, plot title (default: "Volcano Plot").
+#' @param color_pallette Character vector, colors for different gene categories in order:
+#'        non-significant, significant by fold change, significant by p-value,
+#'        significant by both (default: c("gray", "forestgreen", "skyblue", "orange")).
+#' @param highlight_gene Character vector, specific gene IDs to highlight (default: NULL).
+#'
+#' @return A ggplot2 object representing the volcano plot.
+#' @export
+#'
+#' @examples
+#' # Assuming de_results is a data frame with columns: logFC, P.Value
+#' create_volcano_plot(de_results, p_cutoff = 0.05, fc_cutoff = 1.5)
 library(ggplot2)
 library(dplyr)
 library(ggrepel)

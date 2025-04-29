@@ -1,28 +1,35 @@
-##################
-### Combined Volcano Plot Function with Multiple Styles
-##################
-
+#' Multi-Style Pathway Volcano Plot Function
+#'
+#' Creates customized volcano plots that highlight genes from a specific GSEA analysis pathway
+#' within the context of differential expression results. The function offers multiple styling
+#' options to suit different visualization preferences.
+#'
+#' @param pathway_name Character, name of the pathway to highlight. Must match the Description
+#'        field in the GSEA results.
+#' @param gsea_results A GSEA results object containing pathway information.
+#' @param de_results A data frame containing differential expression results with at least
+#'        the following columns: gene identifiers as rownames, logFC, and adj.P.Val.
+#' @param p_cutoff Numeric, p-value cutoff for significance (default: 0.05).
+#' @param fc_cutoff Numeric, fold change cutoff for significance (default: 2.0).
+#' @param label_method Character, method to determine which genes to label:
+#'        "default" (pathway genes with both p-value & Log2FC significant),
+#'        "fc" (pathway genes crossing fold change threshold),
+#'        "p" (pathway genes crossing p-value threshold),
+#'        "all" (all significant pathway genes).
+#' @param max_overlaps Integer, maximum number of label overlaps allowed (default: 100).
+#' @param style Character, plotting style to use: "clean", "claude", or "gpt" (default: "clean").
+#'
+#' @return A ggplot2 object representing the volcano plot.
+#' @export
+#'
+#' @examples
+#' # Assuming gsea_results is a GSEA result object and de_results contains DE analysis results
+#' analyze_pathway_volcano("HALLMARK_APOPTOSIS", gsea_results, de_results,
+#'                         p_cutoff = 0.05, fc_cutoff = 1.5, style = "clean")
 library(ggplot2)
 library(dplyr)
 library(stringr)
 library(ggrepel)
-
-# Custom theme with minimal style and grid (used in multiple styles)
-custom_minimal_theme_with_grid <- function() {
-  theme_minimal(base_size = 14) +
-    theme(
-      panel.background = element_rect(fill = "white", color = NA), 
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.grid.major = element_line(color = "grey80", size = 0.5),
-      panel.grid.minor = element_line(color = "grey90", size = 0.25),
-      axis.line = element_line(color = "black"),
-      axis.ticks = element_line(color = "black"),
-      axis.title.x = element_text(size = 14, face = "bold"),
-      axis.title.y = element_text(size = 14, face = "bold"),
-      axis.text.x = element_text(size = 12),
-      axis.text.y = element_text(size = 12)
-    )
-}
 
 # Main function to generate the volcano plot with different styles
 analyze_pathway_volcano <- function(pathway_name, gsea_results, de_results, 

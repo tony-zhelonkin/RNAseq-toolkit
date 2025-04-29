@@ -1,4 +1,16 @@
-  # Define a custom minimal theme
+#' Custom Minimal Theme with Grid
+#'
+#' Creates a clean, minimal ggplot2 theme with a white background and subtle grid lines.
+#' This theme is designed to provide a professional and readable appearance for data visualizations.
+#'
+#' @return A ggplot2 theme object that can be added to any ggplot
+#' @export
+#'
+#' @examples
+#' library(ggplot2)
+#' ggplot(mtcars, aes(x = wt, y = mpg)) +
+#'   geom_point() +
+#'   custom_minimal_theme_with_grid()
 custom_minimal_theme_with_grid <- function() {
   theme_minimal(base_size = 14) +
     theme(
@@ -15,4 +27,3 @@ custom_minimal_theme_with_grid <- function() {
     #   legend.title = element_blank() # Remove legend title
     )
 }
-

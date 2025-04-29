@@ -1,3 +1,17 @@
+#' Create a 3D PCA Plot from a DGEList Object
+#'
+#' This function performs Principal Component Analysis (PCA) on normalized expression data
+#' from a DGEList object and creates an interactive 3D PCA plot using plotly.
+#'
+#' @param DGE_object A DGEList object containing normalized expression data and sample metadata.
+#' @param title Character, plot title (default: "3D PCA Plot").
+#'
+#' @return A plotly object representing the 3D PCA plot.
+#' @export
+#'
+#' @examples
+#' # Assuming DGE_object is a DGEList object with normalized counts and sample metadata
+#' create_3d_pca_plot(DGE_object, title = "3D PCA of RNA-seq Samples")
 library(edgeR)
 library(ggplot2)
 library(plotly)

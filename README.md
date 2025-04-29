@@ -1,14 +1,40 @@
-# Custom Pathway Visualizations Function
+# R GSEA Visualizations
 
-This repository contains custom R functions for comprehensive pathway analysis visualisation. They are inteded to be used on the GSEA, gseGO and other pathway analysis methods results from the `ClusterProfiler` R library.
+This repository contains a collection of R functions for comprehensive RNA-seq data analysis, with a focus on Gene Set Enrichment Analysis (GSEA) and visualization. These tools are designed to work with differential expression results from edgeR/limma and GSEA results from the ClusterProfiler R package.
 
-The functions are:
-* gsea_comparison_plot
-* custom_dotplot
-* custom_dotplot_comparison
-* analyze_pathway_volcano
+## Overview
 
-Some parts of the README.md are written by Claude 3.5 Sonnet.
+The scripts are organized into modular components for:
+1. Differential Expression (DE) analysis visualization
+2. Gene Set Enrichment Analysis (GSEA) processing and visualization
+3. Custom visualization themes
+
+## Script Organization
+
+```
+scripts/
+├── custom_minimal_theme.R       # Custom ggplot2 theme for consistent visualization
+├── DE/                          # Differential Expression visualization
+│   ├── analyzePathVolcanoViz.R  # Multi-style pathway volcano plots
+│   ├── plot_standard_volcano.R  # Standard volcano plots for DE results
+│   ├── plotPCA.R                # 2D PCA plots
+│   └── plotPCA3d.R              # 3D PCA plots using plotly
+└── GSEA/                        # GSEA analysis and visualization
+    ├── GSEA_processing/         # Core GSEA analysis functions
+    │   ├── calculate_pathway_scores.R    # Calculate pathway scores from expression data
+    │   ├── get_pathway_genes_all.R       # Extract pathway genes across contrasts
+    │   ├── get_significant_pathways.R    # Identify significant pathways
+    │   ├── runGSEA.R                     # Run GSEA on DE results
+    │   └── runGSEA_pool.R                # Run pooled GSEA across multiple contrasts
+    └── GSEA_plotting/           # GSEA visualization functions
+        ├── dotplot.R                     # Custom GSEA dotplots
+        ├── dotplot_compare.R             # Compare GSEA results between two conditions
+        ├── nesOutlier.R                  # NES comparison scatter plots
+        ├── plot_RunSumGSEA.R             # Running sum enrichment plots
+        └── plot_single_pathway_heatmap.R # Heatmaps for specific pathways
+```
+
+## Key Functions
 
 
 

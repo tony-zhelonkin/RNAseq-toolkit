@@ -1,9 +1,29 @@
-source("1_Scripts/get_pathway_genes.R")
-source("1_Scripts/get_significant_pathways.R")
-source("1_Scripts/get_pathway_genes_all.R")
-source("1_Scripts/calculate_pathway_scores.R")
-source("1_Scripts/get_significant_pathways.R")
-
+#' Run Pooled GSEA Analysis Across Multiple Contrasts
+#'
+#' This function performs Gene Set Enrichment Analysis (GSEA) across multiple contrasts,
+#' aggregates significant pathways, and calculates pathway scores.
+#'
+#' @param fit A limma fit object containing differential expression results.
+#' @param contrasts A contrast matrix created with makeContrasts().
+#' @param DGErankl A DGEList object containing normalized expression data.
+#' @param top_n Integer, number of top pathways to include in the results (default: 30).
+#' @param verbose Logical, whether to print progress messages (default: TRUE).
+#'
+#' @return A list containing:
+#'   \item{gsea_results}{A nested list of GSEA results by contrast and database.}
+#'   \item{pools}{A list of significant pathway IDs by database.}
+#'   \item{genes}{A list of pathway genes by database.}
+#'   \item{scores}{A list of pathway score matrices by database.}
+#' @export
+#'
+#' @examples
+#' # Assuming fit is a limma fit object, contrasts is a contrast matrix,
+#' # and DGErankl is a DGEList object
+#' pooled_results <- run_pooled_gsea(fit, contrasts, DGErankl, top_n = 20)
+source("scripts/GSEA/GSEA_processing/get_pathway_genes.R")
+source("scripts/GSEA/GSEA_processing/get_significant_pathways.R")
+source("scripts/GSEA/GSEA_processing/get_pathway_genes_all.R")
+source("scripts/GSEA/GSEA_processing/calculate_pathway_scores.R")
 
 run_pooled_gsea <- function(fit, contrasts, DGErankl, top_n = 30, verbose = TRUE) {
     # Run GSEA for all pool contrasts

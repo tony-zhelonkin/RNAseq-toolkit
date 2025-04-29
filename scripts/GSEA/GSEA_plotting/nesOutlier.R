@@ -1,9 +1,36 @@
+#' GSEA NES Comparison Plot Function
+#'
+#' Creates a comprehensive comparison of GSEA results from two datasets, including
+#' a scatter plot visualization, data preparation, and extraction of common pathways.
+#'
+#' @param x A GSEA result dataframe for the first dataset.
+#' @param y A GSEA result dataframe for the second dataset.
+#' @param x_label Character, label for the first dataset (default: "Dataset 1").
+#' @param y_label Character, label for the second dataset (default: "Dataset 2").
+#' @param use_normalized Logical, whether to use Normalized Enrichment Score (NES)
+#'        instead of Enrichment Score (default: TRUE).
+#' @param percentile_threshold Numeric, threshold for determining significant pathways (default: 0.95).
+#' @param color Character, color scheme for the plot: "all", "common", or "distinct" (default: "all").
+#' @param max_overlaps Integer, maximum number of label overlaps in the plot (default: 20).
+#'
+#' @return A list containing:
+#'   \item{data}{A dataframe with combined results from both datasets.}
+#'   \item{plot}{The ggplot object for the comparison plot.}
+#'   \item{common_pathways}{A list of common pathways (positive, negative, mixed, and all).}
+#'   \item{gmt}{A list of GMT-formatted dataframes for different pathway categories.}
+#' @export
+#'
+#' @examples
+#' # Assuming gsea_result1 and gsea_result2 are GSEA result dataframes
+#' comparison_results <- gsea_comparison_plot(
+#'   gsea_result1, gsea_result2, "Treatment", "Control",
+#'   color = "all", percentile_threshold = 0.90
+#' )
 library(dplyr)
 library(ggplot2)
 library(ggrepel)
 library(tidyr)  # For separate_rows function
 
-# Main execution
 gsea_comparison_plot <- function(x, y, x_label, y_label, 
                                  use_normalized = TRUE, 
                                  percentile_threshold = 0.95,
