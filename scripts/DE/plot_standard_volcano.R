@@ -1,40 +1,58 @@
 #' Create a Standard Volcano Plot for Differential Expression Results
 #'
-#' This function creates a customizable volcano plot from differential expression results,
-#' highlighting significant genes based on p-value and fold change thresholds.
+#' Create a Standard Volcano Plot for Differential Expression Results
 #'
-#' @param de_results A data frame containing differential expression results with at least
-#'        the following columns: gene identifiers as rownames, logFC, and P.Value.
-#' @param p_cutoff Numeric, p-value cutoff for significance (default: 0.05).
-#' @param fc_cutoff Numeric, fold change cutoff for significance (default: 2.0).
+#' Creates a customizable volcano plot from DE results, highlighting significant genes.
+#' Assumes `de_results` rownames are gene identifiers.
+#' Requires `custom_minimal_theme_with_grid()` from `scripts/custom_minimal_theme.R`.
+#'
+#' @param de_results Data frame with DE results (rownames = genes, requires 'logFC', 'P.Value').
+#' @param p_cutoff Numeric, p-value cutoff for significance (default: 0.05). Note: Uses raw P.Value column.
+#' @param fc_cutoff Numeric, absolute log2 fold change cutoff for significance (default: 2.0).
 #' @param max.overlaps Integer, maximum number of label overlaps allowed (default: 10).
 #' @param label_method Character, method to determine which genes to label:
-#'        "sig" (genes significant by both p-value and fold change),
-#'        "p" (genes significant by p-value),
-#'        "log2fc" (genes significant by fold change),
+#'        "sig" (genes significant by both p-value & fold change),
+#'        "p" (genes significant by p-value only),
+#'        "log2fc" (genes significant by fold change only),
 #'        "none" (no gene labels).
 #' @param x_breaks Numeric, interval between x-axis breaks (default: 1).
 #' @param title Character, plot title (default: "Volcano Plot").
-#' @param color_pallette Character vector, colors for different gene categories in order:
-#'        non-significant, significant by fold change, significant by p-value,
-#'        significant by both (default: c("gray", "forestgreen", "skyblue", "orange")).
-#' @param highlight_gene Character vector, specific gene IDs to highlight (default: NULL).
+#' @param color_palette Character vector (length 4), colors for categories:
+#'        NS, Log2FC only, p-value only, Both (default: c("gray", "forestgreen", "skyblue", "orange")).
+#' @param highlight_gene Character vector, specific gene IDs to highlight with distinct labels (default: NULL).
 #'
-#' @return A ggplot2 object representing the volcano plot.
+#' @return A ggplot2 object representing the volcano plot. The plot is NOT saved automatically.
 #' @export
+#' @import ggplot2 dplyr ggrepel
+#' @importFrom magrittr %>%
+#' @importFrom formatC formatC
 #'
 #' @examples
-#' # Assuming de_results is a data frame with columns: logFC, P.Value
-#' create_volcano_plot(de_results, p_cutoff = 0.05, fc_cutoff = 1.5)
+#' # Assuming de_results is a data frame with columns: logFC, P.Value and gene names as rownames
+#' plot_obj <- create_volcano_plot(de_results, p_cutoff = 0.05, fc_cutoff = 1.5)
+#' # To save: ggsave("my_volcano.png", plot_obj)
 library(ggplot2)
 library(dplyr)
 library(ggrepel)
+library(magrittr) # Ensure pipe operator is available
+library(formatC)  # For formatting p-values in hover text
+
+# Source the custom theme function if it exists
+custom_theme_path <- file.path("scripts", "custom_minimal_theme.R")
+if (file.exists(custom_theme_path)) {
+  source(custom_theme_path)
+} else {
+  warning("Custom theme file not found at: ", custom_theme_path, ". Using default theme_minimal().")
+  # Define a placeholder function if the theme is missing
+  custom_minimal_theme_with_grid <- function() theme_minimal()
+}
+
 
 create_volcano_plot <- function(de_results, p_cutoff = 0.05, fc_cutoff = 2.0,
                                 max.overlaps = 10, label_method = "sig",
                                 x_breaks = 1,
                                 title = "Volcano Plot",
-                                color_pallette = c("gray", "forestgreen", "skyblue", "orange"),
+                                color_palette = c("gray", "forestgreen", "skyblue", "orange"),
                                 highlight_gene = NULL) {
   # Original data processing remains the same
   de_results <- de_results %>%
@@ -77,25 +95,29 @@ create_volcano_plot <- function(de_results, p_cutoff = 0.05, fc_cutoff = 2.0,
     geom_hline(yintercept = -log10(p_cutoff), linetype = "dashed", color = "black") +
     geom_vline(xintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed", color = "black") +
     scale_color_manual(
+      name = "Significance", # Add legend title
       values = c(
-        "p-value & Log2FC" = color_pallette[4],
-        "Log2FC" = color_pallette[2],
-        "p-value" = color_pallette[3],
-        "NS" = color_pallette[1]
+        "p-value & Log2FC" = color_palette[4],
+        "Log2FC" = color_palette[2],
+        "p-value" = color_palette[3],
+        "NS" = color_palette[1]
       ),
-      breaks = c("p-value & Log2FC", "Log2FC", "p-value", "NS")
+      labels = c( # Define labels for clarity
+        "p-value & Log2FC" = sprintf("p < %.2f & |LogFC| > %.1f", p_cutoff, fc_cutoff),
+        "Log2FC" = sprintf("|LogFC| > %.1f", fc_cutoff),
+        "p-value" = sprintf("p < %.2f", p_cutoff),
+        "NS" = "Not Significant"
+      ),
+      breaks = c("p-value & Log2FC", "Log2FC", "p-value", "NS") # Ensure order
     ) +
     labs(
       title = title,
       subtitle = paste("p-value cutoff:", p_cutoff, "| FC cutoff:", fc_cutoff),
       x = "Log2 Fold Change",
-      y = "-Log10 P-value"
+      y = bquote(-Log[10]~'(P-value)') # Format y-axis label
     ) +
     scale_x_continuous(breaks = seq(x_min, x_max, by = x_breaks), limits = c(x_min, x_max)) +
-    custom_minimal_theme_with_grid() +
-    theme(
-      legend.title = element_blank()
-    )
+    custom_minimal_theme_with_grid() # Apply custom theme
 
   # Add regular labels based on label_method
   if (!is.null(label_data) && nrow(label_data) > 0) {
@@ -108,35 +130,29 @@ create_volcano_plot <- function(de_results, p_cutoff = 0.05, fc_cutoff = 2.0,
         segment.color = "black",
         color = "black",
         size = 3.5,
-        max.overlaps = max.overlaps
+        max.overlaps = max.overlaps,
+        min.segment.length = 0 # Draw segments even if short
       )
   }
 
-  # Add highlighted gene labels with different style
-  if (!is.null(highlight_gene) && nrow(highlight_data) > 0) {
+  # Add highlighted gene labels with different style (e.g., bold, slightly larger)
+  if (!is.null(highlight_gene) && !is.null(highlight_data) && nrow(highlight_data) > 0) {
     base_plot <- base_plot +
       ggrepel::geom_label_repel(
         data = highlight_data,
         aes(label = rownames(highlight_data)),
-        box.padding = 0.5,
-        point.padding = 0.5,
-        segment.color = "#000000",
-        color = "#000000",
-        fontface = "plain",
-        size = 4,
-        max.overlaps = Inf
+        box.padding = 0.6, # Slightly more padding
+        point.padding = 0.6,
+        segment.color = "black",
+        color = "black", # Label text color
+        fill = alpha("white", 0.7), # Semi-transparent background
+        fontface = "bold", # Make highlighted labels bold
+        size = 4, # Slightly larger font size
+        max.overlaps = Inf, # Ensure these labels are always shown
+        min.segment.length = 0
       )
   }
 
-  # Save the plot
-  filename <- paste0("3_Results/imgs/volcano/", gsub(" ", "_", title), ".pdf")
-  ggsave(
-    filename = filename,
-    plot = base_plot,
-    width = 7,
-    height = 5,
-    dpi = 300
-  )
-
+  # Return the plot object instead of saving
   return(base_plot)
 }
