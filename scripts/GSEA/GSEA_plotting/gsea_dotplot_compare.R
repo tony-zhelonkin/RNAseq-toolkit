@@ -1,13 +1,13 @@
-#' Custom GSEA Dotplot Comparison Function
+#' Create a Comparative GSEA Dotplot for Two Datasets
 #'
-#' Creates a side-by-side dotplot comparison of GSEA results from two samples,
+#' This function creates a side-by-side dotplot comparison of GSEA results from two samples,
 #' allowing for easy visualization of enriched pathways across both datasets.
 #'
 #' @param gsea_obj_x A GSEA result object from clusterProfiler for the first sample.
 #' @param gsea_obj_y A GSEA result object from clusterProfiler for the second sample.
 #' @param pathway_ids Character vector of pathway IDs to include in the plot.
 #' @param font.size Numeric, base font size for the plot (default: 10).
-#' @param title Character, plot title (default: "Combined GSEA Dotplot").
+#' @param title Character, plot title (default: "GSEA Comparison Dotplot").
 #' @param replace_ Logical, whether to replace underscores with spaces in descriptions (default: TRUE).
 #' @param capitalize_1 Logical, whether to capitalize the first word in descriptions (default: FALSE).
 #' @param capitalize_all Logical, whether to capitalize all words in descriptions (default: FALSE).
@@ -15,25 +15,48 @@
 #' @param sample_x_name Character, name for the first sample (default: "Sample X").
 #' @param sample_y_name Character, name for the second sample (default: "Sample Y").
 #' @param sortBy Character, method to sort pathways: "importance_score", "qvalue", "x", or "y" (default: "importance_score").
+#' @param save_plot Logical, whether to save the plot to a file (default: FALSE).
+#' @param output_dir Character, directory to save the plot (default: "plots/").
+#' @param width Numeric, width of the saved plot in inches (default: 12).
+#' @param height Numeric, height of the saved plot in inches (default: 8).
+#' @param dpi Numeric, resolution of the saved plot (default: 300).
 #'
 #' @return A ggplot2 object representing the comparative GSEA dotplot.
 #' @export
 #'
 #' @examples
-#' # Assuming gsea_obj_x and gsea_obj_y are GSEA result objects from clusterProfiler
-#' # and pathway_ids is a vector of pathway IDs to compare
-#' custom_dotplot_comparison(gsea_obj_x, gsea_obj_y, pathway_ids,
-#'                          sample_x_name = "Treatment", sample_y_name = "Control")
+#' # Basic usage with pathway IDs
+#' gsea_dotplot_compare(gsea_obj_x, gsea_obj_y, pathway_ids)
+#'
+#' # Customized sample names
+#' gsea_dotplot_compare(gsea_obj_x, gsea_obj_y, pathway_ids,
+#'                      sample_x_name = "Treatment", sample_y_name = "Control")
+#'
+#' # Save the plot
+#' gsea_dotplot_compare(gsea_obj_x, gsea_obj_y, pathway_ids,
+#'                      title = "Treatment vs Control", save_plot = TRUE)
 library(ggplot2)
 library(dplyr)
 library(stringr)
 library(tidyr)
 
-custom_dotplot_comparison <- function(gsea_obj_x, gsea_obj_y, pathway_ids, 
-                                      font.size = 10, title = "Combined GSEA Dotplot",
-                                      replace_ = TRUE, capitalize_1 = FALSE, capitalize_all = FALSE,
-                                      min.dotSize = 2, sample_x_name = "Sample X", sample_y_name = "Sample Y",
-                                      sortBy = "importance_score") {
+gsea_dotplot_compare <- function(gsea_obj_x, 
+                                 gsea_obj_y, 
+                                 pathway_ids, 
+                                 font.size = 10, 
+                                 title = "GSEA Comparison Dotplot",
+                                 replace_ = TRUE, 
+                                 capitalize_1 = FALSE, 
+                                 capitalize_all = FALSE,
+                                 min.dotSize = 2, 
+                                 sample_x_name = "Sample X", 
+                                 sample_y_name = "Sample Y",
+                                 sortBy = "importance_score",
+                                 save_plot = FALSE,
+                                 output_dir = "plots/",
+                                 width = 12,
+                                 height = 8,
+                                 dpi = 300) {
   
   # Helper function to process GSEA data
   process_gsea_data <- function(gsea_obj, sample_name) {
@@ -72,16 +95,16 @@ custom_dotplot_comparison <- function(gsea_obj_x, gsea_obj_y, pathway_ids,
   # Determine the sorting order based on the sortBy parameter
   sort_order <- switch(sortBy,
     "importance_score" = pathway_scores %>%
-      arrange(importance_score) %>%
+      arrange(desc(importance_score)) %>%
       pull(Description),
     "qvalue" = pathway_scores %>%
       arrange(mean_qvalue) %>%
       pull(Description),
     "x" = data_x %>%
-      arrange(GeneRatio) %>%
+      arrange(desc(GeneRatio)) %>%
       pull(Description),
     "y" = data_y %>%
-      arrange(GeneRatio) %>%
+      arrange(desc(GeneRatio)) %>%
       pull(Description),
     {
       warning("Invalid sortBy parameter. Defaulting to importance_score.")
@@ -102,7 +125,7 @@ custom_dotplot_comparison <- function(gsea_obj_x, gsea_obj_y, pathway_ids,
   }
   
   # Create the plot
-  ggplot(combined_data, aes(x = GeneRatio, y = Description)) +
+  p <- ggplot(combined_data, aes(x = GeneRatio, y = Description)) +
     geom_point(aes(size = -log10(qvalue), color = NES_sign)) +
     scale_color_manual(values = c("Positive NES" = "orange", "Negative NES" = "skyblue")) +
     scale_size_continuous(range = c(min.dotSize, 10),
@@ -116,20 +139,39 @@ custom_dotplot_comparison <- function(gsea_obj_x, gsea_obj_y, pathway_ids,
       y = NULL,
       color = "NES"
     ) +
-    theme_minimal() +
+    custom_minimal_theme_with_grid() +
     theme(
-      panel.background = element_rect(fill = "white", color = NA),  # White background with black border
-      plot.background = element_rect(fill = "white", color = NA),  # White plot background with no border
-      axis.line = element_line(color = "black"),
-      axis.ticks = element_line(color = "black"),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
       axis.text.y = element_text(size = font.size, hjust = 1),
       plot.title = element_text(hjust = 0.5, size = font.size + 2),
       axis.text.x = element_text(size = font.size),
       legend.position = "right",
       strip.text = element_text(size = font.size + 1),
-      panel.grid.major = element_line(color = "grey90", size = 0.5),
-      panel.grid.minor = element_line(color = "grey95", size = 0.25),
       panel.spacing = unit(1, "lines"),
       panel.border = element_rect(color = "black", fill = NA, size = 0.5)
     )
+  
+  # Save the plot if requested
+  if (save_plot) {
+    # Create directory if it doesn't exist
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, recursive = TRUE)
+    }
+    
+    # Create filename from title
+    filename <- file.path(output_dir, paste0(gsub(" ", "_", title), "_compare.pdf"))
+    
+    ggsave(
+      filename = filename,
+      plot = p,
+      width = width,
+      height = height,
+      dpi = dpi
+    )
+    
+    message("Plot saved to: ", filename)
+  }
+  
+  return(p)
 }

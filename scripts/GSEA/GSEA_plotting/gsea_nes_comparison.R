@@ -3,8 +3,8 @@
 #' Creates a comprehensive comparison of GSEA results from two datasets, including
 #' a scatter plot visualization, data preparation, and extraction of common pathways.
 #'
-#' @param x A GSEA result dataframe for the first dataset.
-#' @param y A GSEA result dataframe for the second dataset.
+#' @param gsea_obj_x A GSEA result object from clusterProfiler for the first dataset.
+#' @param gsea_obj_y A GSEA result object from clusterProfiler for the second dataset.
 #' @param x_label Character, label for the first dataset (default: "Dataset 1").
 #' @param y_label Character, label for the second dataset (default: "Dataset 2").
 #' @param use_normalized Logical, whether to use Normalized Enrichment Score (NES)
@@ -12,6 +12,11 @@
 #' @param percentile_threshold Numeric, threshold for determining significant pathways (default: 0.95).
 #' @param color Character, color scheme for the plot: "all", "common", or "distinct" (default: "all").
 #' @param max_overlaps Integer, maximum number of label overlaps in the plot (default: 20).
+#' @param save_plot Logical, whether to save the plot to a file (default: FALSE).
+#' @param output_dir Character, directory to save the plot (default: "plots/").
+#' @param width Numeric, width of the saved plot in inches (default: 10).
+#' @param height Numeric, height of the saved plot in inches (default: 8).
+#' @param dpi Numeric, resolution of the saved plot (default: 300).
 #'
 #' @return A list containing:
 #'   \item{data}{A dataframe with combined results from both datasets.}
@@ -21,21 +26,33 @@
 #' @export
 #'
 #' @examples
-#' # Assuming gsea_result1 and gsea_result2 are GSEA result dataframes
-#' comparison_results <- gsea_comparison_plot(
-#'   gsea_result1, gsea_result2, "Treatment", "Control",
-#'   color = "all", percentile_threshold = 0.90
-#' )
+#' # Basic usage
+#' comparison_results <- gsea_nes_comparison(gsea_obj_x, gsea_obj_y, 
+#'                                          "Treatment", "Control")
+#'
+#' # Access the plot
+#' print(comparison_results$plot)
+#'
+#' # Access common pathways for downstream analysis
+#' common_pathways <- comparison_results$common_pathways$common_mix
 library(dplyr)
 library(ggplot2)
 library(ggrepel)
-library(tidyr)  # For separate_rows function
+library(tidyr)
 
-gsea_comparison_plot <- function(x, y, x_label, y_label, 
-                                 use_normalized = TRUE, 
-                                 percentile_threshold = 0.95,
-                                 color = "all",
-                                 max_overlaps = 20) { 
+gsea_nes_comparison <- function(gsea_obj_x, 
+                               gsea_obj_y, 
+                               x_label = "Dataset 1", 
+                               y_label = "Dataset 2", 
+                               use_normalized = TRUE, 
+                               percentile_threshold = 0.95,
+                               color = "all",
+                               max_overlaps = 20,
+                               save_plot = FALSE,
+                               output_dir = "plots/",
+                               width = 10,
+                               height = 8,
+                               dpi = 300) { 
   
   # Helper function to get score column name
   get_score_col <- function(data, label) {
@@ -44,6 +61,14 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
   
   # Prepare data
   prepare_data <- function(x, y) {
+    # Convert GSEA objects to data frames if needed
+    if (class(x)[1] == "gseaResult") {
+      x <- as.data.frame(x@result)
+    }
+    if (class(y)[1] == "gseaResult") {
+      y <- as.data.frame(y@result)
+    }
+    
     score_column <- ifelse(use_normalized, "NES", "enrichmentScore")
     
     if (!all(c(score_column, "ID", "Description", "qvalue", "core_enrichment") %in% names(x)) || 
@@ -131,16 +156,18 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
       geom_hline(yintercept = intercept, linetype = "dashed", color = "black", alpha = 0.5) +
       labs(
         title = paste(ifelse(use_normalized, "NES", "Enrichment Score"), 
-                      "Outlier Analysis between", x_label, "and", y_label, "threshold: NES >",  percentile_threshold, "percentile"),
+                      "Comparison between", x_label, "and", y_label),
+        subtitle = paste("Threshold:", percentile_threshold, "percentile"),
         x = paste(ifelse(use_normalized, "NES", "Enrichment Score"), "(", x_label, ")"),
         y = paste(ifelse(use_normalized, "NES", "Enrichment Score"), "(", y_label, ")"),
         color = "Category"
       ) +
       custom_minimal_theme_with_grid() +
       theme(
-        panel.background = element_rect(fill = "white", color = NA),  # White background with black border
-        plot.background = element_rect(fill = "white", color = NA),  # White plot background with no border
+        panel.background = element_rect(fill = "white", color = NA),
+        plot.background = element_rect(fill = "white", color = NA),
         plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
         axis.text = element_text(size = 12),
         axis.title = element_text(size = 14),
         legend.position = "right"
@@ -152,7 +179,7 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
       slice_max(order_by = abs(.data[[x_score_col]]) + abs(.data[[y_score_col]]), n = 5) %>%
       ungroup()
     
-    p + geom_text_repel(
+    p <- p + geom_text_repel(
       data = top_pathways,
       aes(label = Description, color = highlight),
       size = 3,
@@ -165,6 +192,8 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
       max.overlaps = max_overlaps,
       show.legend = FALSE
     )
+    
+    return(p)
   }
 
   # Create GMT-formatted dataframe
@@ -192,9 +221,9 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
   }
 
   # Main execution
-  joined_data <- prepare_data(x, y)
-  x_score_col <- get_score_col(x, x_label)
-  y_score_col <- get_score_col(y, y_label)
+  joined_data <- prepare_data(gsea_obj_x, gsea_obj_y)
+  x_score_col <- get_score_col(gsea_obj_x, x_label)
+  y_score_col <- get_score_col(gsea_obj_y, y_label)
   
   categorized_data <- categorize_data(joined_data, x_score_col, y_score_col)
   
@@ -244,6 +273,27 @@ gsea_comparison_plot <- function(x, y, x_label, y_label,
   gmt_neg <- create_gmt(results_df, common_neg)
   gmt_mix <- create_gmt(results_df, common_mix)
   gmt_all <- create_gmt(results_df, common_all)
+  
+  # Save the plot if requested
+  if (save_plot) {
+    # Create directory if it doesn't exist
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, recursive = TRUE)
+    }
+    
+    # Create filename from title
+    filename <- file.path(output_dir, paste0(gsub(" ", "_", paste0(x_label, "_vs_", y_label)), "_NES_comparison.pdf"))
+    
+    ggsave(
+      filename = filename,
+      plot = plot,
+      width = width,
+      height = height,
+      dpi = dpi
+    )
+    
+    message("Plot saved to: ", filename)
+  }
   
   # List object 
   list(

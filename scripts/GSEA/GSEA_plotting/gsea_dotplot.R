@@ -1,7 +1,7 @@
-#' Custom GSEA Dotplot Function
+#' Create a Customizable GSEA Dotplot
 #'
-#' Creates a customizable dotplot visualization for GSEA results with flexible
-#' filtering, sorting, and text processing options.
+#' This function generates a visually appealing and informative dotplot from GSEA results,
+#' with flexible filtering, sorting, and text processing options.
 #'
 #' @param gsea_obj A GSEA result object from clusterProfiler.
 #' @param showCategory Integer, number of categories to display (default: 10).
@@ -14,24 +14,68 @@
 #' @param sortBy Character, method to sort results: "GeneRatio" or "qvalue" (default: "GeneRatio").
 #' @param q_cut Numeric, q-value cutoff for significance (default: 0.05).
 #' @param min.dotSize Numeric, minimum dot size in the plot (default: 2).
+#' @param wrap_text Logical, whether to wrap long pathway descriptions (default: TRUE).
+#' @param wrap_width Integer, width for text wrapping (default: 40).
+#' @param save_plot Logical, whether to save the plot to a file (default: FALSE).
+#' @param output_dir Character, directory to save the plot (default: "plots/").
+#' @param width Numeric, width of the saved plot in inches (default: 10).
+#' @param height Numeric, height of the saved plot in inches (default: 7).
+#' @param dpi Numeric, resolution of the saved plot (default: 300).
 #'
 #' @return A ggplot2 object representing the GSEA dotplot.
 #' @export
 #'
 #' @examples
-#' # Assuming gsea_obj is a GSEA result object from clusterProfiler
-#' custom_dotplot(gsea_obj, showCategory = 15, filterBy = "NES", sortBy = "GeneRatio")
+#' # Basic usage
+#' gsea_dotplot(gsea_obj)
+#'
+#' # Customized filtering and sorting
+#' gsea_dotplot(gsea_obj, showCategory = 15, filterBy = "NES_positive", sortBy = "GeneRatio")
+#'
+#' # Save the plot
+#' gsea_dotplot(gsea_obj, title = "My GSEA Results", save_plot = TRUE, output_dir = "results/plots/")
 library(ggplot2)
 library(dplyr)
 library(stringr)
 library(scales)
 
-custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = "GSEA Dotplot",
-                           replace_ = TRUE, capitalize_1 = TRUE, capitalize_all = FALSE, 
-                           filterBy = "qvalue",
-                           sortBy = "GeneRatio",
-                           q_cut = 0.05,
-                           min.dotSize = 2) {
+#' Smart text wrapping function for pathway descriptions
+#'
+#' @param text Character string to wrap
+#' @param width Integer, maximum width before wrapping (default: 40)
+#' @return Character string with newlines inserted for wrapping
+#' @keywords internal
+smart_wrap <- function(text, width = 40) {
+    words <- unlist(strsplit(text, " "))
+    total_chars <- nchar(text)
+    
+    if (total_chars > width) {
+        mid_point <- length(words) %/% 2
+        first_half <- paste(words[1:mid_point], collapse = " ")
+        second_half <- paste(words[(mid_point + 1):length(words)], collapse = " ")
+        return(paste(first_half, second_half, sep = "\n"))
+    }
+    return(text)
+}
+
+gsea_dotplot <- function(gsea_obj, 
+                         showCategory = 10, 
+                         font.size = 10, 
+                         title = "GSEA Dotplot",
+                         replace_ = TRUE, 
+                         capitalize_1 = TRUE, 
+                         capitalize_all = FALSE,
+                         filterBy = "qvalue",
+                         sortBy = "GeneRatio",
+                         q_cut = 0.05,
+                         min.dotSize = 2,
+                         wrap_text = TRUE,
+                         wrap_width = 40,
+                         save_plot = FALSE,
+                         output_dir = "plots/",
+                         width = 10,
+                         height = 7,
+                         dpi = 300) {
   
   # Extract the result data frame from the GSEA object
   gsea_data <- as.data.frame(gsea_obj@result)
@@ -61,7 +105,12 @@ custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = 
       str_to_title()              # Capitalize all words if 'capitalize_all' is TRUE
   }
   
-  # Filter for significant pathways (qvalue < 0.01)
+  # Apply text wrapping if requested
+  if (wrap_text) {
+    gsea_data$Description <- sapply(gsea_data$Description, smart_wrap, wrap_width)
+  }
+  
+  # Filter for significant pathways
   gsea_data_filtered <- gsea_data %>%
     filter(qvalue < q_cut) %>%
     mutate(NES_sign = ifelse(NES > 0, "Positive NES", "Negative NES"))
@@ -91,7 +140,7 @@ custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = 
       head(showCategory)
   }
 
- # Sort the filtered data based on the sortBy parameter
+  # Sort the filtered data based on the sortBy parameter
   if (sortBy == "GeneRatio") {
     gsea_data_filtered <- gsea_data_filtered %>%
       arrange(desc(GeneRatio))
@@ -109,7 +158,7 @@ custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = 
     head(showCategory)
 
   # Create custom dotplot using ggplot2
-  ggplot(gsea_data_filtered, aes(x = GeneRatio, y = reorder(Description, !!sym(sortBy)))) +
+  p <- ggplot(gsea_data_filtered, aes(x = GeneRatio, y = reorder(Description, !!sym(sortBy)))) +
     geom_point(aes(size = -log10(qvalue), color = NES_sign)) +
     scale_color_manual(values = c("Positive NES" = "orange", "Negative NES" = "skyblue")) +
     
@@ -135,4 +184,27 @@ custom_dotplot <- function(gsea_obj, showCategory = 10, font.size = 10, title = 
       axis.text.x = element_text(size = font.size),
       legend.position = "right"
     )
+
+  # Save the plot if requested
+  if (save_plot) {
+    # Create directory if it doesn't exist
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, recursive = TRUE)
+    }
+    
+    # Create filename from title
+    filename <- file.path(output_dir, paste0(gsub(" ", "_", title), ".pdf"))
+    
+    ggsave(
+      filename = filename,
+      plot = p,
+      width = width,
+      height = height,
+      dpi = dpi
+    )
+    
+    message("Plot saved to: ", filename)
+  }
+
+  return(p)
 }
