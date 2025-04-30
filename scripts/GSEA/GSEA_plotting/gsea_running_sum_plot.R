@@ -11,6 +11,10 @@
 #' @param subplots Numeric vector, indicating which subplots to include (default: c(1, 2, 3)):
 #'        1 = running enrichment score, 2 = positions of gene set members along the ranked list,
 #'        3 = ranking metric scores for all genes.
+#' @param combine Logical, whether to combine all plots into a single plot (default: TRUE).
+#'        If FALSE, returns a list of individual plots.
+#' @param width Numeric, width of the plot in inches (default: 8).
+#' @param height Numeric, height of the plot in inches (default: 6).
 #'
 #' @return A ggplot object, or potentially a list of ggplot objects if multiple `gene_set_ids`
 #'         are plotted individually by `gseaplot2` (behavior depends on `enrichplot` version).
@@ -36,7 +40,10 @@
 gsea_running_sum_plot <- function(gsea_obj,
                                  gene_set_ids,
                                  title = NULL, # Made title optional, gseaplot2 uses pathway name
-                                 subplots = c(1, 2, 3)) {
+                                 subplots = c(1, 2, 3),
+                                 combine = TRUE, # Added combine parameter
+                                 width = 8,
+                                 height = 6) {
 
     # --- Input Validation ---
     if (!methods::is(gsea_obj, "gseaResult")) {
@@ -65,17 +72,82 @@ gsea_running_sum_plot <- function(gsea_obj,
     }
     # ------------------------
 
+    # Ensure enrichplot is loaded
+    if (!requireNamespace("enrichplot", quietly = TRUE)) {
+        stop("Package 'enrichplot' is required for this function")
+    }
+    
+    # Ensure patchwork is loaded for combining plots
+    if (combine && length(gene_set_ids) > 1 && !requireNamespace("patchwork", quietly = TRUE)) {
+        warning("Package 'patchwork' is required for combining plots. Setting combine=FALSE.")
+        combine <- FALSE
+    }
 
     # Create the GSEA plot using enrichplot::gseaplot2
-    # Note: gseaplot2 might return a single plot or a list depending on input/version
-    p <- enrichplot::gseaplot2(
-        x = gsea_obj,
-        geneSetID = gene_set_ids,
-        title = title, # Pass title, gseaplot2 might override/use pathway name
-        subplots = subplots
-        # Add other gseaplot2 parameters if needed (e.g., pvalue_table = TRUE)
-    )
+    # Wrap in tryCatch to handle potential errors
+    p <- tryCatch({
+        # Limit to 5 pathways maximum to avoid overcrowding
+        if (length(gene_set_ids) > 5) {
+            warning("More than 5 gene sets provided. Limiting to the first 5 to avoid overcrowding.")
+            gene_set_ids <- gene_set_ids[1:5]
+        }
+        
+        # Create a custom theme to remove grid lines
+        no_grid_theme <- function() {
+            ggplot2::theme(
+                panel.grid = ggplot2::element_blank(),
+                panel.background = ggplot2::element_rect(fill = "white", color = NA)
+            )
+        }
+        
+        if (combine && length(gene_set_ids) > 1) {
+            # For multiple gene sets with combine=TRUE, create a combined plot
+            p_temp <- enrichplot::gseaplot2(
+                x = gsea_obj,
+                geneSetID = gene_set_ids,
+                title = title,
+                subplots = subplots,
+                pvalue_table = FALSE, # Don't show p-value table to save space
+                rel_heights = c(1.5, 0.5, 0.5) # Adjust relative heights of subplots
+            )
+            # Apply no-grid theme to the plot
+            if (is.list(p_temp)) {
+                for (i in seq_along(p_temp)) {
+                    p_temp[[i]] <- p_temp[[i]] + no_grid_theme()
+                }
+            } else {
+                p_temp <- p_temp + no_grid_theme()
+            }
+            p_temp
+        } else {
+            # For single gene set or combine=FALSE, use standard gseaplot2
+            p_temp <- enrichplot::gseaplot2(
+                x = gsea_obj,
+                geneSetID = gene_set_ids,
+                title = title,
+                subplots = subplots
+            )
+            # Apply no-grid theme to the plot
+            if (is.list(p_temp)) {
+                for (i in seq_along(p_temp)) {
+                    p_temp[[i]] <- p_temp[[i]] + no_grid_theme()
+                }
+            } else {
+                p_temp <- p_temp + no_grid_theme()
+            }
+            p_temp
+        }
+    }, error = function(e) {
+        warning("Error in gseaplot2: ", e$message)
+        return(NULL)
+    })
 
+    # Set plot dimensions as attributes for later use
+    if (!is.null(p)) {
+        attr(p, "width") <- width
+        attr(p, "height") <- height
+    }
+    
     # Return the plot object(s)
     return(p)
 }

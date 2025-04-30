@@ -1,0 +1,118 @@
+#' Save GSEA Plot with Specified Dimensions
+#'
+#' Central function to save GSEA plots with consistent dimensions and scaling.
+#' 
+#' @param plot ggplot object to save
+#' @param filename Output filename (with or without path)
+#' @param width Plot width in inches
+#' @param height Plot height in inches
+#' @param base_font_size Base font size to use (scales with dimensions)
+#' @param dpi Resolution for raster outputs
+#' @param dir Output directory (optional)
+#' 
+#' @return Invisibly returns the original plot object
+#' @export
+save_gsea_plot <- function(plot, filename, width, height, base_font_size = 10, 
+                           dpi = 300, dir = NULL) {
+  if (!is.null(dir)) {
+    if (!dir.exists(dir)) {
+      dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    filename <- file.path(dir, filename)
+  }
+  
+  # Apply font size scaling based on dimensions
+  # This ensures text scales proportionally with plot size
+  scale_factor <- sqrt((width * height) / (7 * 5)) # Scale relative to standard 7x5 plot
+  scaled_font_size <- base_font_size * scale_factor
+  
+  # Apply the scaling to the plot
+  plot <- plot + 
+    theme(
+      text = element_text(size = scaled_font_size),
+      axis.title = element_text(size = scaled_font_size),
+      axis.text = element_text(size = scaled_font_size * 0.9),
+      plot.title = element_text(size = scaled_font_size * 1.2),
+      legend.title = element_text(size = scaled_font_size * 0.9),
+      legend.text = element_text(size = scaled_font_size * 0.8),
+      strip.text = element_text(size = scaled_font_size)
+    )
+  
+  # Save the plot
+  ggplot2::ggsave(
+    filename = filename,
+    plot = plot,
+    width = width,
+    height = height,
+    units = "in",
+    dpi = dpi,
+    limitsize = FALSE
+  )
+  
+  message("Saved plot to: ", filename)
+  invisible(plot)
+}
+
+#' Get Standard Plot Parameters by Database
+#'
+#' Returns predefined width, height, and font size parameters based on the database type.
+#' 
+#' @param db_name Name of the database (e.g., "hallmark", "gobp", "kegg")
+#' @return List with width, height, and font_size elements
+#' @export
+get_db_plot_params <- function(db_name) {
+  # Lowercase for consistency
+  db_lower <- tolower(db_name)
+  
+  # Default parameters
+  default_params <- list(width = 7, height = 5, font_size = 10)
+  
+  # Database-specific parameters
+  db_params <- list(
+    hallmark = list(width = 7, height = 5, font_size = 10),
+    gobp = list(width = 8, height = 8, font_size = 9),
+    gomf = list(width = 8, height = 7, font_size = 9),
+    gocc = list(width = 7, height = 6, font_size = 9),
+    kegg = list(width = 8, height = 7, font_size = 9),
+    reactome = list(width = 9, height = 8, font_size = 8),
+    biocarta = list(width = 7, height = 6, font_size = 9),
+    wiki = list(width = 8, height = 7, font_size = 9)
+  )
+  
+  # Return database-specific parameters or default if not found
+  return(db_params[[db_lower]] %||% default_params)
+}
+
+#' Simplified version of smart text wrapping function
+#'
+#' @param text Text to wrap
+#' @param width Maximum character width
+#' @return Wrapped text with newlines
+smart_wrap <- function(text, width = 40) {
+  words <- unlist(strsplit(text, " "))
+  if (length(words) <= 1) return(text)
+  
+  total_chars <- nchar(text)
+  
+  if (total_chars > width * 1.5) {
+    # Very long text: split into three parts
+    third_point <- ceiling(length(words) / 3)
+    two_thirds <- third_point * 2
+    
+    part1 <- paste(words[1:third_point], collapse = " ")
+    part2 <- paste(words[(third_point+1):two_thirds], collapse = " ")
+    part3 <- paste(words[(two_thirds+1):length(words)], collapse = " ")
+    
+    return(paste(part1, part2, part3, sep = "\n"))
+  } else if (total_chars > width) {
+    # Moderately long text: split in half
+    mid_point <- ceiling(length(words) / 2)
+    
+    part1 <- paste(words[1:mid_point], collapse = " ")
+    part2 <- paste(words[(mid_point+1):length(words)], collapse = " ")
+    
+    return(paste(part1, part2, sep = "\n"))
+  }
+  
+  return(text)
+}

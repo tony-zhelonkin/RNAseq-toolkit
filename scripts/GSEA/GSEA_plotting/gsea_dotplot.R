@@ -7,11 +7,12 @@
 #'
 #' @param gsea_obj A `gseaResult` object from `clusterProfiler`.
 #' @param showCategory Integer, number of categories to display after filtering (default: 10).
-#' @param base_font_size Numeric, base font size for plot text elements (default: 10).
+#' @param base_font_size Numeric, base font size for plot text elements (default: 8).
 #' @param title Character, plot title (default: "GSEA Dotplot").
 #' @param replace_ Logical, if TRUE (default), replace underscores "_" with spaces " " in descriptions.
-#' @param capitalize_1 Logical, if TRUE, capitalize the first letter of descriptions (default: TRUE).
-#' @param capitalize_all Logical, if TRUE, capitalize the first letter of each word (default: FALSE).
+#' @param capitalize_1 Logical, if TRUE, capitalize the first letter of descriptions (default: FALSE).
+#' @param capitalize_all Logical, if TRUE, capitalize the first letter of each word (default: TRUE).
+#' @param preserve_case Logical, if TRUE, preserve case of common abbreviations like DNA, RNA, etc. (default: TRUE).
 #' @param filterBy Character, method to rank pathways before selecting top `showCategory`:
 #'        "p.adjust" (ranks by p.adjust, ascending), "NES" (ranks by absolute NES, descending),
 #'        "NES_positive" (filters for NES > 0, ranks by NES descending),
@@ -20,12 +21,14 @@
 #'        "GeneRatio" (descending) or "p.adjust" (ascending). Default: "GeneRatio".
 #' @param padj_cutoff Numeric, adjusted p-value cutoff for initially filtering pathways
 #'        (default: 0.05). Uses the `p.adjust` column.
-#' @param min.dotSize Numeric, minimum size for the dots (default: 2).
-#' @param max.dotSize Numeric, maximum size for the dots (default: 10).
+#' @param min.dotSize Numeric, minimum size for the dots (default: 1).
+#' @param max.dotSize Numeric, maximum size for the dots (default: 5).
 #' @param wrap_text Logical, whether to wrap long pathway descriptions (default: TRUE).
-#' @param wrap_width Integer, maximum width for text wrapping (default: 40).
-#' @param pos_color Character, color for positive NES dots (default: "orange").
-#' @param neg_color Character, color for negative NES dots (default: "skyblue").
+#' @param wrap_width Integer, maximum width for text wrapping (default: 50).
+#' @param pos_color Character, color for positive NES dots (default: "#D73027").
+#' @param neg_color Character, color for negative NES dots (default: "#4575B4").
+#' @param width Numeric, width of the plot in inches (default: 7).
+#' @param height Numeric, height of the plot in inches (default: 5).
 #'
 #' @return A ggplot2 object representing the GSEA dotplot. The plot is NOT saved automatically.
 #' @export
@@ -50,27 +53,52 @@
 
 # Function to safely source a script if it exists
 source_safe <- function(path) {
-  if (file.exists(path)) {
-    source(path)
+  base_dir <- "/Users/tony/My Drive (anton.bioinf.md@gmail.com)/Data_Analysis/Kelsey_Followup"
+  full_path <- file.path(base_dir, path)
+  if (file.exists(full_path)) {
+    source(full_path)
     return(TRUE)
   } else {
-    warning("Custom theme script not found: ", path, ". Using default theme_minimal().")
-    custom_minimal_theme_with_grid <<- function() theme_minimal() # Define placeholder
+    warning("Custom theme script not found: ", full_path, ". Using default theme_minimal().")
+    custom_minimal_theme_with_grid <<- function() ggplot2::theme_minimal() # Define placeholder
     return(FALSE)
   }
 }
 # Source the custom theme
-source_safe("scripts/custom_minimal_theme.R")
+source_safe("R_GSEA_visualisations/scripts/custom_minimal_theme.R")
 
 
-#' Smart text wrapping function (internal)
-smart_wrap <- function(text, width = 40) {
+#' Improved text wrapping function (internal)
+smart_wrap <- function(text, width = 50) {
     words <- unlist(strsplit(text, " "))
     if (length(words) == 0) return(text) # Handle empty strings
     total_chars <- nchar(text) - (length(words) - 1) # Approx chars without spaces
 
-    if (total_chars > width) {
-        # Try to find a split point near the middle
+    # For very long pathway names, use more aggressive wrapping
+    if (total_chars > width * 1.5) {
+        # Try to split into three parts for very long names
+        char_per_line <- total_chars / 3
+        lines <- character(0)
+        current_line <- ""
+        current_chars <- 0
+        
+        for (word in words) {
+            word_chars <- nchar(word)
+            if (current_chars + word_chars > char_per_line && current_chars > 0) {
+                lines <- c(lines, current_line)
+                current_line <- word
+                current_chars <- word_chars
+            } else {
+                if (current_chars > 0) current_line <- paste(current_line, word)
+                else current_line <- word
+                current_chars <- current_chars + word_chars
+            }
+        }
+        
+        if (current_chars > 0) lines <- c(lines, current_line)
+        return(paste(lines, collapse = "\n"))
+    } else if (total_chars > width) {
+        # For moderately long names, split into two parts
         char_count <- 0
         split_point <- 0
         for (i in 1:length(words)) {
@@ -92,20 +120,23 @@ smart_wrap <- function(text, width = 40) {
 
 gsea_dotplot <- function(gsea_obj,
                          showCategory = 10,
-                         base_font_size = 10, # Renamed
+                         base_font_size = 8,
                          title = "GSEA Dotplot",
                          replace_ = TRUE,
-                         capitalize_1 = TRUE,
-                         capitalize_all = FALSE,
-                         filterBy = "p.adjust", # Changed default, renamed qvalue
+                         capitalize_1 = FALSE,
+                         capitalize_all = TRUE,
+                         preserve_case = TRUE,
+                         filterBy = "p.adjust",
                          sortBy = "GeneRatio",
-                         padj_cutoff = 0.05, # Renamed
-                         min.dotSize = 2,
-                         max.dotSize = 10, # Added
+                         padj_cutoff = 0.05,
+                         min.dotSize = 1,
+                         max.dotSize = 5,
                          wrap_text = TRUE,
-                         wrap_width = 40,
-                         pos_color = "orange", # Added
-                         neg_color = "skyblue") { # Added
+                         wrap_width = 50,
+                         pos_color = "#D73027", # Colorblind-friendly red
+                         neg_color = "#4575B4", # Colorblind-friendly blue
+                         width = 7,
+                         height = 5) {
 
     # --- Input Validation ---
     if (!methods::is(gsea_obj, "gseaResult")) {
@@ -144,11 +175,32 @@ gsea_dotplot <- function(gsea_obj,
     if (replace_) {
         gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
     }
+    
+    # Apply capitalization
     if (capitalize_1) {
         gsea_data$Description <- stringr::str_to_sentence(gsea_data$Description)
     }
     if (capitalize_all) {
         gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
+    }
+    
+    # Preserve case for common abbreviations
+    if (preserve_case) {
+        common_abbr <- c("DNA", "RNA", "ATP", "ADP", "GTP", "GDP", "NADH", "NADPH", 
+                         "FADH", "mRNA", "tRNA", "rRNA", "miRNA", "siRNA", "lncRNA",
+                         "NF-kB", "TNF", "IL", "IFN", "TGF", "EGF", "VEGF", "IGF",
+                         "MHC", "TCR", "BCR", "CD", "NK", "DC", "Th", "Treg")
+        
+        for (abbr in common_abbr) {
+            # Case-insensitive replacement to ensure we catch all variations
+            pattern <- paste0("\\b", tolower(abbr), "\\b")
+            replacement <- abbr
+            gsea_data$Description <- stringr::str_replace_all(
+                gsea_data$Description, 
+                stringr::regex(pattern, ignore_case = TRUE), 
+                replacement
+            )
+        }
     }
     if (wrap_text) {
         # Use Vectorize for efficiency if many descriptions
@@ -164,7 +216,7 @@ gsea_dotplot <- function(gsea_obj,
     # Check if any pathways remain
     if (nrow(gsea_data_filtered) == 0) {
         warning(sprintf("No pathways found with p.adjust < %f. Returning empty plot.", padj_cutoff))
-        return(ggplot() + labs(title = paste(title, "(No significant pathways)")))
+        return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No significant pathways)")))
     }
 
     # 2. Apply NES sign filter if needed
@@ -177,7 +229,7 @@ gsea_dotplot <- function(gsea_obj,
     # Check again if pathways remain after NES filter
     if (nrow(gsea_data_filtered) == 0) {
         warning(sprintf("No pathways found matching filter criteria (padj < %f, filterBy='%s'). Returning empty plot.", padj_cutoff, filterBy))
-        return(ggplot() + labs(title = paste(title, "(No matching pathways)")))
+        return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No matching pathways)")))
     }
 
     # 3. Arrange by the primary filter metric to select top categories
@@ -196,7 +248,7 @@ gsea_dotplot <- function(gsea_obj,
     if (sortBy == "GeneRatio") {
         # Order factor levels for ggplot based on GeneRatio descending
         plot_data <- gsea_data_filtered %>%
-            dplyr::mutate(Description = factor(.data$Description, levels = rev(unique(.data$Description[order(.data$GeneRatio, decreasing = FALSE)]))))
+            dplyr::mutate(Description = factor(.data$Description, levels = rev(unique(.data$Description[order(.data$GeneRatio, decreasing = TRUE)]))))
     } else { # sortBy == "p.adjust"
          # Order factor levels for ggplot based on p.adjust ascending
          plot_data <- gsea_data_filtered %>%
@@ -214,29 +266,62 @@ gsea_dotplot <- function(gsea_obj,
     size_limits <- if(length(size_values) > 0) range(size_values, na.rm = TRUE) else c(0, 1)
 
 
-    # Create custom dotplot using ggplot2
-    p <- ggplot(plot_data, aes(x = .data$GeneRatio, y = .data$Description)) +
-        geom_point(aes(size = .data$negLog10pAdj_capped, color = .data$NES > 0)) + # Color by NES sign directly
-        scale_color_manual(name = "NES Sign", values = c(`FALSE` = neg_color, `TRUE` = pos_color)) +
-        scale_size_continuous(name = bquote(-log[10](p.adjust)),
+    # Create custom dotplot using ggplot2 - simplified version
+    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data$GeneRatio, y = .data$Description)) +
+        # Simplified point geometry without complex aesthetics
+        ggplot2::geom_point(
+            ggplot2::aes(
+                size = .data$negLog10pAdj_capped, 
+                color = .data$NES > 0
+            )
+        ) + 
+        ggplot2::scale_color_manual(
+            name = "Direction", 
+            values = c(`FALSE` = neg_color, `TRUE` = pos_color),
+            labels = c(`FALSE` = "Down", `TRUE` = "Up")
+        ) +
+        ggplot2::scale_size_continuous(name = bquote(-log[10](q-value)),
                               range = c(min.dotSize, max.dotSize),
                               limits = size_limits) +
-        labs(
+        ggplot2::labs(
             title = title,
             x = "Gene Ratio",
             y = NULL # No y-axis label
         ) +
-        custom_minimal_theme_with_grid() +
-        theme(
-            axis.text.y = element_text(size = rel(0.9) * base_font_size, hjust = 1),
-            plot.title = element_text(hjust = 0.5, size = rel(1.1) * base_font_size),
-            axis.title.x = element_text(size = rel(1) * base_font_size),
-            axis.text.x = element_text(size = rel(0.9) * base_font_size),
-            legend.title = element_text(size = rel(0.9) * base_font_size),
-            legend.text = element_text(size = rel(0.8) * base_font_size),
-            legend.position = "right"
+        custom_minimal_theme_with_grid(base_size = base_font_size) +
+        ggplot2::theme(
+            panel.grid = ggplot2::element_blank(), # Remove grid lines
+            # Improved text spacing and margins
+            axis.text.y = ggplot2::element_text(
+                size = ggplot2::rel(0.9) * base_font_size, 
+                hjust = 1,
+                margin = ggplot2::margin(r = 10) # More space between y-axis text and plot
+            ),
+            plot.title = ggplot2::element_text(
+                hjust = 0.5, 
+                size = ggplot2::rel(1.1) * base_font_size,
+                margin = ggplot2::margin(b = 10) # More space below title
+            ),
+            axis.title.x = ggplot2::element_text(
+                size = ggplot2::rel(1) * base_font_size,
+                margin = ggplot2::margin(t = 10) # More space above x-axis title
+            ),
+            axis.text.x = ggplot2::element_text(
+                size = ggplot2::rel(0.9) * base_font_size,
+                margin = ggplot2::margin(t = 5) # More space above x-axis text
+            ),
+            legend.title = ggplot2::element_text(size = ggplot2::rel(0.9) * base_font_size),
+            legend.text = ggplot2::element_text(size = ggplot2::rel(0.8) * base_font_size),
+            legend.position = "right",
+            legend.margin = ggplot2::margin(l = 10), # More space to the left of legend
+            # Increased overall plot margins
+            plot.margin = ggplot2::margin(15, 15, 15, 15) # Larger margins all around
         )
 
+    # Set plot dimensions as attributes for later use
+    attr(p, "width") <- width
+    attr(p, "height") <- height
+    
     # Return the plot object
     return(p)
 }

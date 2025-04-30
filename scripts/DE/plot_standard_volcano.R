@@ -25,7 +25,6 @@
 #' @export
 #' @import ggplot2 dplyr ggrepel
 #' @importFrom magrittr %>%
-#' @importFrom formatC formatC
 #'
 #' @examples
 #' # Assuming de_results is a data frame with columns: logFC, P.Value and gene names as rownames
@@ -35,7 +34,6 @@ library(ggplot2)
 library(dplyr)
 library(ggrepel)
 library(magrittr) # Ensure pipe operator is available
-library(formatC)  # For formatting p-values in hover text
 
 # Source the custom theme function if it exists
 custom_theme_path <- file.path("scripts", "custom_minimal_theme.R")
