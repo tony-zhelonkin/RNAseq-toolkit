@@ -67,12 +67,26 @@ gsea_dotplot_facet <- function(
   gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
   gsea_data$Description <- sapply(gsea_data$Description, smart_wrap, width = wrap_width)
   
+  # Check if we have both up and down regulated pathways
+  up_data <- gsea_data[gsea_data$Direction == "Up", ]
+  down_data <- gsea_data[gsea_data$Direction == "Down", ]
+  
+  if (nrow(up_data) == 0 && nrow(down_data) == 0) {
+    return(ggplot2::ggplot() + 
+           ggplot2::labs(title = paste(title, "(No significant pathways)")))
+  }
+  
   # Get top N for each direction
   plot_data <- gsea_data %>%
     dplyr::group_by(.data$Direction) %>%
     dplyr::slice_max(order_by = abs(.data$NES), n = showCategory) %>%
     dplyr::ungroup() %>%
     dplyr::arrange(.data$NES)
+  
+  if (nrow(plot_data) == 0) {
+    return(ggplot2::ggplot() + 
+           ggplot2::labs(title = paste(title, "(No significant pathways after filtering)")))
+  }
   
   # For ordering within each facet
   plot_data <- plot_data %>%
@@ -92,7 +106,13 @@ gsea_dotplot_facet <- function(
   
 # Add outline for significant points if requested
   if (highlight_sig) {
-    high_sig_threshold <- padj_cutoff / 10  # More stringent threshold for highlighting
+    # Ensure padj_cutoff is numeric before division
+    padj_cutoff_num <- as.numeric(padj_cutoff)
+    if (is.na(padj_cutoff_num)) {
+      warning("padj_cutoff is not numeric, using default value of 0.05")
+      padj_cutoff_num <- 0.05
+    }
+    high_sig_threshold <- padj_cutoff_num / 10  # More stringent threshold for highlighting
     highlight_data <- plot_data %>% 
       dplyr::filter(.data[[sig_col]] < high_sig_threshold)
     

@@ -53,10 +53,6 @@ source_safe <- function(path) {
     return(FALSE)
   }
 }
-# Source the custom theme
-source_safe("scripts/custom_minimal_theme.R")
-
-
 gsea_nes_comparison <- function(gsea_obj_x,
                                gsea_obj_y,
                                x_label = "Dataset 1",

@@ -22,8 +22,15 @@ gsea_barplot <- function(
   strip_prefix = TRUE
 ) {
   # Extract and filter data
+  # Ensure padj_cutoff is numeric
+  padj_cutoff_num <- as.numeric(padj_cutoff)
+  if (is.na(padj_cutoff_num)) {
+    warning("padj_cutoff is not numeric, using default value of 0.05")
+    padj_cutoff_num <- 0.05
+  }
+  
   gsea_data <- as.data.frame(gsea_obj@result) %>%
-    dplyr::filter(.data$p.adjust < padj_cutoff)
+    dplyr::filter(.data$p.adjust < padj_cutoff_num)
   
   if (nrow(gsea_data) == 0) {
     return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No significant pathways)")))

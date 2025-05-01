@@ -7,49 +7,47 @@
 #' @param width Plot width in inches
 #' @param height Plot height in inches
 #' @param base_font_size Base font size to use (scales with dimensions)
-#' @param dpi Resolution for raster outputs
 #' @param dir Output directory (optional)
+#' @param dpi Resolution for raster outputs
 #' 
 #' @return Invisibly returns the original plot object
 #' @export
-save_gsea_plot <- function(plot, filename, width, height, base_font_size = 10, 
-                           dpi = 300, dir = NULL) {
+# -------------------------------------------------------------------
+# save_gsea_plot()
+#   • opens its own pdf() device
+#   • ALWAYS closes that device via on.exit()
+#   • returns the (possibly re-themed) plot invisibly
+# -------------------------------------------------------------------
+save_gsea_plot <- function(plot, filename,
+                           width, height,
+                           base_font_size = 10,
+                           dir  = NULL,
+                           dpi  = 300)
+{
   if (!is.null(dir)) {
-    if (!dir.exists(dir)) {
-      dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-    }
+    dir.create(dir, recursive = TRUE, showWarnings = FALSE)
     filename <- file.path(dir, filename)
   }
-  
-  # Apply font size scaling based on dimensions
-  # This ensures text scales proportionally with plot size
-  scale_factor <- sqrt((width * height) / (7 * 5)) # Scale relative to standard 7x5 plot
-  scaled_font_size <- base_font_size * scale_factor
-  
-  # Apply the scaling to the plot
-  plot <- plot + 
+
+  ## ----- dynamic font scaling (unchanged) --------------------------
+  scale_fac <- sqrt((width * height) / (7 * 5))
+  plot <- plot +
     theme(
-      text = element_text(size = scaled_font_size),
-      axis.title = element_text(size = scaled_font_size),
-      axis.text = element_text(size = scaled_font_size * 0.9),
-      plot.title = element_text(size = scaled_font_size * 1.2),
-      legend.title = element_text(size = scaled_font_size * 0.9),
-      legend.text = element_text(size = scaled_font_size * 0.8),
-      strip.text = element_text(size = scaled_font_size)
+      text        = element_text(size = base_font_size * scale_fac),
+      axis.title  = element_text(size = base_font_size * scale_fac),
+      axis.text   = element_text(size = base_font_size * scale_fac * 0.9),
+      plot.title  = element_text(size = base_font_size * scale_fac * 1.2),
+      legend.title= element_text(size = base_font_size * scale_fac * 0.9),
+      legend.text = element_text(size = base_font_size * scale_fac * 0.8),
+      strip.text  = element_text(size = base_font_size * scale_fac)
     )
-  
-  # Save the plot
-  ggplot2::ggsave(
-    filename = filename,
-    plot = plot,
-    width = width,
-    height = height,
-    units = "in",
-    dpi = dpi,
-    limitsize = FALSE
-  )
-  
-  message("Saved plot to: ", filename)
+
+  ## ----- open -> print -> close ------------------------------------
+  grDevices::pdf(filename, width = width, height = height,
+                 family = "sans", pointsize = base_font_size)
+  on.exit(grDevices::dev.off(), add = TRUE)   # <── GUARANTEED CLOSE
+
+  print(plot)                                 # write page
   invisible(plot)
 }
 

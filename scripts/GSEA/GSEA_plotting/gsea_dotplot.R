@@ -52,7 +52,7 @@ gsea_dotplot <- function(
     # Strip common prefixes if requested
     if (strip_prefix) {
         common_prefixes <- c(
-            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ",
+            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ", "MEDICUS",
             "PID ", "WIKIPATHWAY ", "^GO "
         )
 
@@ -105,11 +105,25 @@ gsea_dotplot <- function(
 
     # Apply direction filtering if needed
     if (filterBy == "NES_positive") {
-        gsea_data_filtered <- gsea_data_filtered[gsea_data_filtered$NES > 0, ]
-        gsea_data_filtered <- gsea_data_filtered[order(gsea_data_filtered$NES, decreasing = TRUE), ]
+        # Filter for positive NES values
+        pos_data <- gsea_data_filtered[gsea_data_filtered$NES > 0, ]
+        if (nrow(pos_data) > 0) {
+            gsea_data_filtered <- pos_data[order(pos_data$NES, decreasing = TRUE), ]
+        } else {
+            # If no positive NES values, return empty plot with message
+            return(ggplot2::ggplot() +
+                ggplot2::labs(title = paste(title, "(No positive NES pathways)")))
+        }
     } else if (filterBy == "NES_negative") {
-        gsea_data_filtered <- gsea_data_filtered[gsea_data_filtered$NES < 0, ]
-        gsea_data_filtered <- gsea_data_filtered[order(gsea_data_filtered$NES), ]
+        # Filter for negative NES values
+        neg_data <- gsea_data_filtered[gsea_data_filtered$NES < 0, ]
+        if (nrow(neg_data) > 0) {
+            gsea_data_filtered <- neg_data[order(neg_data$NES), ]
+        } else {
+            # If no negative NES values, return empty plot with message
+            return(ggplot2::ggplot() +
+                ggplot2::labs(title = paste(title, "(No negative NES pathways)")))
+        }
     } else if (filterBy == "NES") {
         gsea_data_filtered <- gsea_data_filtered[order(abs(gsea_data_filtered$NES), decreasing = TRUE), ]
     } else {
@@ -148,7 +162,13 @@ gsea_dotplot <- function(
 
     # Add outline for significant points if requested
     if (highlight_sig) {
-        high_sig_threshold <- padj_cutoff / 10 # More stringent threshold for highlighting
+        # Ensure padj_cutoff is numeric before division
+        padj_cutoff_num <- as.numeric(padj_cutoff)
+        if (is.na(padj_cutoff_num)) {
+            warning("padj_cutoff is not numeric, using default value of 0.05")
+            padj_cutoff_num <- 0.05
+        }
+        high_sig_threshold <- padj_cutoff_num / 10 # More stringent threshold for highlighting
         highlight_data <- plot_data[plot_data[[sig_col]] < high_sig_threshold, ]
 
         if (nrow(highlight_data) > 0) {
