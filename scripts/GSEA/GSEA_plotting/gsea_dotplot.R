@@ -1,242 +1,218 @@
-#' Create Customizable GSEA Dotplot
+#' Enhanced GSEA Dotplot
 #'
-#' Generates a dotplot from GSEA results, showing GeneRatio vs. Pathway Description.
-#' Dot size represents significance (`-log10(p.adjust)`), and color indicates NES sign.
-#' Includes options for filtering, sorting, text formatting, and wrapping.
-#' Requires `custom_minimal_theme_with_grid()` from `scripts/custom_minimal_theme.R`.
+#' Creates a dotplot showing gene ratio vs pathway descriptions with improved filtering
+#' and highlighting of significant results.
 #'
-#' @param gsea_obj A `gseaResult` object from `clusterProfiler`.
-#' @param showCategory Integer, number of categories to display after filtering (default: 10).
-#' @param base_font_size Numeric, base font size for plot text elements (default: 10).
-#' @param title Character, plot title (default: "GSEA Dotplot").
-#' @param replace_ Logical, if TRUE (default), replace underscores "_" with spaces " " in descriptions.
-#' @param capitalize_1 Logical, if TRUE, capitalize the first letter of descriptions (default: TRUE).
-#' @param capitalize_all Logical, if TRUE, capitalize the first letter of each word (default: FALSE).
-#' @param filterBy Character, method to rank pathways before selecting top `showCategory`:
-#'        "p.adjust" (ranks by p.adjust, ascending), "NES" (ranks by absolute NES, descending),
-#'        "NES_positive" (filters for NES > 0, ranks by NES descending),
-#'        "NES_negative" (filters for NES < 0, ranks by NES ascending). Default: "p.adjust".
-#' @param sortBy Character, method to sort the final `showCategory` pathways for display:
-#'        "GeneRatio" (descending) or "p.adjust" (ascending). Default: "GeneRatio".
-#' @param padj_cutoff Numeric, adjusted p-value cutoff for initially filtering pathways
-#'        (default: 0.05). Uses the `p.adjust` column.
-#' @param min.dotSize Numeric, minimum size for the dots (default: 2).
-#' @param max.dotSize Numeric, maximum size for the dots (default: 10).
-#' @param wrap_text Logical, whether to wrap long pathway descriptions (default: TRUE).
-#' @param wrap_width Integer, maximum width for text wrapping (default: 40).
-#' @param pos_color Character, color for positive NES dots (default: "orange").
-#' @param neg_color Character, color for negative NES dots (default: "skyblue").
+#' @param gsea_obj GSEA result object
+#' @param filterBy Method to filter results ("NES_positive", "NES_negative", "p.adjust", "NES")
+#' @param sortBy How to sort results ("GeneRatio" or "p.adjust")
+#' @param showCategory Number of pathways to show
+#' @param padj_cutoff Adjusted p-value cutoff
+#' @param title Plot title
+#' @param wrap_width Width for text wrapping
+#' @param pos_color Color for positive NES
+#' @param neg_color Color for negative NES
+#' @param min.dotSize Minimum dot size
+#' @param max.dotSize Maximum dot size
+#' @param highlight_sig Whether to highlight significant points with outline
+#' @param strip_prefix Logical, whether to strip common prefixes like "HALLMARK_"
 #'
-#' @return A ggplot2 object representing the GSEA dotplot. The plot is NOT saved automatically.
+#' @return A ggplot2 object
 #' @export
-#' @import ggplot2 scales
-#' @importFrom dplyr %>% filter select mutate arrange desc left_join group_by summarise case_when sym
-#' @importFrom stringr str_count str_replace_all str_to_sentence str_to_title
-#' @importFrom methods is slot
-#' @importFrom stats reorder setNames
-#' @importFrom rlang .data := !!
-#' @importFrom utils head
-#'
-#' @examples
-#' # Assuming gsea_res is a valid gseaResult object
-#' # Basic usage (filter by p.adjust, show top 10, sort by GeneRatio):
-#' p <- gsea_dotplot(gsea_res)
-#' # print(p)
-#'
-#' # Filter by positive NES, show top 15, sort by p.adjust:
-#' p2 <- gsea_dotplot(gsea_res, showCategory = 15, filterBy = "NES_positive", sortBy = "p.adjust")
-#' # print(p2)
-#' # To save: ggsave("my_gsea_dotplot.png", p2)
-
-# Function to safely source a script if it exists
-source_safe <- function(path) {
-  if (file.exists(path)) {
-    source(path)
-    return(TRUE)
-  } else {
-    warning("Custom theme script not found: ", path, ". Using default theme_minimal().")
-    custom_minimal_theme_with_grid <<- function() theme_minimal() # Define placeholder
-    return(FALSE)
-  }
-}
-# Source the custom theme
-source_safe("scripts/custom_minimal_theme.R")
-
-
-#' Smart text wrapping function (internal)
-smart_wrap <- function(text, width = 40) {
-    words <- unlist(strsplit(text, " "))
-    if (length(words) == 0) return(text) # Handle empty strings
-    total_chars <- nchar(text) - (length(words) - 1) # Approx chars without spaces
-
-    if (total_chars > width) {
-        # Try to find a split point near the middle
-        char_count <- 0
-        split_point <- 0
-        for (i in 1:length(words)) {
-            char_count <- char_count + nchar(words[i])
-            if (char_count >= total_chars / 2 && i < length(words)) {
-                split_point <- i
-                break
-            }
-        }
-        if (split_point == 0) split_point <- max(1, length(words) %/% 2) # Fallback split
-
-        first_half <- paste(words[1:split_point], collapse = " ")
-        second_half <- paste(words[(split_point + 1):length(words)], collapse = " ")
-        return(paste(first_half, second_half, sep = "\n"))
-    }
-    return(text)
-}
-
-
-gsea_dotplot <- function(gsea_obj,
-                         showCategory = 10,
-                         base_font_size = 10, # Renamed
-                         title = "GSEA Dotplot",
-                         replace_ = TRUE,
-                         capitalize_1 = TRUE,
-                         capitalize_all = FALSE,
-                         filterBy = "p.adjust", # Changed default, renamed qvalue
-                         sortBy = "GeneRatio",
-                         padj_cutoff = 0.05, # Renamed
-                         min.dotSize = 2,
-                         max.dotSize = 10, # Added
-                         wrap_text = TRUE,
-                         wrap_width = 40,
-                         pos_color = "orange", # Added
-                         neg_color = "skyblue") { # Added
-
-    # --- Input Validation ---
-    if (!methods::is(gsea_obj, "gseaResult")) {
-         stop("Input `gsea_obj` must be a gseaResult object from clusterProfiler.")
-    }
-    if (!methods::.hasSlot(gsea_obj, "result") || !is.data.frame(gsea_obj@result) || nrow(gsea_obj@result) == 0) {
-        stop("Input `gsea_obj` has an invalid or empty result slot.")
-    }
-    required_cols <- c("ID", "Description", "NES", "p.adjust", "core_enrichment", "setSize")
-    if (!all(required_cols %in% colnames(gsea_obj@result))) {
-        stop(sprintf("Input `gsea_obj@result` is missing required columns: %s",
-                     paste(setdiff(required_cols, colnames(gsea_obj@result)), collapse=", ")))
-    }
-    if (!filterBy %in% c("p.adjust", "NES", "NES_positive", "NES_negative")) {
-        warning("Invalid `filterBy` argument. Using 'p.adjust'.")
-        filterBy <- "p.adjust"
-    }
-     if (!sortBy %in% c("GeneRatio", "p.adjust")) {
-        warning("Invalid `sortBy` argument. Using 'GeneRatio'.")
-        sortBy <- "GeneRatio"
-    }
-    # ------------------------
-
-    # Extract the result data frame
+gsea_dotplot <- function(
+    gsea_obj,
+    filterBy = "p.adjust",
+    sortBy = "GeneRatio",
+    showCategory = 10,
+    padj_cutoff = 0.05,
+    title = "GSEA Dotplot",
+    wrap_width = 50,
+    pos_color = "#E64B35",
+    neg_color = "#4DBBD5",
+    min.dotSize = 2,
+    max.dotSize = 10,
+    highlight_sig = TRUE,
+    strip_prefix = TRUE) {
+    # Extract and filter data
     gsea_data <- as.data.frame(gsea_obj@result)
 
-    # Calculate GeneRatio
-    gsea_data <- gsea_data %>%
-        dplyr::mutate(
-            count = stringr::str_count(.data$core_enrichment, "/") + ifelse(nchar(.data$core_enrichment) > 0, 1, 0),
-            GeneRatio = .data$count / .data$setSize,
-            negLog10pAdj = -log10(.data$p.adjust) # Calculate for size mapping
+    # Use qvalue if present, otherwise p.adjust
+    sig_col <- if ("qvalue" %in% colnames(gsea_data)) "qvalue" else "p.adjust"
+
+    # Calculate Gene Ratio
+    gsea_data$count <- stringr::str_count(gsea_data$core_enrichment, "/") +
+        ifelse(nchar(gsea_data$core_enrichment) > 0, 1, 0)
+    gsea_data$GeneRatio <- gsea_data$count / gsea_data$setSize
+    gsea_data$negLogPval <- -log10(gsea_data[[sig_col]])
+    gsea_data$NES_sign <- ifelse(gsea_data$NES > 0, "Positive NES", "Negative NES")
+
+    # Clean up description text
+    gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
+
+    # Strip common prefixes if requested
+    if (strip_prefix) {
+        common_prefixes <- c(
+            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ", "MEDICUS",
+            "PID ", "WIKIPATHWAY ", "^GO "
         )
 
-    # Modify Description field
-    if (replace_) {
-        gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
-    }
-    if (capitalize_1) {
-        gsea_data$Description <- stringr::str_to_sentence(gsea_data$Description)
-    }
-    if (capitalize_all) {
-        gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
-    }
-    if (wrap_text) {
-        # Use Vectorize for efficiency if many descriptions
-        wrap_fun <- Vectorize(function(txt) smart_wrap(txt, width = wrap_width))
-        gsea_data$Description <- wrap_fun(gsea_data$Description)
+        for (prefix in common_prefixes) {
+            gsea_data$Description <- stringr::str_replace(gsea_data$Description, paste0("^", prefix), "")
+        }
     }
 
-    # --- Filtering and Ranking Logic ---
-    # 1. Filter by padj_cutoff
-    gsea_data_filtered <- gsea_data %>%
-        dplyr::filter(.data$p.adjust < padj_cutoff)
+    gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
 
-    # Check if any pathways remain
+    # Apply custom text wrapping
+    gsea_data$Description <- sapply(gsea_data$Description, function(txt) {
+        words <- unlist(strsplit(txt, " "))
+        if (length(words) <= 1) {
+            return(txt)
+        }
+
+        total_chars <- nchar(txt)
+
+        if (total_chars > wrap_width * 1.5) {
+            # Very long text: split into three parts
+            third_point <- ceiling(length(words) / 3)
+            two_thirds <- third_point * 2
+
+            part1 <- paste(words[1:third_point], collapse = " ")
+            part2 <- paste(words[(third_point + 1):two_thirds], collapse = " ")
+            part3 <- paste(words[(two_thirds + 1):length(words)], collapse = " ")
+
+            return(paste(part1, part2, part3, sep = "\n"))
+        } else if (total_chars > wrap_width) {
+            # Moderately long text: split in half
+            mid_point <- ceiling(length(words) / 2)
+
+            part1 <- paste(words[1:mid_point], collapse = " ")
+            part2 <- paste(words[(mid_point + 1):length(words)], collapse = " ")
+
+            return(paste(part1, part2, sep = "\n"))
+        }
+
+        return(txt)
+    }, USE.NAMES = FALSE)
+
+    # Initial filtering by significance
+    gsea_data_filtered <- gsea_data[gsea_data[[sig_col]] < padj_cutoff, ]
+
     if (nrow(gsea_data_filtered) == 0) {
-        warning(sprintf("No pathways found with p.adjust < %f. Returning empty plot.", padj_cutoff))
-        return(ggplot() + labs(title = paste(title, "(No significant pathways)")))
+        return(ggplot2::ggplot() +
+            ggplot2::labs(title = paste(title, "(No significant pathways)")))
     }
 
-    # 2. Apply NES sign filter if needed
+    # Apply direction filtering if needed
     if (filterBy == "NES_positive") {
-        gsea_data_filtered <- gsea_data_filtered %>% dplyr::filter(.data$NES > 0)
+        # Filter for positive NES values
+        pos_data <- gsea_data_filtered[gsea_data_filtered$NES > 0, ]
+        if (nrow(pos_data) > 0) {
+            gsea_data_filtered <- pos_data[order(pos_data$NES, decreasing = TRUE), ]
+        } else {
+            # If no positive NES values, return empty plot with message
+            return(ggplot2::ggplot() +
+                ggplot2::labs(title = paste(title, "(No positive NES pathways)")))
+        }
     } else if (filterBy == "NES_negative") {
-        gsea_data_filtered <- gsea_data_filtered %>% dplyr::filter(.data$NES < 0)
+        # Filter for negative NES values
+        neg_data <- gsea_data_filtered[gsea_data_filtered$NES < 0, ]
+        if (nrow(neg_data) > 0) {
+            gsea_data_filtered <- neg_data[order(neg_data$NES), ]
+        } else {
+            # If no negative NES values, return empty plot with message
+            return(ggplot2::ggplot() +
+                ggplot2::labs(title = paste(title, "(No negative NES pathways)")))
+        }
+    } else if (filterBy == "NES") {
+        gsea_data_filtered <- gsea_data_filtered[order(abs(gsea_data_filtered$NES), decreasing = TRUE), ]
+    } else {
+        # Default to p.adjust sorting
+        gsea_data_filtered <- gsea_data_filtered[order(gsea_data_filtered[[sig_col]]), ]
     }
 
-    # Check again if pathways remain after NES filter
     if (nrow(gsea_data_filtered) == 0) {
-        warning(sprintf("No pathways found matching filter criteria (padj < %f, filterBy='%s'). Returning empty plot.", padj_cutoff, filterBy))
-        return(ggplot() + labs(title = paste(title, "(No matching pathways)")))
+        return(ggplot2::ggplot() +
+            ggplot2::labs(title = paste(title, "(No matching pathways)")))
     }
 
-    # 3. Arrange by the primary filter metric to select top categories
-    if (filterBy == "p.adjust") {
-        gsea_data_filtered <- gsea_data_filtered %>% dplyr::arrange(.data$p.adjust)
-    } else if (filterBy == "NES" || filterBy == "NES_positive") {
-        gsea_data_filtered <- gsea_data_filtered %>% dplyr::arrange(dplyr::desc(abs(.data$NES))) # Rank by abs(NES) for NES filter too
-    } else if (filterBy == "NES_negative") {
-        gsea_data_filtered <- gsea_data_filtered %>% dplyr::arrange(.data$NES) # Rank by NES ascending for negative
-    }
+    # Take top categories
+    gsea_data_filtered <- utils::head(gsea_data_filtered, showCategory)
 
-    # 4. Take top 'showCategory'
-    gsea_data_filtered <- gsea_data_filtered %>% utils::head(showCategory)
-
-    # 5. Sort the final subset by the 'sortBy' metric for plotting order
+    # Sort for display
     if (sortBy == "GeneRatio") {
-        # Order factor levels for ggplot based on GeneRatio descending
-        plot_data <- gsea_data_filtered %>%
-            dplyr::mutate(Description = factor(.data$Description, levels = rev(unique(.data$Description[order(.data$GeneRatio, decreasing = FALSE)]))))
-    } else { # sortBy == "p.adjust"
-         # Order factor levels for ggplot based on p.adjust ascending
-         plot_data <- gsea_data_filtered %>%
-            dplyr::mutate(Description = factor(.data$Description, levels = rev(unique(.data$Description[order(.data$p.adjust, decreasing = TRUE)]))))
+        plot_data <- gsea_data_filtered[order(gsea_data_filtered$GeneRatio, decreasing = TRUE), ]
+    } else {
+        plot_data <- gsea_data_filtered[order(gsea_data_filtered[[sig_col]]), ]
     }
-    # --- End Filtering/Ranking ---
 
+    # Reorder factor levels for proper y-axis display
+    plot_data$Description <- factor(plot_data$Description,
+        levels = rev(plot_data$Description)
+    )
 
-    # Handle cases where p.adjust is 0 or very small for scaling
-    plot_data <- plot_data %>%
-        dplyr::mutate(negLog10pAdj_capped = pmax(.data$negLog10pAdj, 0)) # Ensure non-negative size
+    # Create base plot
+    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = GeneRatio, y = Description)) +
+        ggplot2::geom_point(
+            ggplot2::aes(
+                size = negLogPval,
+                color = NES_sign
+            )
+        )
 
-    # Determine size limits, handling potential Inf values
-    size_values <- plot_data$negLog10pAdj_capped[is.finite(plot_data$negLog10pAdj_capped)]
-    size_limits <- if(length(size_values) > 0) range(size_values, na.rm = TRUE) else c(0, 1)
+    # Add outline for significant points if requested
+    if (highlight_sig) {
+        # Ensure padj_cutoff is numeric before division
+        padj_cutoff_num <- as.numeric(padj_cutoff)
+        if (is.na(padj_cutoff_num)) {
+            warning("padj_cutoff is not numeric, using default value of 0.05")
+            padj_cutoff_num <- 0.05
+        }
+        high_sig_threshold <- padj_cutoff_num / 10 # More stringent threshold for highlighting
+        highlight_data <- plot_data[plot_data[[sig_col]] < high_sig_threshold, ]
 
+        if (nrow(highlight_data) > 0) {
+            p <- p +
+                ggplot2::geom_point(
+                    data = highlight_data,
+                    ggplot2::aes(size = negLogPval),
+                    shape = 21, color = "black", fill = NA, stroke = 1
+                )
+        }
+    }
 
-    # Create custom dotplot using ggplot2
-    p <- ggplot(plot_data, aes(x = .data$GeneRatio, y = .data$Description)) +
-        geom_point(aes(size = .data$negLog10pAdj_capped, color = .data$NES > 0)) + # Color by NES sign directly
-        scale_color_manual(name = "NES Sign", values = c(`FALSE` = neg_color, `TRUE` = pos_color)) +
-        scale_size_continuous(name = bquote(-log[10](p.adjust)),
-                              range = c(min.dotSize, max.dotSize),
-                              limits = size_limits) +
-        labs(
+    # Complete the plot with scales and theme
+    # Complete the plot with scales and theme
+    # Adjust font size based on number of categories
+    y_font_size <- ifelse(nrow(plot_data) > 20, 8, 9)
+
+    p <- p +
+        ggplot2::scale_color_manual(
+            name = "Direction",
+            values = c("Positive NES" = pos_color, "Negative NES" = neg_color)
+        ) +
+        ggplot2::scale_size_continuous(
+            name = if ("qvalue" %in% colnames(gsea_data)) {
+                bquote(-log[10](q - value))
+            } else {
+                bquote(-log[10](p - value))
+            },
+            range = c(min.dotSize, max.dotSize)
+        ) +
+        ggplot2::labs(
             title = title,
             x = "Gene Ratio",
-            y = NULL # No y-axis label
+            y = NULL
         ) +
         custom_minimal_theme_with_grid() +
-        theme(
-            axis.text.y = element_text(size = rel(0.9) * base_font_size, hjust = 1),
-            plot.title = element_text(hjust = 0.5, size = rel(1.1) * base_font_size),
-            axis.title.x = element_text(size = rel(1) * base_font_size),
-            axis.text.x = element_text(size = rel(0.9) * base_font_size),
-            legend.title = element_text(size = rel(0.9) * base_font_size),
-            legend.text = element_text(size = rel(0.8) * base_font_size),
-            legend.position = "right"
+        ggplot2::theme(
+            panel.grid = ggplot2::element_blank(),
+            legend.position = "right",
+            plot.margin = ggplot2::margin(10, 10, 10, 10),
+            axis.text.y = ggplot2::element_text(size = y_font_size)
         )
 
-    # Return the plot object
+
+
     return(p)
 }

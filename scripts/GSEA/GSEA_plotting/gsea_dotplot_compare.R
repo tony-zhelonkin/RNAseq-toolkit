@@ -49,8 +49,6 @@ source_safe <- function(path) {
     return(FALSE)
   }
 }
-# Source the custom theme
-source_safe("scripts/custom_minimal_theme.R")
 
 
 gsea_dotplot_compare <- function(gsea_obj_x,

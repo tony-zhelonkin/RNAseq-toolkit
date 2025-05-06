@@ -6,6 +6,8 @@
 #' Note: Implicitly requires a relevant organism annotation package (e.g., `org.Mm.eg.db`, `org.Hs.eg.db`) to be installed for `clusterProfiler` functionality
 #' it might not be directly used in this specific function's code depending on gene ID types.
 #'
+#' The # Patch 2025-04-29 is a workaround to handle missing collections in the msigdbr package.
+#' 
 #' @param DE_results A data frame containing differential expression results. Must have
 #'        gene identifiers as rownames and a column specified by `rank_metric`.
 #' @param rank_metric Character, the column name in `DE_results` to use for ranking genes
@@ -14,9 +16,9 @@
 #'        (e.g., "Mus musculus", "Homo sapiens"). Default: "Mus musculus".
 #' @param db_species Character, the species abbreviation used by `msigdbr` (e.g., "MM", "HS").
 #'        Default: "MM". Should generally match the `species` argument.
-#' @param collection Character, the MSigDB collection code (e.g., "H", "MH", "C2", "C5").
-#'        Default: "MH" (Hallmark for Mouse). Use `msigdbr::msigdbr_collections()` to see options.
-#' @param subcollection Character, the MSigDB subcollection code (e.g., "CP:KEGG", "GO:BP").
+#' @param collection Character, the MSigDB collection code (e.g., "H", "C2", "C5").
+#'        Default: "H" (Hallmark). Use `msigdbr::msigdbr_collections()` to see options.
+#' @param subcollection Character, the MSigDB subcollection code (e.g., "CP:KEGG", "BP").
 #'        Default: "" (empty string, suitable for collections like Hallmark). Use "" or NULL if no subcollection.
 #' @param pvalue_cutoff Numeric, p-value cutoff threshold used by `clusterProfiler::GSEA`
 #'        (default: 1, meaning no filtering by nominal p-value at the GSEA step).
@@ -47,8 +49,8 @@ run_gsea <- function(
     rank_metric   = "t",
     species       = "Mus musculus",
     db_species    = "MM",
-    collection    = "MH",         # Default: Hallmark for Mouse
-    subcollection = "",           # Default: empty for Hallmark
+    collection    = "H",         # Default: Hallmark
+    subcollection = "",          # Default: empty for Hallmark
     pvalue_cutoff = 1,
     padj_method   = "fdr",
     nperm         = 100000,
@@ -95,25 +97,49 @@ run_gsea <- function(
    }
 
   # Retrieve gene sets using msigdbr
-  message(sprintf("Fetching MSigDB sets for species='%s', db_species='%s', collection='%s', subcollection='%s'",
-                  species, db_species, collection, subcollection))
-  msigdb_df <- msigdbr::msigdbr(
+  message(paste("Fetching MSigDB sets for species='", species, "', db_species='", db_species, 
+                "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
+  
+  # Use the correct parameter names for msigdbr
+  if (nzchar(subcollection)) {
+    msigdb_df <- msigdbr(
       species       = species,
-      # db_species is not a direct argument, species handles this
-      category      = collection,    # Use 'category' for msigdbr main collection
-      subcategory   = subcollection  # Use 'subcategory' for msigdbr subcollection
-  )
-
+      collection    = collection,
+      subcollection = subcollection
+    )
+  } else {
+    msigdb_df <- msigdbr(
+      species       = species,
+      collection    = collection
+    )
+  }
+  
   if(nrow(msigdb_df) == 0) {
-      stop(sprintf("No gene sets found via msigdbr for species='%s', category='%s', subcategory='%s'.\nCheck available collections with msigdbr::msigdbr_collections()",
-                   species, collection, subcollection))
+    # Try with species abbreviation if the full name didn't work
+    if (nzchar(subcollection)) {
+      msigdb_df <- msigdbr(
+        species       = db_species,
+        collection    = collection,
+        subcollection = subcollection
+      )
+    } else {
+      msigdb_df <- msigdbr(
+        species       = db_species,
+        collection    = collection
+      )
+    }
+  }
+  
+  if(nrow(msigdb_df) == 0) {
+    stop(sprintf("No gene sets found for collection='%s', subcollection='%s'.\nUse msigdbr_collections() to see available collections.", 
+                 collection, subcollection))
   }
 
   # Prepare TERM2GENE dataframe
   term2gene_df <- msigdb_df[, c("gs_name", "gene_symbol")] # Assuming input uses gene symbols
 
   message("Running clusterProfiler::GSEA...")
-  stats::set.seed(seed)
+  set.seed(seed)
   GSEA_result <- clusterProfiler::GSEA(
       geneList = ranked_genes,
       TERM2GENE = term2gene_df,

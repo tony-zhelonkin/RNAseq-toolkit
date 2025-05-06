@@ -1,306 +1,250 @@
-#' Run Comprehensive GSEA Analysis and Visualization Pipeline
+#' Run Simplified GSEA Analysis and Visualization Pipeline
 #'
-#' Performs GSEA using `run_gsea` for multiple specified MSigDB databases/collections
-#' on a given differential expression table. Generates a standard set of plots
-#' (dotplots, barplot, running sum) for each database using functions from the
-#' `GSEA_plotting` directory.
+#' @param de_table Differential expression results table
+#' @param analysis_name Name of the analysis for plot labeling
+#' @param rank_metric Column to use for ranking genes (default: 't')
+#' @param species Species for MSigDB gene sets (default: "Mus musculus")
+#' @param n_pathways Number of top pathways to display (default: 30)
+#' @param padj_cutoff Adjusted p-value cutoff (default: 0.05)
+#' @param save_plots Logical, save generated plots (default: TRUE)
+#' @param output_dir Directory to save plots
+#' @param databases List of databases to analyze (default: NULL, uses predefined set)
+#' @param nperm Number of permutations for GSEA (default: 100000)
+#' @param pvalue_cutoff P-value cutoff for GSEA (default: 0.05)
 #'
-#' Requires `run_gsea.R` and plotting scripts (`gsea_dotplot.R`, `gsea_dotplot_facet.R`,
-#' `gsea_barplot.R`, `gsea_running_sum_plot.R`) to be available in their respective
-#' subdirectories within `scripts/GSEA/`.
-#'
-#' @param de_table A data frame with differential expression results. Must have gene
-#'        identifiers as rownames, and columns for 'logFC' and the chosen `rank_metric`.
-#' @param analysis_name Character, a name for this analysis run (e.g., "Treatment_vs_Control"),
-#'        used in plot titles and output filenames.
-#' @param rank_metric Character, the column name in `de_table` containing the metric used
-#'        to pre-rank genes for GSEA (default: "t"-statistic).
-#' @param species Character, the species name for `msigdbr` (e.g., "Homo sapiens",
-#'        "Mus musculus"). Default: "Mus musculus".
-#' @param n_pathways Integer, the maximum number of pathways to display in plots (default: 15).
-#' @param padj_cutoff Numeric, adjusted p-value cutoff for significance in plots (default: 0.05).
-#' @param save_plots Logical, if TRUE (default), save generated plots to `output_dir`.
-#' @param output_dir Character, the directory path where plots should be saved if `save_plots` is TRUE.
-#'        Defaults to "results/gsea/". Will be created if it doesn't exist.
-#' @param databases List, a named list where each element defines a database to analyze.
-#'        Each element should be a list with keys 'db_species', 'collection', and
-#'        'subcollection' (optional, use "" or NULL if none) as used by `msigdbr` via `run_gsea`.
-#'        If NULL (default), uses a standard set for the specified `species`: Hallmark, KEGG,
-#'        GO (BP, MF, CC), Reactome. The names of the list elements (e.g., "HALLMARK")
-#'        are used for labeling and results storage.
-#' @param nperm Integer, number of permutations for GSEA (default: 100000). Passed to `run_gsea`.
-#' @param pvalue_cutoff Numeric, p-value cutoff used within `run_gsea` (default: 0.05).
-#'
-#' @return A named list containing the `gseaResult` objects for each database analyzed.
-#'         The names correspond to the keys in the `databases` list.
+#' @return List of GSEA results for each database
 #' @export
-#' @import dplyr
-#' @importFrom methods is
-#' @importFrom utils head
-#'
-#' @examples
-#' \dontrun{
-#' # Assuming de_table is a valid DE results data frame
-#' # Run analysis with default settings for Mouse
-#' gsea_results <- run_gsea_analysis(de_table, "MyExperiment_Default", species = "Mus musculus")
-#'
-#' # Run analysis for Human with specific collections
-#' db_config_custom <- list(
-#'   HALLMARK = list(db_species = "HS", collection = "H"), # Hallmark for Human
-#'   REACTOME = list(db_species = "HS", collection = "C2", subcollection = "CP:REACTOME")
-#' )
-#' gsea_results_custom <- run_gsea_analysis(de_table, "MyExperiment_Custom_HS",
-#'                                         species = "Homo sapiens", # This species is passed to msigdbr
-#'                                         databases = db_config_custom)
-#' }
-library(dplyr)
 
-# Function to safely source a script if it exists
-source_safe <- function(path) {
-  if (file.exists(path)) {
-    source(path)
-    return(TRUE)
-  } else {
-    warning("Required script not found: ", path)
-    return(FALSE)
-  }
-}
+# R_GSEA_visualisations/scripts/GSEA/GSEA_processing/run_gsea_analysis.R
+# ---------------------------------------------------------------------
 
-run_gsea_analysis <- function(de_table,
-                             analysis_name,
-                             rank_metric = "t",
-                             species = "Mus musculus", # Added species parameter
-                             n_pathways = 15,
-                             padj_cutoff = 0.05, # Renamed from q_cutoff
-                             save_plots = TRUE,
-                             output_dir = "results/gsea/",
-                             databases = NULL,
-                             nperm = 100000, # Added GSEA parameters
-                             pvalue_cutoff = 0.05) { # Added GSEA parameters
+`%||%` <- function(x, y) if (is.null(x)) y else x # null-coalescing operator
 
-  # --- Source Dependencies ---
-  scripts_sourced <- all(
-    source_safe("scripts/GSEA/GSEA_processing/run_gsea.R"),
-    source_safe("scripts/GSEA/GSEA_plotting/gsea_dotplot.R"),
-    source_safe("scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R"),
-    source_safe("scripts/GSEA/GSEA_plotting/gsea_barplot.R"),
-    source_safe("scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R")
-  )
-  if (!scripts_sourced) {
-    stop("One or more required scripts could not be sourced. Please check paths.")
-  }
-  # -------------------------
-
-  # --- Input Validation ---
-   if (!is.data.frame(de_table)) stop("`de_table` must be a data frame.")
-   if (is.null(rownames(de_table))) stop("`de_table` must have rownames (gene identifiers).")
-   if (!rank_metric %in% colnames(de_table)) stop(sprintf("`rank_metric` column '%s' not found in `de_table`.", rank_metric))
-   if (!"logFC" %in% colnames(de_table)) warning("'logFC' column not found in `de_table`. Some plots might require it.")
-  # ------------------------
-
-  # Define default database configurations based on species if not provided
-  if (is.null(databases)) {
-      # Determine db_species abbreviation (simple case)
-      db_species_abbr <- if (grepl("musculus", species, ignore.case = TRUE)) "MM" else "HS"
-      message(sprintf("Using default databases for species '%s' (assuming db_species='%s').", species, db_species_abbr))
-      databases <- list(
-          HALLMARK = list(db_species = db_species_abbr, collection = if(db_species_abbr == "MM") "MH" else "H"), # MH for mouse, H for human
-          KEGG = list(db_species = db_species_abbr, collection = "C2", subcollection = "CP:KEGG"),
-          GO_BP = list(db_species = db_species_abbr, collection = "C5", subcollection = "GO:BP"),
-          GO_MF = list(db_species = db_species_abbr, collection = "C5", subcollection = "GO:MF"),
-          GO_CC = list(db_species = db_species_abbr, collection = "C5", subcollection = "GO:CC"),
-          REACTOME = list(db_species = db_species_abbr, collection = "C2", subcollection = "CP:REACTOME"), 
-          WIKI = list(db_species = db_species_abbr, collection = "C2", subcollection = "CP:WIKIPATHWAYS"),
-          PERTURB = list(name = "Perturbation (CGP) M2:CGP", db_species = db_species_abbr, collection = "M2", subcollection = "CGP"),
-          GRTD = list(name = "Regulatory sets TF M3:GTRD", db_species = db_species_abbr, collection = "M3", subcollection = "GTRD")
-          
-      )
-  }
-
-  # Define database-specific plot parameters (adjust as needed)
-  # Use names from the databases list (converted to lowercase for matching)
-  db_plot_params <- list(
-        hallmark = list(width = 10, height = 7, font.size = 10),
-        kegg = list(width = 14, height = 10, font.size = 9),
-        go_bp = list(width = 14, height = 12, font.size = 9), # Match default names
-        go_mf = list(width = 12, height = 8, font.size = 9),
-        go_cc = list(width = 12, height = 8, font.size = 9),
-        reactome = list(width = 16, height = 12, font.size = 8)
-        # Add others if defaults change
-        # wiki = list(width = 14, height = 10, font.size = 9)
-    )
-  default_plot_params <- list(width = 12, height = 8, font.size = 9)
-
-  # Create the output directory if saving plots
-  if (save_plots) {
-      if (!dir.exists(output_dir)) {
-          message("Creating output directory: ", output_dir)
-          dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-      }
-      if (!dir.exists(output_dir)) { # Check again if creation failed
-          stop("Failed to create output directory: ", output_dir)
-      }
-  }
-  
-  # A list to store all GSEA results by database
-  result_list <- list()
-  
-  # Loop through each database config
-  for (db_name in names(databases)) {
-    # Get database configuration
-    db_config <- databases[[db_name]]
-
-    # --- Validate db_config ---
-    required_keys <- c("db_species", "collection")
-    if (!all(required_keys %in% names(db_config))) {
-        warning(sprintf("Database configuration for '%s' is missing required keys: %s. Skipping.",
-                        db_name, paste(setdiff(required_keys, names(db_config)), collapse=", ")))
-        result_list[[db_name]] <- NULL # Store NULL for skipped DB
-        next # Skip to next database
-    }
-    # Ensure subcollection exists, defaulting to "" if missing or NULL
-    if (!"subcollection" %in% names(db_config) || is.null(db_config$subcollection)) {
-        db_config$subcollection <- ""
-    }
-    # --------------------------
-
-    # Get plot parameters (use defaults if not specified)
-    # Match db_name (lowercase) to plot params keys
-    params <- if (tolower(db_name) %in% names(db_plot_params)) {
-      db_plot_params[[tolower(db_name)]]
+run_gsea_analysis <- function(
+    de_table,
+    analysis_name,
+    rank_metric = "t",
+    species = "Mus musculus",
+    n_pathways = 30,
+    padj_cutoff = 0.05,
+    save_plots = TRUE,
+    output_dir = "./GSEA_Plots",
+    databases = NULL,
+    nperm = 100000,
+    pvalue_cutoff = 0.05,
+    sample_annotation = NULL,
+    sample_order = NULL,
+    helper_root = NULL # <── NEW  (default = NULL)
+    ) {
+    # ------------------------------------------------------------------ #
+    # 1.  locate helper scripts                                          #
+    # ------------------------------------------------------------------ #
+    if (!is.null(helper_root)) {
+        base_dir <- helper_root # <-- use caller-supplied root
     } else {
-      default_plot_params
+        this_file <- attr(body(run_gsea_analysis), "srcfile")$filename
+        base_dir <- if (!is.null(this_file)) {
+            dirname(dirname(dirname(this_file)))
+        } else {
+            getwd()
+        }
     }
 
-    # Run GSEA using run_gsea function (sourced earlier)
-    message(paste("Running GSEA for", db_name, "database..."))
-    gsea_result <- tryCatch({
-        run_gsea( # Use the sourced function name
-            DE_results = de_table,
-            rank_metric = rank_metric,
-            species = species, # Pass overall species name
-            db_species = db_config$db_species, # Pass specific db_species from config
-            collection = db_config$collection, # Pass collection from config
-            subcollection = db_config$subcollection, # Pass subcollection from config
-            padj_method = "fdr", # Keep consistent parameter name
-            nperm = nperm,
-            pvalue_cutoff = pvalue_cutoff # Pass pvalue_cutoff
-            # seed is handled within run_gsea
+    helper_paths <- c(
+        "R_GSEA_visualisations/scripts/custom_minimal_theme.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_plotting_utils.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_dotplot.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_barplot.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_heatmap.R",
+        "R_GSEA_visualisations/scripts/GSEA/GSEA_processing/run_gsea.R",
+        "R_GSEA_visualisations/scripts/DE/volcano_helpers.R"
+    )
+
+    for (hp in helper_paths) {
+        full <- file.path(base_dir, hp) # define first …
+        message("[DEBUG] sourcing ", full) # … then print
+        if (file.exists(full)) {
+            source(full)
+        } else {
+            message("[run_gsea_analysis] helper not found → ", full)
+        }
+    }
+    # ––––– 2  default DB list  ---------------------------------------------------
+    if (is.null(databases)) {
+        databases <- list(
+            hallmark = list(name = "Hallmark", db_species = "MM", collection = "H", subcollection = ""),
+            gobp     = list(name = "GO BP", db_species = "MM", collection = "C5", subcollection = "GO:BP"),
+            gomf     = list(name = "GO MF", db_species = "MM", collection = "C5", subcollection = "GO:MF"),
+            gocc     = list(name = "GO CC", db_species = "MM", collection = "C5", subcollection = "GO:CC"),
+            kegg     = list(name = "KEGG", db_species = "MM", collection = "C2", subcollection = "CP:KEGG_MEDICUS"),
+            reactome = list(name = "Reactome", db_species = "MM", collection = "C2", subcollection = "CP:REACTOME"),
+            wiki     = list(name = "WikiPath", db_species = "MM", collection = "C2", subcollection = "CP:WIKIPATHWAYS")
         )
-    }, error = function(e) {
-        warning(sprintf("GSEA failed for database '%s': %s", db_name, e$message))
-        return(NULL) # Return NULL on error
-    })
+    }
 
-    # Store the GSEA result in our output list
-    result_list[[db_name]] <- gsea_result
+    # ––––– 3  loop through DBs  --------------------------------------------------
+    gsea_results <- list()
 
-    # Proceed with plotting only if GSEA was successful and save_plots is TRUE
-    if (!is.null(gsea_result) && methods::is(gsea_result, "gseaResult") && save_plots) {
-      # Generate Upregulated (NES>0) dotplot
-      message(paste("Creating upregulated dotplot for", db_name, "..."))
-       tryCatch({
-          gsea_dotplot(
-              gsea_result,
-              filterBy = "NES_positive",
-              sortBy = "GeneRatio",
-              font.size = params$font.size,
-              showCategory = n_pathways,
-              q_cut = padj_cutoff, # Use renamed parameter
-              replace_ = TRUE,
-              capitalize_1 = FALSE,
-              capitalize_all = FALSE,
-              min.dotSize = 2,
-              title = paste(analysis_name, db_name, "Upregulated"),
-              save_plot = TRUE,
-              output_dir = output_dir,
-              width = params$width,
-              height = params$height
-          )
-      }, error = function(e) { warning(sprintf("Upregulated dotplot failed for '%s': %s", db_name, e$message)) })
+    for (db_name in names(databases)) {
+        cfg <- databases[[db_name]]
+        message("▶  ", cfg$name)
 
-      # Generate Downregulated (NES<0) dotplot
-      message(paste("Creating downregulated dotplot for", db_name, "..."))
-      tryCatch({
-          gsea_dotplot(
-              gsea_result,
-              filterBy = "NES_negative",
-              sortBy = "GeneRatio",
-              font.size = params$font.size,
-              showCategory = n_pathways,
-              q_cut = padj_cutoff, # Use renamed parameter
-              replace_ = TRUE,
-              capitalize_1 = FALSE,
-              capitalize_all = FALSE,
-              min.dotSize = 2,
-              title = paste(analysis_name, db_name, "Downregulated"),
-              save_plot = TRUE,
-              output_dir = output_dir,
-              width = params$width,
-              height = params$height
-          )
-      }, error = function(e) { warning(sprintf("Downregulated dotplot failed for '%s': %s", db_name, e$message)) })
+        res <- tryCatch(
+            run_gsea(
+                DE_results = de_table,
+                rank_metric = rank_metric,
+                species = species,
+                db_species = cfg$db_species,
+                collection = cfg$collection,
+                subcollection = cfg$subcollection,
+                nperm = nperm,
+                pvalue_cutoff = pvalue_cutoff
+            ),
+            error = function(e) {
+                warning(e)
+                NULL
+            }
+        )
 
-      # Generate faceted dotplot
-      message(paste("Creating faceted dotplot for", db_name, "..."))
-      tryCatch({
-          gsea_dotplot_facet(
-              gsea_result,
-              showCategory = n_pathways,
-              font.size = params$font.size,
-              # title = paste(analysis_name, db_name, "Pathways"), # Title seems redundant with filename
-              q_cut = padj_cutoff, # Use renamed parameter
-              replace_ = TRUE,
-              capitalize_1 = FALSE,
-              capitalize_all = FALSE,
-              save_plot = TRUE,
-              output_dir = output_dir,
-              width = params$width,
-              height = params$height
-          )
-      }, error = function(e) { warning(sprintf("Faceted dotplot failed for '%s': %s", db_name, e$message)) })
+        gsea_results[[db_name]] <- res
+        if (is.null(res) || nrow(res@result) == 0L) next
 
-      # Generate NES barplot
-      message(paste("Creating NES barplot for", db_name, "..."))
-      tryCatch({
-          gsea_barplot(
-              gsea_result,
-              top_n = n_pathways * 2,
-              # title = paste(analysis_name, db_name, "NES"), # Title seems redundant
-              q_cut = padj_cutoff, # Use renamed parameter
-              replace_ = TRUE,
-              capitalize_1 = FALSE,
-              capitalize_all = FALSE,
-              save_plot = TRUE,
-              output_dir = output_dir,
-              width = params$width,
-              height = params$height
-          )
-      }, error = function(e) { warning(sprintf("NES barplot failed for '%s': %s", db_name, e$message)) })
+        if (!save_plots) next
+        db_dir <- file.path(output_dir, db_name)
+        dir.create(db_dir, showWarnings = FALSE)
 
-      # Generate running sum plots for top pathways
-      n_running_sum <- min(5, nrow(gsea_result@result)) # Check result slot
-      message(paste("Creating running sum plots for top", n_running_sum, "pathways in", db_name, "..."))
-      if (n_running_sum > 0) {
-        tryCatch({ # Start tryCatch
+        # dot-plots / barplot / running-sum  (unchanged ↓)
+        plot_par <- get_db_plot_params(db_name)
+
+        save_gsea_plot(
+            gsea_dotplot(
+                gsea_obj = res,
+                filterBy = "NES_positive",
+                showCategory = n_pathways,
+                padj_cutoff = padj_cutoff,
+                title = sprintf("%s %s Up", analysis_name, db_name),
+                pos_color = "#fc8d59",
+                neg_color = "#91bfdb"
+            ),
+            filename = sprintf("%s_%s_up_dot.pdf", analysis_name, db_name),
+            width = plot_par$width,
+            height = plot_par$height,
+            base_font_size = plot_par$font_size,
+            dir = db_dir
+        )
+
+        save_gsea_plot(
+            gsea_dotplot(
+                gsea_obj = res,
+                filterBy = "NES_negative",
+                showCategory = n_pathways,
+                padj_cutoff = padj_cutoff,
+                title = sprintf("%s %s Down", analysis_name, db_name),
+                pos_color = "#fc8d59",
+                neg_color = "#91bfdb"
+            ),
+            filename = sprintf("%s_%s_down_dot.pdf", analysis_name, db_name),
+            width = plot_par$width,
+            height = plot_par$height,
+            base_font_size = plot_par$font_size,
+            dir = db_dir
+        )
+
+        save_gsea_plot(
+            gsea_dotplot_facet(
+                gsea_obj = res,
+                showCategory = n_pathways,
+                padj_cutoff = padj_cutoff,
+                title = sprintf("%s %s", analysis_name, db_name),
+                pos_color = "#fc8d59",
+                neg_color = "#91bfdb"
+            ),
+            filename = sprintf("%s_%s_facet.pdf", analysis_name, db_name),
+            width = plot_par$width,
+            height = plot_par$height * 1.4,
+            base_font_size = plot_par$font_size,
+            dir = db_dir
+        )
+
+        save_gsea_plot(
+            gsea_barplot(
+                gsea_obj = res,
+                top_n = n_pathways,
+                padj_cutoff = padj_cutoff,
+                title = sprintf("%s %s NES", analysis_name, db_name),
+                pos_color = "#fc8d59",
+                neg_color = "#91bfdb"
+            ),
+            filename = sprintf("%s_%s_nes_bar.pdf", analysis_name, db_name),
+            width = plot_par$width,
+            height = plot_par$height,
+            base_font_size = plot_par$font_size,
+            dir = db_dir
+        )
+
+        top5 <- order(abs(res@result$NES), decreasing = TRUE)[1:5]
+        save_gsea_plot(
             gsea_running_sum_plot(
-                gsea_result,
-                gene_set_ids = 1:n_running_sum, # Use IDs from the result object
-                title = paste(analysis_name, db_name, "Running Sum"),
-                save_plot = TRUE,
-                output_dir = output_dir,
-                width = params$width,
-                height = params$height / 1.5
-            )
-        }, error = function(e) { # Add error handling for tryCatch
-             warning(sprintf("Running sum plot failed for '%s': %s", db_name, e$message))
-        }) # Close tryCatch
-      } else {
-          message("Skipping running sum plot for ", db_name, " as no significant pathways found or result invalid.")
-      } # Close if (n_running_sum > 0)
-    } # Close if (!is.null(gsea_result) && ...)
-  } # Close for loop
-  
-  message("GSEA analysis completed successfully!")
-  return(result_list)
+                gsea_obj = res,
+                gene_set_ids = top5,
+                base_size = plot_par$font_size
+            ),
+            filename = sprintf("%s_%s_running_sum.pdf", analysis_name, db_name),
+            width = plot_par$width,
+            height = plot_par$height * 1.2,
+            base_font_size = plot_par$font_size,
+            dir = db_dir
+        )
+
+        # ––––– NEW: per-database sample × pathway heat-map  -----------------------
+        if (!is.null(sample_annotation)) {
+            # 1) build a sample × pathway matrix of NES (0 if not sign.)
+            top_tbl <- res@result |>
+                dplyr::filter(p.adjust < as.numeric(padj_cutoff)) |>
+                dplyr::arrange(p.adjust) |>
+                utils::head(n_pathways)
+                
+            # Check if we have any significant pathways
+            if (nrow(top_tbl) > 0) {
+                geneset <- top_tbl$ID
+                nes_vec <- top_tbl$NES
+                names(nes_vec) <- geneset
+                
+                # replicate the vector for every sample (one contrast → same NES),
+                # but keep dimension n_sample × n_pathways so pheatmap works.
+                sample_ids <- rownames(sample_annotation)
+                mat <- matrix(rep(nes_vec, each = length(sample_ids)),
+                    nrow = length(sample_ids), byrow = TRUE,
+                    dimnames = list(sample_ids, geneset)
+                )
+
+                # reorder columns (samples) if requested
+                if (!is.null(sample_order)) {
+                    mat <- mat[sample_order, , drop = FALSE]
+                }
+
+                tryCatch({
+                    gsea_heatmap_save(mat,
+                        file = file.path(
+                            db_dir,
+                            sprintf("%s_%s_heatmap.pdf", analysis_name, db_name)
+                        ),
+                        annotation_col = sample_annotation[rownames(mat), , drop = FALSE],
+                        ann_colors = NULL,
+                        main = sprintf("%s – %s", analysis_name, cfg$name),
+                        gaps_col = NULL,
+                        cluster_cols = FALSE
+                    ) # keep your order
+                }, error = function(e) {
+                    warning("Error generating heatmap for ", db_name, ": ", e$message)
+                })
+            } else {
+                message("No significant pathways found for ", db_name, " with padj_cutoff = ", padj_cutoff)
+            }
+        }
+    }
+
+    invisible(gsea_results)
 }
