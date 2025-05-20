@@ -23,7 +23,7 @@ gsea_dotplot_facet <- function(
   padj_cutoff = 0.05,
   title = "GSEA Faceted Dotplot",
   wrap_width = 50,
-  pos_color = "#fc8d59", 
+  pos_color = "#fc8d59",
   neg_color = "#91bfdb",
   min.dotSize = 2,
   max.dotSize = 10,

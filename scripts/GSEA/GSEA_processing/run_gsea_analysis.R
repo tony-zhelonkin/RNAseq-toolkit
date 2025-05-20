@@ -124,9 +124,7 @@ run_gsea_analysis <- function(
                 filterBy = "NES_positive",
                 showCategory = n_pathways,
                 padj_cutoff = padj_cutoff,
-                title = sprintf("%s %s Up", analysis_name, db_name),
-                pos_color = "#fc8d59",
-                neg_color = "#91bfdb"
+                title = sprintf("%s %s Up", analysis_name, db_name)
             ),
             filename = sprintf("%s_%s_up_dot.pdf", analysis_name, db_name),
             width = plot_par$width,
@@ -141,9 +139,7 @@ run_gsea_analysis <- function(
                 filterBy = "NES_negative",
                 showCategory = n_pathways,
                 padj_cutoff = padj_cutoff,
-                title = sprintf("%s %s Down", analysis_name, db_name),
-                pos_color = "#fc8d59",
-                neg_color = "#91bfdb"
+                title = sprintf("%s %s Down", analysis_name, db_name)
             ),
             filename = sprintf("%s_%s_down_dot.pdf", analysis_name, db_name),
             width = plot_par$width,
@@ -157,9 +153,7 @@ run_gsea_analysis <- function(
                 gsea_obj = res,
                 showCategory = n_pathways,
                 padj_cutoff = padj_cutoff,
-                title = sprintf("%s %s", analysis_name, db_name),
-                pos_color = "#fc8d59",
-                neg_color = "#91bfdb"
+                title = sprintf("%s %s", analysis_name, db_name)
             ),
             filename = sprintf("%s_%s_facet.pdf", analysis_name, db_name),
             width = plot_par$width,
@@ -173,9 +167,7 @@ run_gsea_analysis <- function(
                 gsea_obj = res,
                 top_n = n_pathways,
                 padj_cutoff = padj_cutoff,
-                title = sprintf("%s %s NES", analysis_name, db_name),
-                pos_color = "#fc8d59",
-                neg_color = "#91bfdb"
+                title = sprintf("%s %s NES", analysis_name, db_name)
             ),
             filename = sprintf("%s_%s_nes_bar.pdf", analysis_name, db_name),
             width = plot_par$width,

@@ -1,192 +1,260 @@
 # R_GSEA_visualisations/scripts/DE/volcano_helpers.R
 # --------------------------------------------------
+#  Vertical volcano logic with smarter caption control
+# --------------------------------------------------
+#' Create a *vertical* volcano plot (−log10 p on *x*, log2FC on *y*).
+#'
+#' ### Why vertical?
+#' Turning the volcano 90° is useful when you need several panels stacked in a
+#' column or grid: the fold-change axis then runs top-to-bottom, matching the
+#' reader’s eye movement across rows.
+#'
+#' ### Caption logic
+#' `caption` accepts three flavours and is **vectorised** so you can decide per
+#' panel:
+#' | value            | behaviour                                   |
+#' |------------------|---------------------------------------------|
+#' | `TRUE` (default) | auto-generate the dashed-line explanation    |
+#' | `FALSE`          | no caption                                  |
+#' | character string | use that string verbatim                    |
+#'
+#' In a `patchwork` grid keep `caption = TRUE` for the first panel and
+#' `caption = FALSE` for the rest, then—if you prefer a global caption—add it
+#' once with `plot_annotation(caption = …)`.
+#'
+#' All colour categories, labelling rules and helper utilities mirror those of
+#' `create_standard_volcano()` so the figures stay visually consistent.
+#'
+#' @inheritParams create_standard_volcano
+#' @param caption Logical/character.  See *Caption logic* table.
+#' @return A `ggplot2` object.
+#' @export
+create_vertical_volcano <- function(
+    de_results,
+    decision_by   = c("fdr", "p"),
+    p_cutoff      = 0.05,
+    fc_cutoff     = 2,
+    top_n         = 5,
+    highlight_gene= NULL,
+    label_method  = "top",
+    x_breaks      = 1,
+    title         = "Vertical Volcano Plot",
+    color_palette = c(
+      "NS"               = "#7F7F7F",   # grey
+      "Log2FC"           = "#0173B2",   # blue
+      "p-value"          = "#029E73",   # green
+      "p-value & Log2FC" = "#D55E00"    # orange
+    ),
+    show_grid     = FALSE,
+    max.overlaps  = 10
+) {
+  decision_by <- match.arg(decision_by)
 
-library(ggplot2)
-library(dplyr)
-library(ggrepel)
-library(patchwork)                 # for multi-panel layout
-# The custom_minimal_theme.R is now sourced by the master script
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  • generate a single volcano (rotated: LogFC on Y, –log10P on X) •
-# ─────────────────────────────────────────────────────────────────────────────
-create_vertical_volcano <- function(de_results,
-                                    fc_cutoff   = 2,
-                                    p_cutoff    = 0.05,
-                                    title       = "",
-                                    x_breaks    = 2,
-                                    max.overlaps = 10,
-                                    label_method = "sig",
-                                    color_pal   = c(NS    = "grey80",
-                                                    Log2FC = "#009E73",
-                                                    pval   = "#56B4E9",
-                                                    both   = "#E69F00"))
-{
-  stopifnot(all(c("logFC","P.Value") %in% colnames(de_results)))
-
-  df <- de_results %>%
-        mutate(sig_fc = abs(logFC) > fc_cutoff,
-               sig_p  = P.Value   < p_cutoff,
-               cat    = case_when(sig_fc & sig_p ~ "both",
-                                  sig_fc          ~ "Log2FC",
-                                  sig_p           ~ "pval",
-                                  TRUE            ~ "NS"))
-
-  ## ── which genes to label? ─────────────────────────────────────────────
-  lab_df <- switch(label_method,
-                   sig    = df[df$cat == "both", ],
-                   p      = df[df$sig_p , ],
-                   log2fc = df[df$sig_fc, ],
-                   none   = NULL,
-                   df[df$cat == "both", ])
-
-  xmax <- ceiling(max(-log10(df$P.Value))/x_breaks)*x_breaks
-  ymax <- ceiling(max(abs(df$logFC)))
-
-  p <- ggplot(df, aes(x = -log10(P.Value), y = logFC, colour = cat)) +
-       geom_point(size = 1.8, alpha = .7) +
-       geom_vline(xintercept = -log10(p_cutoff), linetype = "dashed") +
-       geom_hline(yintercept =  c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
-       scale_colour_manual(values = color_pal, name = NULL,
-                           breaks = c("both","Log2FC","pval","NS"),
-                           labels = c(
-                             both   = sprintf("p < %.2g & |logFC| > %.1f",
-                                              p_cutoff, fc_cutoff),
-                             Log2FC = sprintf("|logFC| > %.1f", fc_cutoff),
-                             pval   = sprintf("p < %.2g", p_cutoff),
-                             NS     = "NS")) +
-       scale_x_continuous(breaks = seq(0, xmax, by = x_breaks),
-                          expand = expansion(mult = 0.02)) +       # <─ tiny gap
-       coord_cartesian(ylim  = c(-ymax, ymax)) +
-       labs(x = expression(-log[10]*"(p)"),
-            y = "logFC",
-            title = title) +
-       custom_minimal_theme_with_grid() +
-       theme(legend.position = "right") +
-       guides(colour = guide_legend(override.aes = list(size = 4, shape = 16))) # ☆
-
-  ##  text labels ---------------------------------------------------------
-  if (!is.null(lab_df) && nrow(lab_df) > 0) {
-      p <- p +
-           ggrepel::geom_text_repel(
-                data  = lab_df,
-                aes(label = rownames(lab_df)),
-                size  = 3.5,
-                segment.color = "black",
-                box.padding   = .4,
-                point.padding = .3,
-                max.overlaps  = max.overlaps,
-                min.segment.length = 0,
-                show.legend   = FALSE)    # ☆ prevents the “a” bullet
+  # ───────────────────────────────── helpers ──────────────────────────
+  shade <- function(hex, factor = .6) {
+    rgb <- grDevices::col2rgb(hex)/255 * factor
+    grDevices::rgb(pmax(pmin(rgb,1),0)[1],
+                   pmax(pmin(rgb,1),0)[2],
+                   pmax(pmin(rgb,1),0)[3])
+  }
+  
+  custom_minimal_theme_with_grid <- if (file.exists("scripts/custom_minimal_theme.R")) {
+    source("scripts/custom_minimal_theme.R", local = TRUE)
+    custom_minimal_theme_with_grid
+  } else {
+    function() ggplot2::theme_minimal()
   }
 
-  return(p)
-}
+  # ──────────────────────── sanity checks ────────────────────────────
+  stopifnot(all(c("logFC","P.Value","adj.P.Val") %in% colnames(de_results)))
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  • arrange four volcanoes in one row •
-# ─────────────────────────────────────────────────────────────────────────────
-combine_volcano_row <- function(volcano_list,
-                                labels       = names(volcano_list),
-                                max_overlaps = 30)
-{
-  ## 1. common limits ------------------------------------------------------
-  global_y <- max(vapply(volcano_list,
-                         \(p) max(abs(ggplot_build(p)$data[[1]]$y)), 0))
-  global_x <- max(vapply(volcano_list,
-                         \(p) max(ggplot_build(p)$data[[1]]$x), 0))
+  # ────────────────── 1. annotate significance ───────────────────────
+  if (decision_by == "fdr") {
+    sig_stat   <- de_results$adj.P.Val
+    stat_name  <- "FDR"
+    sig_logic  <- sig_stat <= p_cutoff                # inclusive
+    p_thresh   <- max(de_results$P.Value[sig_logic], p_cutoff, na.rm = TRUE)
+    vert_line <- -log10(p_thresh)
+    legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
+  } else {  # decision_by == "p"
+    sig_stat   <- de_results$P.Value
+    stat_name  <- "p-value"
+    sig_logic  <- sig_stat <= p_cutoff
+    vert_line <- -log10(p_cutoff)
+    legend_sig <- sprintf("p ≤ %.2g", p_cutoff)
+  }
 
-  ## 2. apply limits, keep labels, add margin -----------------------------
-  volcano_list <- lapply(seq_along(volcano_list), function(i) {
-      volcano_list[[i]] +
-        coord_cartesian(xlim = c(0, global_x),
-                        ylim = c(-global_y, global_y),
-                        clip = "off") +          # let labels spill over
-        ggtitle(labels[i]) +
-        theme(plot.margin = margin(5, 20, 5, 5)) # 2 mm extra on the right
-  })
+  df <- dplyr::mutate(de_results,
+      sig_fc  = abs(logFC) >= fc_cutoff,
+      sig_dec = sig_logic,
+      significance_value = sig_stat,  # Add this for sorting
+      cat = dplyr::case_when(sig_fc & sig_dec ~ "p-value & Log2FC",
+                             sig_fc          ~ "Log2FC",
+                             sig_dec         ~ "p-value",
+                             TRUE            ~ "NS"))
 
-  wrap_plots(volcano_list, nrow = 1, guides = "collect") &
-      theme(legend.position = "bottom")
-}
+  # ────────────────── 2. label selection ─────────────────────────────
+  # Helper: select top_n genes by the relevant significance statistic on a given side
+  get_top <- function(side) {
+    if (side == "up") {
+      df |>
+        dplyr::filter(.data$logFC > 0) |>
+        dplyr::arrange(.data$significance_value) |>
+        dplyr::slice_head(n = top_n)
+    } else {
+      df |>
+        dplyr::filter(.data$logFC < 0) |>
+        dplyr::arrange(.data$significance_value) |>
+        dplyr::slice_head(n = top_n)
+    }
+  }
 
+  if (label_method == "top") {
+    lab_df <- dplyr::bind_rows(get_top("up"), get_top("down"))
+  } else if (label_method == "sig") {
+    lab_df <- df[df$cat == "p-value & Log2FC", ]
+  } else if (label_method == "p") {
+    lab_df <- df[df$sig_dec, ]
+  } else if (label_method == "log2fc") {
+    lab_df <- df[df$sig_fc, ]
+  } else {
+    lab_df <- df[0, ]
+  }
 
+  # IMPORTANT CHANGE: Create a separate dataframe for highlight genes
+  if (!is.null(highlight_gene)) {
+    # Get the data for highlight genes
+    highlight_df <- df[rownames(df) %in% highlight_gene, ]
+    
+    # Remove any highlight genes that might be in the regular label dataframe
+    # to avoid duplicates
+    lab_df <- lab_df[!rownames(lab_df) %in% highlight_gene, ]
+  } else {
+    highlight_df <- NULL
+  }
 
-# ──────────────────────────────────────────────────────────────────────────
-#  • conventional volcano •
-# ──────────────────────────────────────────────────────────────────────────
-create_standard_volcano <- function(de_results,
-                                    fc_cutoff   = 2,
-                                    p_cutoff    = 0.05,
-                                    title       = "",
-                                    x_breaks    = 1,
-                                    max.overlaps = 10,
-                                    label_method = "sig",
-                                    highlight_gene = NULL,
-                                    color_pal   = c(NS           = "grey80",
-                                                    Log2FC       = "#009E73",
-                                                    pval         = "#56B4E9",
-                                                    both         = "#E69F00")) {
+  # ────────────────── 3. axis limits & colours ───────────────────────
+  xmax <- ceiling(max(-log10(df$P.Value), na.rm = TRUE)/x_breaks)*x_breaks
+  ymax <- ceiling(max(abs(df$logFC), na.rm = TRUE))
+  dark_pal <- vapply(color_palette, shade, character(1))
 
-  stopifnot(all(c("logFC", "P.Value") %in% colnames(de_results)))
+  # ────────────────── 4. build ggplot ────────────────────────────────
+  # Key difference: x and y axes are swapped compared to standard volcano plot
+  g <- ggplot2::ggplot(df, ggplot2::aes(-log10(P.Value), logFC, colour = cat)) +
+       ggplot2::geom_point(size = 2, alpha = .65) +
+       ggplot2::geom_hline(yintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
+       ggplot2::geom_vline(xintercept = vert_line, linetype = "dashed") +
+       ggplot2::scale_colour_manual(name = NULL,
+         values = color_palette,
+         breaks = names(color_palette),
+         labels = c(
+           "p-value & Log2FC" = sprintf("%s & |log2FC| ≥ %.1f", legend_sig, fc_cutoff),
+           "Log2FC"           = sprintf("|log2FC| ≥ %.1f", fc_cutoff),
+           "p-value"          = legend_sig,
+           "NS"               = "NS")) +
+       ggplot2::scale_x_continuous(breaks = seq(0, xmax, by = x_breaks),
+                                  limits = c(0, xmax)) +
+       ggplot2::coord_cartesian(ylim = c(-ymax, ymax)) +
+       ggplot2::labs(y = "log2(FC)",
+                    x = expression(-log[10](p-value)),
+                    title = title,
+                    caption = if (decision_by == "fdr") {
+                      sprintf("Dashed lines: vert. – FDR ≤ %.2g (p ≤ %.2g); horiz. – |log2FC| ≥ %.1f",
+                             p_cutoff, signif(10^(-vert_line),2), fc_cutoff)
+                    } else {
+                      sprintf("Dashed lines: vert. – p ≤ %.2g; horiz. – |log2FC| ≥ %.1f",
+                             p_cutoff, fc_cutoff)
+                    }) +
+       custom_minimal_theme_with_grid()
 
-  df <- de_results %>%
-    mutate(sig_fc = abs(logFC) > fc_cutoff,
-           sig_p  = P.Value     < p_cutoff,
-           cat    = case_when(sig_fc & sig_p ~ "both",
-                              sig_fc          ~ "Log2FC",
-                              sig_p           ~ "pval",
-                              TRUE            ~ "NS"))
+  if (!show_grid) {
+    g <- g + ggplot2::theme(panel.grid.major = ggplot2::element_blank(),
+                           panel.grid.minor = ggplot2::element_blank())
+  }
 
-  # ── choose which genes to label ─────────────────────────────────────────
-  lab_df <- switch(label_method,
-                   sig    = df[df$cat == "both", ],
-                   p      = df[df$sig_p, ],
-                   log2fc = df[df$sig_fc, ],
-                   none   = NULL,
-                   df[df$cat == "both", ])   # default to sig
-
-  if (!is.null(highlight_gene))
-      lab_df <- unique(rbind(lab_df,
-                             df[rownames(df) %in% highlight_gene, ]))
-
-  # ── figure limits ───────────────────────────────────────────────────────
-  xmax <- ceiling(max(abs(df$logFC))/x_breaks)*x_breaks
-  ymax <- ceiling(max(-log10(df$P.Value)))
-
-  # ── plot ────────────────────────────────────────────────────────────────
-  g <- ggplot(df, aes(x = logFC, y = -log10(P.Value), colour = cat)) +
-       geom_point(size = 1.8, alpha = .7) +
-       geom_vline(xintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
-       geom_hline(yintercept = -log10(p_cutoff), linetype = "dashed") +
-       scale_colour_manual(values = color_pal, name = NULL,
-           breaks = c("both","Log2FC","pval","NS"),
-           labels = c(
-             both   = sprintf("p < %.2g  &  |logFC| > %.1f", p_cutoff, fc_cutoff),
-             Log2FC = sprintf("|logFC| > %.1f", fc_cutoff),
-             pval   = sprintf("p < %.2g", p_cutoff),
-             NS     = "NS")) +
-       scale_x_continuous(breaks = seq(-xmax, xmax, by = x_breaks),
-                          limits = c(-xmax, xmax)) +
-       coord_cartesian(ylim = c(0, ymax)) +
-       labs(x = "logFC", y = expression(-log[10]*"(p)"), title = title) +
-       custom_minimal_theme_with_grid() +
-       theme(legend.position = "right")
-
-  # ── text-only labels with ggrepel ───────────────────────────────────────
-  if (!is.null(lab_df) && nrow(lab_df) > 0) {
-     g <- g +
-          ggrepel::geom_text_repel(
-               data  = lab_df,
-               aes(label = rownames(lab_df)),
-               size  = 3.5,
-               fontface = ifelse(rownames(lab_df) %in% highlight_gene, "bold", "plain"),
-               segment.color = "black",
-               box.padding = 0.4,
-               point.padding = 0.3,
-               max.overlaps = max.overlaps,
-               min.segment.length = 0)
+  # ────────────────── 5. labels ───────────────────────────────────────
+  # Regular labels with max.overlaps constraint
+  if (nrow(lab_df) > 0) {
+    g <- g + ggrepel::geom_text_repel(
+      data            = lab_df,
+      ggplot2::aes(label = rownames(lab_df)),
+      colour          = dark_pal[lab_df$cat],
+      size            = 3.5,
+      box.padding     = .4,
+      point.padding   = .3,
+      max.overlaps    = max.overlaps,  # Using user-provided max.overlaps
+      min.segment.length = 0,
+      show.legend     = FALSE)
+  }
+  
+  # Highlight gene labels in a separate layer with no overlap constraint
+  if (!is.null(highlight_df) && nrow(highlight_df) > 0) {
+    g <- g + ggrepel::geom_text_repel(
+      data            = highlight_df,
+      ggplot2::aes(label = rownames(highlight_df)),
+      colour          = "black",  # Always black for highlight genes
+      fontface        = "bold",   # Always bold for highlight genes
+      size            = 3.5,
+      box.padding     = .6,       # Slightly larger padding for emphasis
+      point.padding   = .4,
+      max.overlaps    = Inf,      # No limit on overlaps for highlight genes
+      min.segment.length = 0,
+      force           = 3,        # Stronger repulsion force
+      show.legend     = FALSE)
   }
 
   return(g)
+}
+
+
+
+#' Combine Multiple Vertical Volcano Plots into a Row
+#'
+#' Creates a multi-panel display of vertical volcano plots with consistent scales
+#' and a single unified legend.
+#' 
+#' @param volcano_list List of ggplot objects from create_vertical_volcano().
+#' @param labels Character vector of labels for each panel (default: names of list).
+#' @param guide_position Character, position for the combined legend (default: "bottom").
+#'
+#' @return A combined ggplot object with multiple panels and a single legend.
+#' @export
+#' @import ggplot2 patchwork
+combine_volcano_row <- function(
+    volcano_list,
+    labels = names(volcano_list),
+    guide_position = "bottom",
+    keep_first_caption = FALSE          # set TRUE if you really want caption under panel 1
+) {
+  ## 1. global limits ---------------------------------------------------
+  global_y <- max(sapply(volcano_list, function(p)
+    max(abs(ggplot2::layer_scales(p)$y$range$range), na.rm = TRUE)))
+  global_x <- max(sapply(volcano_list, function(p)
+    max(ggplot2::layer_scales(p)$x$range$range, na.rm = TRUE)))
+
+  ## 2. capture caption from first plot ---------------------------------
+  # Fixed: using ggplot_build instead of plot_build
+  first_cap <- ggplot2::ggplot_build(volcano_list[[1]])$layout$plot$labels$caption
+  if (is.null(first_cap) || !nzchar(first_cap)) first_cap <- NULL
+
+  ## 3. strip captions, unify titles & limits ---------------------------
+  for (i in seq_along(volcano_list)) {
+    volcano_list[[i]] <- volcano_list[[i]] +
+      ggplot2::coord_cartesian(xlim = c(0, global_x),
+                               ylim = c(-global_y, global_y),
+                               clip = "off") +
+      ggplot2::ggtitle(labels[i]) +
+      ggplot2::labs(caption = if (keep_first_caption && i == 1) first_cap else NULL)
+  }
+
+  ## 4. assemble, collect guides, add one caption -----------------------
+  combined <- patchwork::wrap_plots(volcano_list, nrow = 1) +
+              patchwork::plot_layout(guides = "collect") &
+              ggplot2::theme(legend.position = guide_position)
+
+  if (!is.null(first_cap) && !keep_first_caption) {
+    combined <- combined & patchwork::plot_annotation(caption = first_cap)
+  }
+
+  combined
 }

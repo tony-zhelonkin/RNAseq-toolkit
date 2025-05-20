@@ -25,17 +25,14 @@ gsea_running_sum_plot <- function(gsea_obj,
   ## 1  colour / label mapping                                          ##
   ## ------------------------------------------------------------------ ##
   path_ids <- if (is.numeric(gene_set_ids)) gsea_obj@result$ID[gene_set_ids]
-              else                          gene_set_ids
-  n_sets    <- length(path_ids)
+            else                          gene_set_ids
+  labels    <- gsea_obj@result$Description[match(path_ids, gsea_obj@result$ID)]
 
+  n_sets <- length(path_ids)
   if (is.null(palette))
-      palette <- c("#648FFF", "#785EF0", "#DC267F", "#FE6100",
-                   "#FFB000")[seq_len(n_sets)]
-  if (is.null(labels))
-      labels <- gsea_obj@result$Description[match(path_ids,
-                                                  gsea_obj@result$ID)]
+    palette <- c("#648FFF","#785EF0","#DC267F","#FE6100","#FFB000")[seq_len(n_sets)]
 
-  names(palette) <- names(labels) <- path_ids
+  names(palette) <- path_ids  
 
   ## ------------------------------------------------------------------ ##
   ## 2  raw plots from enrichplot                                       ##
@@ -51,7 +48,9 @@ gsea_running_sum_plot <- function(gsea_obj,
   ## ------------------------------------------------------------------ ##
   stylise <- function(g, show_x, show_y, show_legend) {
   g +
-    scale_color_manual(values = palette, labels = labels) +
+    scale_color_manual(values = palette,
+                   breaks = path_ids,          # ✱ map by IDs  (unchanged)
+                   labels = labels)            # ✱ show readable names
     theme_minimal(base_size = base_size) +
     theme(
       ## ── legend ───────────────────────────────────────────────

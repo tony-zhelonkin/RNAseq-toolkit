@@ -31,12 +31,23 @@ library(stats) # For prcomp()
 library(magrittr) # For %>%
 
 # Source the custom theme function if it exists
-custom_theme_path <- file.path("scripts", "custom_minimal_theme.R")
-if (file.exists(custom_theme_path)) {
-  source(custom_theme_path)
-} else {
-  warning("Custom theme file not found at: ", custom_theme_path, ". Using default theme_minimal().")
-  custom_minimal_theme_with_grid <- function() theme_minimal()
+# custom_theme_path <- file.path("scripts", "custom_minimal_theme.R")
+# if (file.exists(custom_theme_path)) {
+#   source(custom_theme_path)
+# } else {
+#   warning("Custom theme file not found at: ", custom_theme_path, ". Using default theme_minimal().")
+#   custom_minimal_theme_with_grid <- function() theme_minimal()
+# }
+
+source_if_present <- function(...) {          # ... = path fragments
+  full <- here::here(...)                    # build absolute path first
+  if (!file.exists(full)) {                  # ① file there?
+    warning("helper not found → ", full); return(invisible(FALSE))
+  }
+  old <- getwd(); on.exit(setwd(old), add = TRUE)  # ② temp-cd
+  setwd(dirname(full))                             # makes relative paths resolve
+  source(basename(full), echo = FALSE)
+  invisible(TRUE)
 }
 
 

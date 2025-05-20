@@ -17,7 +17,7 @@ gsea_barplot <- function(
   padj_cutoff = 0.05,
   top_n = 30,
   title = "GSEA NES Barplot",
-  pos_color = "#fc8d59", 
+  pos_color = "#fc8d59",
   neg_color = "#91bfdb",
   strip_prefix = TRUE
 ) {
