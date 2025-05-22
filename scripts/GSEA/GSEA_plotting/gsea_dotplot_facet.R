@@ -17,6 +17,21 @@
 #'
 #' @return A ggplot2 object
 #' @export
+#' 
+#' 
+# Add this function to your script
+facet_grid_with_left_border <- function(...) {
+  facet <- ggplot2::facet_grid(...)
+  
+  facet$params$strip.background.y <- list(
+    element_rect(color = "black", fill = NA, size = 1.5, linewidth = 1.5,
+                 linetype = "solid", inherit.blank = FALSE)
+  )
+  
+  return(facet)
+}
+
+
 gsea_dotplot_facet <- function(
   gsea_obj,
   showCategory = 10,
@@ -56,7 +71,7 @@ gsea_dotplot_facet <- function(
   if (strip_prefix) {
     common_prefixes <- c(
       "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ",
-      "PID ", "WIKIPATHWAY ", "^GO "
+      "PID ", "WIKIPATHWAY ", "^GO ", "Medicus "
     )
     
     for (prefix in common_prefixes) {
@@ -127,7 +142,6 @@ gsea_dotplot_facet <- function(
   }
   
   # Complete the plot with scales, facets and theme
-    # Complete the plot with scales, facets and theme
   y_font_size <- ifelse(nrow(plot_data) > 20, 8, 9)
 
   # Create pval_label before building the plot
@@ -143,7 +157,7 @@ gsea_dotplot_facet <- function(
       name = pval_label,
       range = c(min.dotSize, max.dotSize)
     ) +
-    ggplot2::facet_grid(Direction ~ ., scales = "free_y", space = "free_y") +
+    facet_grid_with_left_border(Direction ~ ., scales = "free_y", space = "free_y") +
     ggplot2::labs(
       title = title,
       x = "Gene Ratio",
@@ -153,7 +167,14 @@ gsea_dotplot_facet <- function(
     custom_minimal_theme_with_grid() +
     ggplot2::theme(
       panel.grid = ggplot2::element_blank(),
-      strip.background = ggplot2::element_rect(fill = "grey90", color = "grey70"),
+      # Remove the strip background and border
+      strip.background = ggplot2::element_blank(),
+      # Make the strip text bold and slightly larger
+      strip.text = ggplot2::element_text(face = "plain"),
+      # Add some padding around the strip text
+      strip.text.y = ggplot2::element_text(margin = ggplot2::margin(r = 5, l = 5)),
+      # Add a vertical line between facets
+      panel.spacing.y = ggplot2::unit(1, "lines"),
       legend.position = "right",
       plot.margin = ggplot2::margin(10, 10, 10, 10),
       axis.text.y = ggplot2::element_text(size = y_font_size)

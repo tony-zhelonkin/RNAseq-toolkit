@@ -52,7 +52,7 @@ gsea_dotplot <- function(
     # Strip common prefixes if requested
     if (strip_prefix) {
         common_prefixes <- c(
-            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ", "MEDICUS",
+            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ", "MEDICUS ",
             "PID ", "WIKIPATHWAY ", "^GO "
         )
 

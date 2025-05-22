@@ -10,7 +10,7 @@
 #' 
 #' @param DE_results A data frame containing differential expression results. Must have
 #'        gene identifiers as rownames and a column specified by `rank_metric`.
-#' @param rank_metric Character, the column name in `DE_results` to use for ranking genes
+#' @param rank_metric Character, the column name in `DE_results` to use for ranking genes 
 #'        (default: "t"). Genes are sorted decreasingly by this metric.
 #' @param species Character, the species name used by `msigdbr` to fetch gene sets
 #'        (e.g., "Mus musculus", "Homo sapiens"). Default: "Mus musculus".

@@ -1,6 +1,6 @@
 #' Custom Minimal Theme with Grid
 #'
-#' Creates a clean, minimal ggplot2 theme with a white background and subtle grid lines.
+#' Creates a clean, minimal ggplot2 theme with a white background and visible axis lines.
 #' This theme is designed to provide a professional and readable appearance for data visualizations.
 #'
 #' @param base_size Base font size for the theme (default: 12)
@@ -20,19 +20,23 @@ custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
     stop("Package 'ggplot2' is required for this function")
   }
   
-  ggplot2::theme_minimal(base_size = base_size, base_family = base_family) +
+  # Create a clean theme with just axis lines
+  ggplot2::theme_classic(base_size = base_size, base_family = base_family) +
     ggplot2::theme(
-      # Background elements
-      panel.background = ggplot2::element_rect(fill = "white", color = NA), 
+      # Clean white background
+      panel.background = ggplot2::element_rect(fill = "white", color = NA),
       plot.background = ggplot2::element_rect(fill = "white", color = NA),
       
-      # Grid lines
-      panel.grid.major = ggplot2::element_line(color = "grey90", size = 0.3),
+      # Remove ALL grid lines
+      panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
       
-      # Axis elements
-      axis.line = ggplot2::element_line(color = "black", size = 0.3),
-      axis.ticks = ggplot2::element_line(color = "black", size = 0.3),
+      # Ensure axis lines and ticks are visible
+      axis.line = ggplot2::element_line(color = "black", size = 0.5),
+      axis.ticks = ggplot2::element_line(color = "black", size = 0.5),
+      
+      # No panel border
+      panel.border = ggplot2::element_blank(),
       
       # Text elements
       axis.title.x = ggplot2::element_text(margin = ggplot2::margin(t = 10)),

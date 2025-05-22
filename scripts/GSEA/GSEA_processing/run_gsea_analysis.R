@@ -51,15 +51,15 @@ run_gsea_analysis <- function(
     }
 
     helper_paths <- c(
-        "R_GSEA_visualisations/scripts/custom_minimal_theme.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_plotting_utils.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_dotplot.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_barplot.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_plotting/gsea_heatmap.R",
-        "R_GSEA_visualisations/scripts/GSEA/GSEA_processing/run_gsea.R",
-        "R_GSEA_visualisations/scripts/DE/volcano_helpers.R"
+        "/scripts/custom_minimal_theme.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_plotting_utils.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_dotplot.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_barplot.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R",
+        "/scripts/GSEA/GSEA_plotting/gsea_heatmap.R",
+        "/scripts/GSEA/GSEA_processing/run_gsea.R",
+        "/scripts/DE/volcano_helpers.R"
     )
 
     for (hp in helper_paths) {
@@ -72,15 +72,21 @@ run_gsea_analysis <- function(
         }
     }
     # ––––– 2  default DB list  ---------------------------------------------------
+    # infer msigdbr species code from full species name 
+    dbsp <- if (grepl("sapiens", species, ignore.case = TRUE)) "HS" else "MM"
+
     if (is.null(databases)) {
-        databases <- list(
-            hallmark = list(name = "Hallmark", db_species = "MM", collection = "H", subcollection = ""),
-            gobp     = list(name = "GO BP", db_species = "MM", collection = "C5", subcollection = "GO:BP"),
-            gomf     = list(name = "GO MF", db_species = "MM", collection = "C5", subcollection = "GO:MF"),
-            gocc     = list(name = "GO CC", db_species = "MM", collection = "C5", subcollection = "GO:CC"),
-            kegg     = list(name = "KEGG", db_species = "MM", collection = "C2", subcollection = "CP:KEGG_MEDICUS"),
-            reactome = list(name = "Reactome", db_species = "MM", collection = "C2", subcollection = "CP:REACTOME"),
-            wiki     = list(name = "WikiPath", db_species = "MM", collection = "C2", subcollection = "CP:WIKIPATHWAYS")
+            databases <- list(
+            hallmark = list(name = "Hallmark", db_species = dbsp, collection = "H", subcollection = ""),
+            canon    = list(name = "Canonical Pathways", db_species = dbsp, collection = "C2", subcollection = "CP"),
+            gobp     = list(name = "GO BP", db_species = dbsp, collection = "C5", subcollection = "GO:BP"),
+            gomf     = list(name = "GO MF", db_species = dbsp, collection = "C5", subcollection = "GO:MF"),
+            gocc     = list(name = "GO CC", db_species = dbsp, collection = "C5", subcollection = "GO:CC"),
+            kegg     = list(name = "KEGG", db_species = dbsp, collection = "C2", subcollection = "CP:KEGG_MEDICUS"),
+            reactome = list(name = "Reactome", db_species = dbsp, collection = "C2", subcollection = "CP:REACTOME"),
+            wiki     = list(name = "WikiPath", db_species = dbsp, collection = "C2", subcollection = "CP:WIKIPATHWAYS"),
+            cgp     = list(name = "Chem-Genetic Perturbations", db_species = dbsp, collection = "C2", subcollection = "CGP"),
+            tf      = list(name = "GTRD", db_species = dbsp, collection = "C3", subcollection = "TFT:GTRD")
         )
     }
 
