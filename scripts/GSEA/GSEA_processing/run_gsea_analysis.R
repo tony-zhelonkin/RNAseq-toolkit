@@ -53,6 +53,7 @@ run_gsea_analysis <- function(
     helper_paths <- c(
         "/scripts/custom_minimal_theme.R",
         "/scripts/GSEA/GSEA_plotting/gsea_plotting_utils.R",
+        "/scripts/GSEA/GSEA_plotting/format_pathway_names.R",  # Load formatter first
         "/scripts/GSEA/GSEA_plotting/gsea_dotplot.R",
         "/scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R",
         "/scripts/GSEA/GSEA_plotting/gsea_barplot.R",

@@ -51,38 +51,72 @@
 #' # head(pooled_results$scores$HALLMARK)
 #' }
 
-# Function to safely source a script if it exists (assuming it's defined elsewhere or copy it here)
-source_safe <- function(path) {
-  full_path <- file.path(getwd(), path) # Ensure path is relative to WD if needed
-  if (file.exists(full_path)) {
-    tryCatch({
-      source(full_path, local = TRUE) # Source into function environment if possible
-      return(TRUE)
-    }, error = function(e) {
-      warning("Error sourcing script '", full_path, "': ", e$message)
-      return(FALSE)
-    })
-  } else {
-    warning("Required script not found: ", full_path)
-    return(FALSE)
+# Function to safely source a script if it exists
+source_safe <- function(path, script_root = NULL, envir = parent.frame()) {
+  # Try multiple potential locations
+  paths_to_try <- c()
+
+  # 1. Relative to script_root if provided
+  if (!is.null(script_root)) {
+    paths_to_try <- c(paths_to_try, file.path(script_root, path))
   }
+
+  # 2. Relative to working directory
+  paths_to_try <- c(paths_to_try, file.path(getwd(), path))
+
+  # 3. Absolute path if path already contains full path components
+  if (grepl("^/|^[A-Za-z]:", path)) {
+    paths_to_try <- c(paths_to_try, path)
+  }
+
+  for (full_path in paths_to_try) {
+    if (file.exists(full_path)) {
+      tryCatch({
+        # Source into the calling environment (not local)
+        source(full_path, local = envir)
+        return(TRUE)
+      }, error = function(e) {
+        warning("Error sourcing script '", full_path, "': ", e$message)
+        return(FALSE)
+      })
+    }
+  }
+
+  warning("Required script not found in any of: ", paste(paths_to_try, collapse = ", "))
+  return(FALSE)
 }
 
 
 run_pooled_gsea <- function(fit,
                            contrasts,
                            DGEobject,
-                           species = "Mus musculus", # Added species
+                           species = "Mus musculus",
                            top_n = 30,
-                           padj_cutoff = 0.05, # Renamed and default changed
-                           gsea_pvalue_cutoff = 1, # Added for run_gsea
-                           rank_metric = "t", # Added rank_metric
-                           nperm = 100000, # Added nperm
-                           databases = NULL, # Added databases override
+                           padj_cutoff = 0.05,
+                           gsea_pvalue_cutoff = 1,
+                           rank_metric = "t",
+                           nperm = 100000,
+                           databases = NULL,
+                           helper_root = NULL,  # NEW: Root directory for helper scripts
+                           cached_gsea_results = NULL,  # NEW: Pre-computed GSEA results
                            verbose = TRUE,
                            log_file = NULL) {
 
     # --- Source Dependencies ---
+    # Determine script root directory
+    if (is.null(helper_root)) {
+        # Try to infer from this script's location
+        helper_root <- tryCatch({
+            this_file <- sys.frame(1)$ofile
+            if (!is.null(this_file)) {
+                # Go up from GSEA_processing/ to the GSEA root
+                dirname(dirname(dirname(this_file)))
+            } else {
+                NULL
+            }
+        }, error = function(e) NULL)
+    }
+
     # Ensure helper functions are available in the environment
     required_scripts <- c(
         "scripts/GSEA/GSEA_processing/run_gsea.R",
@@ -90,9 +124,15 @@ run_pooled_gsea <- function(fit,
         "scripts/GSEA/GSEA_processing/get_pathway_genes_all.R",
         "scripts/GSEA/GSEA_processing/calculate_pathway_scores.R"
     )
-    scripts_sourced <- all(sapply(required_scripts, source_safe))
-    if (!scripts_sourced) {
-        stop("One or more required helper scripts could not be sourced. Please check paths.")
+
+    # Source all scripts into this function's environment
+    # Using direct for-loop to ensure correct environment scoping
+    func_env <- environment()
+    for (script in required_scripts) {
+        script_sourced <- source_safe(script, script_root = helper_root, envir = func_env)
+        if (!script_sourced) {
+            stop("Failed to source required script: ", script, ". Please check paths.")
+        }
     }
     # -------------------------
 
@@ -155,9 +195,20 @@ run_pooled_gsea <- function(fit,
 
 
      # Initialize results structure
-     gsea_results <- list()
      contrasts_to_analyze <- colnames(contrasts)
      log_message(paste("Contrasts to analyze:", paste(contrasts_to_analyze, collapse=", ")))
+
+     # Use cached results if provided, otherwise initialize empty list
+     if (!is.null(cached_gsea_results)) {
+         log_message("[CACHE] Using pre-computed GSEA results from cached_gsea_results")
+         gsea_results <- cached_gsea_results
+         n_cached <- sum(sapply(gsea_results, function(x) !is.null(x)))
+         log_message(sprintf("[CACHE] Found %d/%d contrasts with cached results",
+                            n_cached, length(contrasts_to_analyze)))
+     } else {
+         log_message("[CACHE] No cached results provided, will run GSEA for all contrasts")
+         gsea_results <- list()
+     }
 
      # Define default databases if not provided by user
      if (is.null(databases)) {
@@ -176,35 +227,46 @@ run_pooled_gsea <- function(fit,
      log_message(paste("Databases to analyze:", paste(names(databases), collapse=", ")))
 
 
-     # --- Run GSEA for each contrast and database ---
+     # --- Run GSEA for each contrast and database (only if not cached) ---
     for (contrast in contrasts_to_analyze) {
         log_message(sprintf("\n--- Processing contrast: %s ---", contrast))
-        
+
+        # Skip if we already have cached results for this contrast
+        if (!is.null(cached_gsea_results) && !is.null(gsea_results[[contrast]])) {
+            n_dbs_cached <- sum(sapply(gsea_results[[contrast]], function(x) !is.null(x)))
+            log_message(sprintf("  [CACHE HIT] Using cached GSEA results for %s (%d databases)",
+                               contrast, n_dbs_cached))
+            next
+        }
+
+        log_message(sprintf("  [CACHE MISS] Running GSEA for %s", contrast))
+
         # Extract DE results
         log_message(sprintf("  Extracting DE results for %s...", contrast))
-        de_results <- topTable(fit, coef = contrast, 
+        de_results <- topTable(fit, coef = contrast,
                              sort.by = "t", adjust.method = "fdr", n = Inf)
         de_results <- de_results[rownames(de_results) != "", ]
         log_message(sprintf("  Found %d genes with DE results", nrow(de_results)))
-        
+
         # Initialize results for this contrast
         gsea_results[[contrast]] <- list()
-        
+
         # Run GSEA for each database
         for (db_name in names(databases)) {
             db <- databases[[db_name]]
             log_message(sprintf("  Running GSEA for %s...", db$name))
             
             tryCatch({
-                result <- runGSEA(
-                    de_results,
-                    rank_metric = "t",
-                    species = "Mus musculus",
-                    category = db$category,
-                    subcategory = db$subcategory,
+                result <- run_gsea(
+                    DE_results = de_results,
+                    rank_metric = rank_metric,
+                    species = species,
+                    db_species = db$db_species,
+                    collection = db$collection,
+                    subcollection = db$subcollection,
                     padj_method = "fdr",
-                    nperm = 100000,
-                    pvalue_cutoff = pvalue_cutoff
+                    nperm = nperm,
+                    pvalue_cutoff = gsea_pvalue_cutoff
                 )
                 
                 # Check if any terms were enriched
@@ -236,8 +298,9 @@ run_pooled_gsea <- function(fit,
     for (db_name in names(databases)) {
         tryCatch({
             # Get significant pathways
+            log_message(sprintf("Collecting significant pathways for %s...", db_name))
             db_results <- lapply(gsea_results, `[[`, db_name)
-            pools[[db_name]] <- get_significant_pathways(db_results, q_cutoff = pvalue_cutoff)
+            pools[[db_name]] <- get_significant_pathways(db_results, padj_cutoff = padj_cutoff, verbose = TRUE)
             log_message(sprintf("Found %d significant pathways for %s", length(pools[[db_name]]), db_name))
             
             # Get pathway genes

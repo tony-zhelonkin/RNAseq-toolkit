@@ -12,6 +12,10 @@
 #'
 #' @return A ggplot2 object
 #' @export
+#'
+#' @note Requires format_pathway_name() function to be available in environment.
+#'       This is typically sourced by run_gsea_analysis() before calling this function.
+
 gsea_barplot <- function(
   gsea_obj,
   padj_cutoff = 0.05,
@@ -41,22 +45,12 @@ gsea_barplot <- function(
     dplyr::arrange(dplyr::desc(abs(.data$NES))) %>%
     utils::head(top_n)
   
-  # Clean up description text
-  gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
-  
-  # Strip common prefixes like "HALLMARK ", "GOBP ", etc.
-  if (strip_prefix) {
-    common_prefixes <- c(
-      "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ",
-      "PID ", "WIKIPATHWAY ", "^GO "
-    )
-    
-    for (prefix in common_prefixes) {
-      gsea_data$Description <- stringr::str_replace(gsea_data$Description, paste0("^", prefix), "")
-    }
-  }
-  
-  gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
+  # Format pathway names using smart capitalization with biological exceptions
+  gsea_data$Description <- format_pathway_name(
+    gsea_data$Description,
+    use_formatting = TRUE,
+    strip_prefix = strip_prefix
+  )
   
   # Sort by NES for display
   gsea_data <- gsea_data %>% dplyr::arrange(.data$NES)

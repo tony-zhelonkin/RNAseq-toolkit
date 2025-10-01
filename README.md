@@ -203,6 +203,94 @@ if (!is.null(heatmap_obj)) {
 }
 ```
 
+## Recent Updates & Enhancements (2025-09-30)
+
+### Critical Bug Fixes
+
+1. **Environment Scoping in `run_pooled_gsea.R`**
+   - **Issue**: Helper functions (`get_significant_pathways`, `get_pathway_genes_all`, `calculate_pathway_scores`) were not accessible after sourcing due to incorrect environment scoping in `sapply()` wrapper
+   - **Fix**: Replaced `sapply()` sourcing with explicit `for` loop that sources into function environment using `func_env <- environment()`
+   - **Impact**: Pooled GSEA now correctly finds and uses helper functions
+
+2. **Pathway Name Formatter Sourcing**
+   - **Issue**: Plotting functions tried to source `format_pathway_names.R` using `sys.frame(1)$ofile` which returned NULL when called from another script
+   - **Fix**: Centralized sourcing in `run_gsea_analysis.R` by adding formatter to `helper_paths` list
+   - **Impact**: All plotting functions now have access to `format_pathway_name()` for clean pathway labels
+
+### New Features
+
+1. **GSEA Result Caching**
+   - **Purpose**: Avoid redundant GSEA computation between per-contrast and pooled analyses
+   - **Implementation**:
+     - Added `cache_dir` and `use_cache` parameters to `run_gsea_model1()` wrapper
+     - Automatically saves GSEA results as `{contrast}_gsea_results.rds` in cache directory
+     - Loads from cache on subsequent runs, dramatically reducing analysis time
+     - Added `cached_gsea_results` parameter to `run_pooled_gsea()` to reuse per-contrast results
+   - **Usage**:
+     ```r
+     # First run: computes and caches
+     results <- run_gsea_model1(de_table, "KO_vs_WT_LPS",
+                                cache_dir = "03_Results/GSEA/cache",
+                                use_cache = TRUE)
+
+     # Second run: loads from cache instantly
+     results <- run_gsea_model1(de_table, "KO_vs_WT_LPS",
+                                cache_dir = "03_Results/GSEA/cache",
+                                use_cache = TRUE)
+
+     # Pooled GSEA reuses per-contrast results
+     pooled <- run_pooled_gsea(...,
+                               cached_gsea_results = all_gsea_results)
+     ```
+
+2. **Enhanced Pathway Filtering Logging**
+   - **Purpose**: Understand which pathways are being filtered and why
+   - **Implementation**: Added `verbose` parameter to `get_significant_pathways()`
+   - **Logging Output**:
+     ```
+     [get_significant_pathways] Processing 14 GSEA result(s)
+     [get_significant_pathways] Using padj cutoff: 0.05
+     [get_significant_pathways]   KO_vs_WT_LPS: 50 total pathways, 35 significant, 15 filtered out
+     [get_significant_pathways] Total significant pathways before deduplication: 420
+     [get_significant_pathways] Unique significant pathways: 380
+     [get_significant_pathways] Removed 40 duplicates
+     ```
+
+3. **Per-Contrast Cross-Database Pooled Visualization**
+   - **Purpose**: Show top pathways from ALL databases for a single contrast (user-requested feature)
+   - **File**: `scripts/GSEA/GSEA_plotting/plot_pooled_contrast_heatmap.R`
+   - **Function**: `plot_pooled_contrast_heatmap()`
+   - **Output**: Bubble plot with:
+     - X-axis: Databases (Hallmark, KEGG, GO, Reactome, etc.)
+     - Y-axis: Pathways (top N per database)
+     - Fill color: NES (blue = downregulated, red = upregulated)
+     - Size: -log10(padj) (larger = more significant)
+   - **Usage**:
+     ```r
+     plot_pooled_contrast_heatmap(
+       gsea_results_list = all_gsea_results[["KO_vs_WT_LPS"]],
+       contrast_name = "KO_vs_WT_LPS",
+       top_n = 10,
+       padj_cutoff = 0.05,
+       output_file = "KO_vs_WT_LPS_cross_database.pdf"
+     )
+     ```
+   - **Integration**: Automatically generated for each contrast in `02b_DEG_GSEA.R`
+
+### Clarification: Pooled GSEA Logic
+
+**Current "Pooled GSEA" (`run_pooled_gsea.R`):**
+- Pools pathways **ACROSS contrasts** (not across databases)
+- Identifies pathways significant in multiple biological comparisons
+- Generates sample × pathway score heatmaps showing patterns across conditions
+
+**New "Cross-Database Pooled" (`plot_pooled_contrast_heatmap.R`):**
+- Pools pathways **ACROSS databases** for a single contrast
+- Shows which databases contribute to enrichment for one comparison
+- Helps identify consensus pathways across gene set collections
+
+Both approaches are complementary and serve different analytical purposes.
+
 ## Dependencies
 
 This toolkit relies on several R packages:

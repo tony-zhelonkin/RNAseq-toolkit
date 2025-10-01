@@ -19,6 +19,10 @@
 #'
 #' @return A ggplot2 object
 #' @export
+#'
+#' @note Requires format_pathway_name() function to be available in environment.
+#'       This is typically sourced by run_gsea_analysis() before calling this function.
+
 gsea_dotplot <- function(
     gsea_obj,
     filterBy = "p.adjust",
@@ -46,22 +50,12 @@ gsea_dotplot <- function(
     gsea_data$negLogPval <- -log10(gsea_data[[sig_col]])
     gsea_data$NES_sign <- ifelse(gsea_data$NES > 0, "Positive NES", "Negative NES")
 
-    # Clean up description text
-    gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
-
-    # Strip common prefixes if requested
-    if (strip_prefix) {
-        common_prefixes <- c(
-            "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ", "MEDICUS ",
-            "PID ", "WIKIPATHWAY ", "^GO "
-        )
-
-        for (prefix in common_prefixes) {
-            gsea_data$Description <- stringr::str_replace(gsea_data$Description, paste0("^", prefix), "")
-        }
-    }
-
-    gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
+    # Format pathway names using smart capitalization with biological exceptions
+    gsea_data$Description <- format_pathway_name(
+        gsea_data$Description,
+        use_formatting = TRUE,
+        strip_prefix = strip_prefix
+    )
 
     # Apply custom text wrapping
     gsea_data$Description <- sapply(gsea_data$Description, function(txt) {

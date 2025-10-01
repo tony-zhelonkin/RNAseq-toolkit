@@ -17,8 +17,10 @@
 #'
 #' @return A ggplot2 object
 #' @export
-#' 
-#' 
+#'
+#' @note Requires format_pathway_name() function to be available in environment.
+#'       This is typically sourced by run_gsea_analysis() before calling this function.
+
 # Add this function to your script
 facet_grid_with_left_border <- function(...) {
   facet <- ggplot2::facet_grid(...)
@@ -64,22 +66,14 @@ gsea_dotplot_facet <- function(
     return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No significant pathways)")))
   }
   
-  # Clean up description text
-  gsea_data$Description <- stringr::str_replace_all(gsea_data$Description, "_", " ")
-  
-  # Strip common prefixes if requested
-  if (strip_prefix) {
-    common_prefixes <- c(
-      "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "GOBP ", "GOCC ", "GOMF ",
-      "PID ", "WIKIPATHWAY ", "^GO ", "Medicus "
-    )
-    
-    for (prefix in common_prefixes) {
-      gsea_data$Description <- stringr::str_replace(gsea_data$Description, paste0("^", prefix), "")
-    }
-  }
-  
-  gsea_data$Description <- stringr::str_to_title(gsea_data$Description)
+  # Format pathway names using smart capitalization with biological exceptions
+  gsea_data$Description <- format_pathway_name(
+    gsea_data$Description,
+    use_formatting = TRUE,
+    strip_prefix = strip_prefix
+  )
+
+  # Apply text wrapping
   gsea_data$Description <- sapply(gsea_data$Description, smart_wrap, width = wrap_width)
   
   # Check if we have both up and down regulated pathways

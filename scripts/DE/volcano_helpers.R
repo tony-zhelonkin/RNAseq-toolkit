@@ -73,7 +73,16 @@ create_vertical_volcano <- function(
     sig_stat   <- de_results$adj.P.Val
     stat_name  <- "FDR"
     sig_logic  <- sig_stat <= p_cutoff                # inclusive
-    p_thresh   <- max(de_results$P.Value[sig_logic], p_cutoff, na.rm = TRUE)
+
+    # Find the boundary p-value: the largest raw p among significant genes
+    # This ensures the line aligns with the actual color boundary
+    sig_pvals <- de_results$P.Value[sig_logic]
+    if (length(sig_pvals) > 0) {
+      p_thresh <- max(sig_pvals, na.rm = TRUE)
+    } else {
+      # No significant genes, use p_cutoff as fallback
+      p_thresh <- p_cutoff
+    }
     vert_line <- -log10(p_thresh)
     legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
   } else {  # decision_by == "p"

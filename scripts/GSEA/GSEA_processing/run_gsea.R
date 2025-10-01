@@ -48,7 +48,7 @@ run_gsea <- function(
     DE_results,
     rank_metric   = "t",
     species       = "Mus musculus",
-    db_species    = "MM",
+    db_species    = NULL,       # NEW: Database species (MM, HS, etc.) - if NULL, uses species-based lookup
     collection    = "H",         # Default: Hallmark
     subcollection = "",          # Default: empty for Hallmark
     pvalue_cutoff = 1,
@@ -97,34 +97,41 @@ run_gsea <- function(
    }
 
   # Retrieve gene sets using msigdbr
-  message(paste("Fetching MSigDB sets for species='", species, "', db_species='", db_species, 
-                "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
-  
-  # Use the correct parameter names for msigdbr
-  if (nzchar(subcollection)) {
-    msigdb_df <- msigdbr(
-      species       = species,
-      collection    = collection,
-      subcollection = subcollection
-    )
-  } else {
-    msigdb_df <- msigdbr(
-      species       = species,
-      collection    = collection
-    )
-  }
-  
-  if(nrow(msigdb_df) == 0) {
-    # Try with species abbreviation if the full name didn't work
+  # NEW BEHAVIOR: Support both db_species (MM/HS) and legacy species-only modes
+  if (!is.null(db_species)) {
+    message(paste("Fetching MSigDB sets with db_species='", db_species,
+                  "', species='", species,
+                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
+
+    # Use db_species parameter (new msigdbr API supporting native databases)
     if (nzchar(subcollection)) {
       msigdb_df <- msigdbr(
-        species       = db_species,
+        db_species    = db_species,  # Explicitly specify database (MM = mouse-native, HS = human)
+        species       = species,      # Output species (for ortholog mapping if db_species != species)
         collection    = collection,
         subcollection = subcollection
       )
     } else {
       msigdb_df <- msigdbr(
-        species       = db_species,
+        db_species    = db_species,
+        species       = species,
+        collection    = collection
+      )
+    }
+  } else {
+    # Legacy mode: species-only (uses human database with ortholog mapping)
+    message(paste("Fetching MSigDB sets for species='", species,
+                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
+
+    if (nzchar(subcollection)) {
+      msigdb_df <- msigdbr(
+        species       = species,
+        collection    = collection,
+        subcollection = subcollection
+      )
+    } else {
+      msigdb_df <- msigdbr(
+        species       = species,
         collection    = collection
       )
     }

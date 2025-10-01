@@ -18,7 +18,6 @@
 #'         as columns. Returns an empty matrix with correct sample names if
 #'         `pathway_genes` is empty or NULL.
 #' @export
-#' @importFrom stats colMeans
 #'
 #' @examples
 #' # Create dummy data
@@ -94,8 +93,8 @@ calculate_pathway_scores <- function(expression_data, pathway_genes, method = "m
 
             # Calculate score for each sample based on the method
             if (method == "mean") {
-                # Use stats::colMeans for efficiency and NA handling
-                pathway_sample_scores <- stats::colMeans(pathway_exp_subset, na.rm = TRUE)
+                # Use colMeans for efficiency and NA handling
+                pathway_sample_scores <- colMeans(pathway_exp_subset, na.rm = TRUE)
                 scores[, pathway_id] <- pathway_sample_scores
             }
             # Add other methods here with 'else if (method == "...")' in the future
