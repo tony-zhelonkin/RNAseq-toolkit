@@ -1,7 +1,5 @@
 #' Multi-Style Pathway Volcano Plot Function
 #'
-#' Multi-Style Pathway Volcano Plot Function
-#'
 #' Creates customized volcano plots highlighting genes from a specific GSEA pathway
 #' within differential expression results. Offers multiple styling options.
 #' Assumes `de_results` rownames are gene identifiers matching GSEA results.
