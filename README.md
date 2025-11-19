@@ -306,6 +306,101 @@ Ensure these packages are installed.
 
 Contributions, bug reports, and suggestions are welcome. Please feel free to fork the repository and submit pull requests.
 
+## Git Workflow & Branching Strategy
+
+This repository uses a structured branching strategy to support multiple research projects while maintaining a stable codebase.
+
+### Branch Structure
+
+- **`main`**: Production-ready, stable code. Only receives tested merges from `dev`.
+- **`dev`**: Main development integration branch. Receives features from project-specific branches.
+- **`dev-{project}`**: Project-specific branches (e.g., `dev-GVDRP1`, `dev-Project2`). Used for project-specific development.
+
+### Workflow for Project Development
+
+**1. Using the toolkit in your project:**
+
+When adding RNAseq-toolkit as a submodule to your project, configure it to track your project-specific branch:
+
+```bash
+# Add submodule and configure to track project branch
+git submodule add git@github.com:tony-zhelonkin/RNAseq-toolkit.git path/to/toolkit
+cd path/to/toolkit
+git checkout -b dev-YourProject origin/dev  # Create from dev if new project
+cd ../..
+
+# Update .gitmodules to track your project branch
+# Add this line under the submodule configuration:
+#   branch = dev-YourProject
+```
+
+**2. Developing toolkit features:**
+
+```bash
+cd path/to/RNAseq-toolkit
+git checkout dev-YourProject
+
+# Make your changes, test them
+git add .
+git commit -m "Add feature X for Project Y"
+git push origin dev-YourProject
+```
+
+**3. Contributing features back to main toolkit:**
+
+When your project develops a feature that would benefit other projects:
+
+```bash
+# Ensure dev-YourProject is up to date
+git checkout dev-YourProject
+git push origin dev-YourProject
+
+# Create Pull Request: dev-YourProject → dev
+# After review and merge, all projects can benefit from your improvements
+```
+
+**4. Getting updates from the main development branch:**
+
+Periodically sync your project branch with the latest improvements:
+
+```bash
+cd path/to/RNAseq-toolkit
+git checkout dev-YourProject
+git fetch origin
+git merge origin/dev  # Pull in improvements from other projects
+git push origin dev-YourProject
+
+# In parent project, update the submodule reference
+cd ../..
+git add path/to/RNAseq-toolkit
+git commit -m "Update RNAseq-toolkit submodule"
+```
+
+**5. When `dev` is ready for production:**
+
+After testing and validation, `dev` can be merged to `main`:
+
+```bash
+# Create Pull Request: dev → main
+# Requires all tests to pass
+# Results in new stable release
+```
+
+### Branch Responsibilities
+
+| Branch Type | Purpose | Update Frequency | Merge Target |
+|------------|---------|------------------|--------------|
+| `main` | Stable releases | Only after testing | N/A (end state) |
+| `dev` | Integration of features | When features mature | `main` |
+| `dev-{project}` | Project-specific work | During active development | `dev` |
+
+### Notes
+
+- **Not all projects need to contribute code**: Some projects may only consume the toolkit without developing new features. That's perfectly fine!
+- **Project branches provide isolation**: Each project can have its own version/state of the toolkit without affecting others.
+- **Contribution is optional**: Only create PRs to `dev` when you've developed something useful for other projects.
+- **Stay in sync**: Periodically merge `dev` into your project branch to get improvements from other projects.
+
 ## License
 
 MIT License
