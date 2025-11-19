@@ -257,16 +257,16 @@ if (!is.null(heatmap_obj)) {
 
 3. **Per-Contrast Cross-Database Pooled Visualization**
    - **Purpose**: Show top pathways from ALL databases for a single contrast (user-requested feature)
-   - **File**: `scripts/GSEA/GSEA_plotting/plot_pooled_contrast_heatmap.R`
-   - **Function**: `plot_pooled_contrast_heatmap()`
-   - **Output**: Bubble plot with:
+   - **File**: `scripts/GSEA/GSEA_plotting/plot_pooled_contrast_dotplot.R`
+   - **Function**: `plot_pooled_contrast_dotplot()`
+   - **Output**: Dotplot with:
      - X-axis: Databases (Hallmark, KEGG, GO, Reactome, etc.)
      - Y-axis: Pathways (top N per database)
      - Fill color: NES (blue = downregulated, red = upregulated)
      - Size: -log10(padj) (larger = more significant)
    - **Usage**:
      ```r
-     plot_pooled_contrast_heatmap(
+     plot_pooled_contrast_dotplot(
        gsea_results_list = all_gsea_results[["KO_vs_WT_LPS"]],
        contrast_name = "KO_vs_WT_LPS",
        top_n = 10,
@@ -283,7 +283,7 @@ if (!is.null(heatmap_obj)) {
 - Identifies pathways significant in multiple biological comparisons
 - Generates sample × pathway score heatmaps showing patterns across conditions
 
-**New "Cross-Database Pooled" (`plot_pooled_contrast_heatmap.R`):**
+**New "Cross-Database Pooled" (`plot_pooled_contrast_dotplot.R`):**
 - Pools pathways **ACROSS databases** for a single contrast
 - Shows which databases contribute to enrichment for one comparison
 - Helps identify consensus pathways across gene set collections

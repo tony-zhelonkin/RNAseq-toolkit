@@ -1,6 +1,6 @@
-#' Plot Per-Contrast Cross-Database Pooled Heatmap
+#' Plot Per-Contrast Cross-Database Pooled Dotplot
 #'
-#' Generates a heatmap showing the top pathways from ALL databases for a single contrast.
+#' Generates a dotplot showing the top pathways from ALL databases for a single contrast.
 #' This visualization helps identify which pathways are most enriched across different
 #' gene set collections (e.g., Hallmark, KEGG, GO) for a given comparison.
 #'
@@ -20,16 +20,16 @@
 #' @examples
 #' \dontrun{
 #' # Assuming you have GSEA results for one contrast across multiple databases
-#' plot_pooled_contrast_heatmap(
+#' plot_pooled_contrast_dotplot(
 #'   gsea_results_list = all_gsea_results[["KO_vs_WT_LPS"]],
 #'   contrast_name = "KO_vs_WT_LPS",
 #'   top_n = 10,
 #'   padj_cutoff = 0.05,
-#'   output_file = "pooled_KO_vs_WT_LPS_heatmap.pdf"
+#'   output_file = "pooled_KO_vs_WT_LPS_dotplot.pdf"
 #' )
 #' }
 #'
-plot_pooled_contrast_heatmap <- function(
+plot_pooled_contrast_dotplot <- function(
     gsea_results_list,
     contrast_name,
     top_n = 20,
