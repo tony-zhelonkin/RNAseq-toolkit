@@ -1,6 +1,6 @@
-# R GSEA Visualizations Toolkit
+# RNAseq toolkit 
 
-A comprehensive toolkit for RNA-seq data analysis in R, focusing on Differential Expression (DE) analysis visualization and Gene Set Enrichment Analysis (GSEA) processing and visualization. These tools are designed primarily for use with `limma`/`edgeR` DE results and `clusterProfiler`/`msigdbr` GSEA results.
+An R toolkit for RNA-seq data analysis with personal convenience scripts, focusing on Differential Expression (DE) analysis visualization and Gene Set Enrichment Analysis (GSEA) processing and visualization. These tools are designed primarily for use with `limma`/`edgeR` DE results and `clusterProfiler`/`msigdbr` GSEA results.
 
 ## Overview
 
@@ -43,7 +43,6 @@ scripts/
 
 ## Key Functions
 
-*(Note: Function names and parameters have been updated during refactoring)*
 
 ### GSEA Processing (`scripts/GSEA/GSEA_processing/`)
 

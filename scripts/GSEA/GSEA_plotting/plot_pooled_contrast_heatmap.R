@@ -1,8 +1,7 @@
 #' Plot Per-Contrast Cross-Database Pooled Heatmap
 #'
 #' Generates a heatmap showing the top pathways from ALL databases for a single contrast.
-#' This visualization helps identify which pathways are most enriched across different
-#' gene set collections (e.g., Hallmark, KEGG, GO) for a given comparison.
+#' This visualization helps identify which pathways are most enriched across different gene set collections (e.g., Hallmark, KEGG, GO) for a given comparison.
 #'
 #' @param gsea_results_list Named list of gseaResult objects from different databases
 #'                          for a single contrast
