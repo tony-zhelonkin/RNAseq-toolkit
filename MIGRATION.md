@@ -1,6 +1,6 @@
 # Migration Guide: Transitioning Existing Projects to New Branching Strategy
 
-This guide helps you migrate your existing projects that use the RNAseq-toolkit submodule from the old `dev` branch to the new project-specific branch workflow.
+This guide helps migrate my existing projects that use the RNAseq-toolkit submodule from the old `dev` branch to the new project-specific branch workflow.
 
 ## Background
 
@@ -13,7 +13,7 @@ This guide helps you migrate your existing projects that use the RNAseq-toolkit 
 
 ## Migration Steps for Each Project
 
-### Step 1: Identify Your Projects
+### Step 1: Identify Projects
 
 List all projects currently using RNAseq-toolkit:
 - GVDRP1_prj (Already migrated to `dev-GVDRP1`)
@@ -63,7 +63,7 @@ cd /path/to/Project2
 #     branch = dev-Project2
 ```
 
-Edit your `.gitmodules` file or use this command:
+Edit `.gitmodules` file or use this command:
 
 ```bash
 # Navigate to parent project root
@@ -97,11 +97,11 @@ cd 01_Scripts/RNAseq-toolkit
 
 # Check current branch
 git branch --show-current
-# Should output: dev-Project2 (or your project's branch name)
+# Should output: dev-Project2 (or project's branch name)
 
 # Verify tracking
 git status
-# Should show: "Your branch is up to date with 'origin/dev-Project2'"
+# Should show: "Branch is up to date with 'origin/dev-Project2'"
 ```
 
 ## Migration Checklist
@@ -121,7 +121,7 @@ For each project:
 ### Regular Development
 
 ```bash
-# In your project's submodule
+# In project's submodule
 cd path/to/RNAseq-toolkit
 git checkout dev-ProjectName
 
