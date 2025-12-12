@@ -10,12 +10,16 @@
 #' @param padj_cutoff Adjusted p-value cutoff
 #' @param title Plot title
 #' @param wrap_width Width for text wrapping
-#' @param pos_color Color for positive NES
-#' @param neg_color Color for negative NES
+#' @param pos_color Color for positive NES (used when use_gradient=FALSE, or as gradient high)
+#' @param neg_color Color for negative NES (used when use_gradient=FALSE, or as gradient low)
+#' @param mid_color Color for zero NES (midpoint of gradient, default white)
 #' @param min.dotSize Minimum dot size
 #' @param max.dotSize Maximum dot size
-#' @param highlight_sig Whether to highlight significant points with outline
+#' @param highlight_sig Whether to highlight highly significant points (FDR < padj_cutoff/10)
+#'        with black outline. Base points have no outline; legend shows solid black circles.
 #' @param strip_prefix Logical, whether to strip common prefixes like "HALLMARK_"
+#' @param use_gradient Logical, use continuous gradient for NES (TRUE) or binary colors (FALSE)
+#' @param nes_limits Numeric vector of length 2 for symmetric NES limits (auto if NULL)
 #'
 #' @return A ggplot2 object
 #' @export
@@ -31,12 +35,15 @@ gsea_dotplot <- function(
     padj_cutoff = 0.05,
     title = "GSEA Dotplot",
     wrap_width = 50,
-    pos_color = "#fc8d59",
-    neg_color = "#91bfdb",
+    pos_color = "#B35806",
+    neg_color = "#2166AC",
+    mid_color = "#F7F7F7",
     min.dotSize = 2,
     max.dotSize = 10,
     highlight_sig = TRUE,
-    strip_prefix = TRUE) {
+    strip_prefix = TRUE,
+    use_gradient = TRUE,
+    nes_limits = NULL) {
     # Extract and filter data
     gsea_data <- as.data.frame(gsea_obj@result)
 
@@ -145,24 +152,44 @@ gsea_dotplot <- function(
         levels = rev(plot_data$Description)
     )
 
-    # Create base plot
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = GeneRatio, y = Description)) +
-        ggplot2::geom_point(
-            ggplot2::aes(
-                size = negLogPval,
-                color = NES_sign
+    # Calculate symmetric NES limits if not provided
+    if (is.null(nes_limits)) {
+        nes_max <- max(abs(plot_data$NES), na.rm = TRUE)
+        nes_limits <- c(-nes_max, nes_max)
+    }
+
+    # Create base plot with conditional aesthetics
+    if (use_gradient) {
+        # Use continuous fill for NES gradient
+        # Base points have NO outline; black outline added only for significant points
+        p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = GeneRatio, y = Description)) +
+            ggplot2::geom_point(
+                ggplot2::aes(
+                    size = negLogPval,
+                    fill = NES
+                ),
+                shape = 21,  # Filled circle with border
+                stroke = 0   # No outline on base points
             )
-        )
+    } else {
+        # Use binary colors for NES direction
+        p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = GeneRatio, y = Description)) +
+            ggplot2::geom_point(
+                ggplot2::aes(
+                    size = negLogPval,
+                    color = NES_sign
+                )
+            )
+    }
 
     # Add outline for significant points if requested
     if (highlight_sig) {
-        # Ensure padj_cutoff is numeric before division
         padj_cutoff_num <- as.numeric(padj_cutoff)
         if (is.na(padj_cutoff_num)) {
             warning("padj_cutoff is not numeric, using default value of 0.05")
             padj_cutoff_num <- 0.05
         }
-        high_sig_threshold <- padj_cutoff_num / 10 # More stringent threshold for highlighting
+        high_sig_threshold <- padj_cutoff_num / 10
         highlight_data <- plot_data[plot_data[[sig_col]] < high_sig_threshold, ]
 
         if (nrow(highlight_data) > 0) {
@@ -170,21 +197,36 @@ gsea_dotplot <- function(
                 ggplot2::geom_point(
                     data = highlight_data,
                     ggplot2::aes(size = negLogPval),
-                    shape = 21, color = "black", fill = NA, stroke = 1
+                    shape = 21, color = "black", fill = NA, stroke = 1.2
                 )
         }
     }
 
-    # Complete the plot with scales and theme
-    # Complete the plot with scales and theme
     # Adjust font size based on number of categories
     y_font_size <- ifelse(nrow(plot_data) > 20, 8, 9)
 
+    # Add appropriate color/fill scale based on mode
+    if (use_gradient) {
+        p <- p +
+            ggplot2::scale_fill_gradient2(
+                low = neg_color,
+                mid = mid_color,
+                high = pos_color,
+                midpoint = 0,
+                name = "NES",
+                limits = nes_limits,
+                oob = scales::squish
+            )
+    } else {
+        p <- p +
+            ggplot2::scale_color_manual(
+                name = "Direction",
+                values = c("Positive NES" = pos_color, "Negative NES" = neg_color)
+            )
+    }
+
+    # Add remaining scales and theme
     p <- p +
-        ggplot2::scale_color_manual(
-            name = "Direction",
-            values = c("Positive NES" = pos_color, "Negative NES" = neg_color)
-        ) +
         ggplot2::scale_size_continuous(
             name = if ("qvalue" %in% colnames(gsea_data)) {
                 bquote(-log[10](q - value))
@@ -192,6 +234,16 @@ gsea_dotplot <- function(
                 bquote(-log[10](p - value))
             },
             range = c(min.dotSize, max.dotSize)
+        ) +
+        # Legend bubbles: solid black filled circles with no outline
+        ggplot2::guides(
+            size = ggplot2::guide_legend(
+                override.aes = list(
+                    shape = 16,      # Solid circle (no border)
+                    fill = "black",
+                    color = "black"
+                )
+            )
         ) +
         ggplot2::labs(
             title = title,

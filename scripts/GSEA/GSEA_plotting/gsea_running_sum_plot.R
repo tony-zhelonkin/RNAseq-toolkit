@@ -96,10 +96,18 @@ gsea_running_sum_plot <- function(gsea_obj,
   p2 <- stylise(p_raw[[2]], FALSE, FALSE, FALSE)
   p3 <- stylise(p_raw[[3]], TRUE,  TRUE,  FALSE)
 
-  ## add legend labels via guides() so they always align with colours
+  ## add legend labels via scale_color_manual() to ensure colors AND labels display correctly
+  ## Note: guide_legend(labels=) is invalid; must use scale_color_manual for custom labels
   p1 <- p1 +
-        guides(color = guide_legend(override.aes = list(colour = palette),
-                                    labels = labels))
+        scale_color_manual(
+          values = palette,
+          labels = labels,
+          name = NULL
+        ) +
+        guides(color = guide_legend(
+          override.aes = list(linewidth = 2),
+          keywidth = unit(1.5, "lines")
+        ))
 
   ## ------ 5. stack with patchwork --------------------------------------
   patchwork::wrap_plots(p1, p2, p3, ncol = 1, heights = c(2, 1, 1))
