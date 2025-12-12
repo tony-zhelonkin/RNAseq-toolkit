@@ -1,5 +1,13 @@
 #' Safe GSEA running-sum plot (handles 1-N gene-sets)
 #'
+#' Uses enrichplot::gseaplot2 for consistent styling with proper color handling.
+#'
+#' IMPORTANT: enrichplot uses Description as the color aesthetic. If your
+#' gseaResult has Description != ID, you must either:
+#'   1. Create a copy with gsea_obj@result$Description <- gsea_obj@result$ID
+#'      and pass explicit labels, OR
+#'   2. Ensure Description matches what you pass as gene_set_ids
+#'
 #' @param gsea_obj     A `gseaResult` object (clusterProfiler)
 #' @param gene_set_ids Integer vector (row indices) or character vector
 #'                     (gs_name/ID). Default picks the top 5 by |NES|.
