@@ -1,12 +1,12 @@
 #' Safe GSEA running-sum plot (handles 1-N gene-sets)
 #'
 #' Uses enrichplot::gseaplot2 for consistent styling with proper color handling.
+#' Works seamlessly with both MSigDB and external databases (TransportDB,
+#' MitoPathways, MitoXplorer, etc.) - no special handling required.
 #'
-#' IMPORTANT: enrichplot uses Description as the color aesthetic. If your
-#' gseaResult has Description != ID, you must either:
-#'   1. Create a copy with gsea_obj@result$Description <- gsea_obj@result$ID
-#'      and pass explicit labels, OR
-#'   2. Ensure Description matches what you pass as gene_set_ids
+#' Note: Internally handles the enrichplot color mapping issue where Description
+#' != ID would cause grayscale plots. Labels are preserved from the original
+#' Description column while colors are mapped correctly via ID.
 #'
 #' @param gsea_obj     A `gseaResult` object (clusterProfiler)
 #' @param gene_set_ids Integer vector (row indices) or character vector
@@ -72,7 +72,14 @@ gsea_running_sum_plot <- function(gsea_obj,
   names(labels) <- gene_set_ids
 
   ## ------ 3. build raw panels ------------------------------------------
-  p_raw <- enrichplot::gseaplot2(gsea_obj,
+  ## CRITICAL FIX: enrichplot::gseaplot2 uses Description internally for color
+  ## mapping, but our palette is keyed to gene_set_ids (IDs). For external
+  ## databases where Description != ID, this causes grayscale plots.
+  ## Solution: Create a copy with Description = ID so colors map correctly.
+  gsea_copy <- gsea_obj
+  gsea_copy@result$Description <- gsea_copy@result$ID
+
+  p_raw <- enrichplot::gseaplot2(gsea_copy,
                                  geneSetID    = gene_set_ids,
                                  subplots     = c(1, 2, 3),
                                  pvalue_table = FALSE,

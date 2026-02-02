@@ -1,6 +1,60 @@
-# Volcano Plot Test Suite
+# RNAseq-toolkit Test Suite
 
-This directory contains comprehensive tests for the volcano plot functions to ensure correct behavior across various edge cases.
+This directory contains comprehensive tests for visualization functions.
+
+## Available Tests
+
+| Test File | Function | Purpose |
+|-----------|----------|---------|
+| `test_volcano_plots.R` | `create_standard_volcano()` | Dashed line alignment with FDR boundaries |
+| `test_gsea_dotplot.R` | `gsea_dotplot()` | Show all pathways, highlight significant |
+| `test_pathway_formatting.R` | `format_pathway_name()` | Smart biological capitalization |
+
+## Running All Tests
+
+```bash
+cd /path/to/RNAseq-toolkit
+Rscript tests/test_volcano_plots.R
+Rscript tests/test_gsea_dotplot.R
+Rscript tests/test_pathway_formatting.R
+```
+
+---
+
+# GSEA Dotplot Tests
+
+## Purpose
+
+Tests the "show all, highlight significant" pattern where:
+- **All top N pathways** are displayed regardless of significance
+- **Only significant pathways** get black outline (FDR < threshold)
+- **Non-significant pathways** are visible but without outline
+
+## Test Cases
+
+1. **All pathways shown**: Verifies top N pathways display even if none significant
+2. **Outline logic**: Base layer has no outline; overlay only for FDR < threshold
+3. **Strict threshold**: Dots still appear with very strict FDR cutoff
+4. **NES_positive filter**: Only positive NES pathways shown
+5. **NES_negative filter**: Only negative NES pathways shown
+
+## Visual Output
+
+Generated in `tests/output/gsea_dotplot/`:
+- `test1_all_pathways.pdf` — Top 20 by |NES|
+- `test3_strict_threshold.pdf` — All dots visible, few/no outlines
+- `test4_positive_nes.pdf` — Upregulated only
+- `test5_negative_nes.pdf` — Downregulated only
+
+## Key Fix (2025-01)
+
+**Issue:** In ggplot2 4.0+, `color = NA` causes points to be removed as "missing values".
+
+**Fix:** Changed to `color = "transparent"` in base layer.
+
+---
+
+# Volcano Plot Tests
 
 ## Purpose
 

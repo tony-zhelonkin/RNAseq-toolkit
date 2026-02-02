@@ -55,14 +55,65 @@ df <- normalize_gsea_results(gsea_obj, database = "Hallmark", contrast = "A_vs_B
 **3. Decision-by-FDR Volcano Plots**
 The volcano plot uses `-log10(P.Value)` on the y-axis but decides significance by `adj.P.Val`. The dashed line is placed at the raw p-value corresponding to the FDR boundary.
 
+**4. GSEA Dotplot "Show All, Highlight Significant" Pattern**
+`gsea_dotplot()` separates pathway **selection** (what to show) from **highlighting** (significance):
+- `filterBy` + `showCategory`: Control which pathways are displayed (top N by NES, p.adjust, etc.)
+- `padj_cutoff` + `highlight_threshold`: Control which pathways get black outline (FDR < threshold)
+
+This ensures top pathways are always visible, with significant ones highlighted by a black border.
+
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES",           # Sort by |NES| magnitude
+  showCategory = 20,          # Show top 20 pathways
+  padj_cutoff = 0.10,         # Black outline for FDR < 0.10
+  highlight_sig = TRUE,       # Enable significance highlighting
+  use_gradient = TRUE         # Color by NES gradient
+)
+```
+
 ## Running Tests
 
 ```bash
 cd /path/to/RNAseq-toolkit
 Rscript tests/test_volcano_plots.R
+Rscript tests/test_gsea_dotplot.R
+Rscript tests/test_pathway_formatting.R
 ```
 
-Tests generate visual outputs in `tests/output/` for manual inspection of line-color alignment.
+Tests generate visual outputs in `tests/output/` for manual inspection.
+
+## Known Issues / Compatibility
+
+- **ggplot2 4.0+**: Use `color = "transparent"` instead of `color = NA` for shape 21 points. `NA` causes points to be removed as "missing values".
+
+## Quick Reference: gsea_dotplot()
+
+See `docs/API_REFERENCE.md` for full documentation.
+
+**TL;DR — Selection vs Highlighting:**
+- `filterBy` + `showCategory` → Which pathways to SHOW
+- `padj_cutoff` + `highlight_threshold` → Which get BLACK OUTLINE
+
+**Common patterns:**
+```r
+# Top 20 by |NES|, outline FDR < 0.10
+gsea_dotplot(gsea_obj, filterBy = "NES", showCategory = 20, padj_cutoff = 0.10)
+
+# Upregulated only
+gsea_dotplot(gsea_obj, filterBy = "NES_positive", showCategory = 15)
+
+# Downregulated only
+gsea_dotplot(gsea_obj, filterBy = "NES_negative", showCategory = 15)
+
+# Custom outline threshold
+gsea_dotplot(gsea_obj, filterBy = "NES", showCategory = 30,
+             padj_cutoff = 0.10, highlight_threshold = 0.01)
+
+# No outlines at all
+gsea_dotplot(gsea_obj, filterBy = "NES", showCategory = 20, highlight_sig = FALSE)
+```
 
 ## Key Functions
 

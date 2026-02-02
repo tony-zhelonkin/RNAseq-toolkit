@@ -288,39 +288,157 @@ calculate_pathway_scores(
 
 **File:** `scripts/GSEA/GSEA_plotting/gsea_dotplot.R`
 
-Create customizable GSEA dotplot.
+Create GSEA dotplot with "show all, highlight significant" pattern.
+
+#### Key Design: Selection vs Highlighting
+
+The function **separates pathway selection from significance highlighting**:
+
+| Concern | Parameters | Purpose |
+|---------|------------|---------|
+| **Selection** | `filterBy`, `showCategory` | Which pathways to DISPLAY |
+| **Highlighting** | `padj_cutoff`, `highlight_threshold` | Which pathways get BLACK OUTLINE |
+
+This ensures top pathways are **always visible**, with significant ones distinguished by a black border.
+
+#### Function Signature
 
 ```r
 gsea_dotplot(
-  gsea_result,
-  n_top = 20,
-  filterBy = "p.adjust",
-  sortBy = "NES",
-  padj_cutoff = 0.05,
-  NES_cutoff = NULL,
-  show_only = NULL,
-  title = NULL,
-  color_scale = "diverging",
+    gsea_obj,
+    filterBy = "p.adjust",
+    sortBy = "GeneRatio",
+    showCategory = 10,
+    padj_cutoff = 0.05,
+    title = "GSEA Dotplot",
+    wrap_width = 50,
+    pos_color = "#B35806",
+    neg_color = "#2166AC",
+    mid_color = "#F7F7F7",
+    min.dotSize = 2,
+    max.dotSize = 10,
+    highlight_sig = TRUE,
+    highlight_threshold = NULL,
+    strip_prefix = TRUE,
+    use_gradient = TRUE,
+    nes_limits = NULL
+)
+```
+
+#### Arguments
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gsea_obj` | gseaResult | required | GSEA result from clusterProfiler |
+| `filterBy` | character | "p.adjust" | How to select pathways: "p.adjust", "NES", "NES_positive", "NES_negative" |
+| `sortBy` | character | "GeneRatio" | Display ordering: "GeneRatio" or "p.adjust" |
+| `showCategory` | integer | 10 | Number of top pathways to display |
+| `padj_cutoff` | numeric | 0.05 | FDR threshold for highlighting (black outline) |
+| `title` | character | "GSEA Dotplot" | Plot title |
+| `wrap_width` | integer | 50 | Character width for pathway name wrapping |
+| `pos_color` | character | "#B35806" | Color for positive NES (orange) |
+| `neg_color` | character | "#2166AC" | Color for negative NES (blue) |
+| `mid_color` | character | "#F7F7F7" | Color for zero NES (light gray) |
+| `min.dotSize` | numeric | 2 | Minimum dot size |
+| `max.dotSize` | numeric | 10 | Maximum dot size |
+| `highlight_sig` | logical | TRUE | Add black outline to significant pathways |
+| `highlight_threshold` | numeric | NULL | Override FDR for outline (NULL = use padj_cutoff) |
+| `strip_prefix` | logical | TRUE | Remove HALLMARK_, KEGG_, etc. prefixes |
+| `use_gradient` | logical | TRUE | Use continuous NES gradient (vs binary colors) |
+| `nes_limits` | numeric(2) | NULL | Symmetric NES limits for color scale (auto if NULL) |
+
+#### Returns
+
+ggplot object with:
+- **X-axis:** Gene Ratio (leading edge genes / pathway size)
+- **Y-axis:** Pathway names (formatted, wrapped)
+- **Dot size:** -log10(p-value) — larger = more significant
+- **Dot fill:** NES gradient (blue = negative, orange = positive)
+- **Black outline:** Only on pathways passing FDR threshold
+
+#### Examples
+
+**Basic usage — top 20 by |NES|, outline FDR < 0.10:**
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES",           # Sort by |NES| magnitude
+  showCategory = 20,          # Show top 20 pathways
+  padj_cutoff = 0.10,         # Black outline for FDR < 0.10
   highlight_sig = TRUE
 )
 ```
 
-**Arguments:**
+**Upregulated pathways only:**
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES_positive",  # Only positive NES
+  showCategory = 15,
+  padj_cutoff = 0.05,
+  title = "Upregulated Pathways"
+)
+```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `gsea_result` | gseaResult | required | GSEA result object |
-| `n_top` | integer | 20 | Number of pathways to show |
-| `filterBy` | character | "p.adjust" | Column for filtering |
-| `sortBy` | character | "NES" | Column for sorting |
-| `padj_cutoff` | numeric | 0.05 | Significance threshold |
-| `NES_cutoff` | numeric | NULL | Minimum absolute NES |
-| `show_only` | character | NULL | "NES_positive" or "NES_negative" |
-| `title` | character | NULL | Plot title |
-| `color_scale` | character | "diverging" | Color scheme |
-| `highlight_sig` | logical | TRUE | Highlight significant points |
+**Downregulated pathways only:**
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES_negative",  # Only negative NES
+  showCategory = 15,
+  padj_cutoff = 0.05,
+  title = "Downregulated Pathways"
+)
+```
 
-**Returns:** ggplot object
+**Show all pathways, highlight at stricter threshold:**
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES",
+  showCategory = 30,
+  padj_cutoff = 0.10,              # Default outline threshold
+  highlight_threshold = 0.01,       # Override: only outline FDR < 0.01
+  title = "Top 30 Pathways (FDR < 0.01 outlined)"
+)
+```
+
+**No significance highlighting (all dots equal):**
+```r
+gsea_dotplot(
+  gsea_obj,
+  filterBy = "NES",
+  showCategory = 20,
+  highlight_sig = FALSE,   # No black outlines
+  title = "Top 20 by NES (no FDR filter)"
+)
+```
+
+#### Internal Processing Stages
+
+```
+STAGE 1: DATA PREPARATION
+  → Extract all pathways, compute GeneRatio, -log10(p), NES sign
+  → Format pathway names with smart capitalization
+
+STAGE 2: PATHWAY SELECTION (filterBy + showCategory)
+  → Sort by filterBy criterion
+  → Take top showCategory pathways
+  → NO filtering by significance here!
+
+STAGE 3: DISPLAY ORDERING (sortBy)
+  → Reorder for y-axis display
+
+STAGE 4: VISUALIZATION
+  → Base layer: ALL dots, colored by NES, NO outline
+  → Overlay layer: ONLY significant dots get black outline
+```
+
+#### Compatibility Notes
+
+- **ggplot2 4.0+:** Uses `color = "transparent"` (not `NA`) for base points to avoid removal
+- **Stroke width:** 2 for visible outlines on significant pathways
+- **PDF export:** Transparent borders prevent hairline artifacts
 
 ---
 
