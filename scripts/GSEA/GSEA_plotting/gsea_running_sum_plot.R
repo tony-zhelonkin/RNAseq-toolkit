@@ -49,8 +49,13 @@ gsea_running_sum_plot <- function(gsea_obj,
   if (!length(gene_set_ids))
       stop("No valid gene-set IDs supplied – nothing to plot.")
 
-  ## ------ 2. palette & legend labels -----------------------------------
-  n_sets <- length(gene_set_ids)
+  ## ------ 2. Map IDs to Descriptions (what enrichplot uses for aesthetics) ---
+  # enrichplot::gseaplot2() uses Description as the color aesthetic key
+  # We must key our palette by Description, not ID, for proper color matching
+  descriptions <- res_df$Description[match(gene_set_ids, res_df$ID)]
+
+  ## ------ 3. palette & legend labels -----------------------------------
+  n_sets <- length(descriptions)
   if (is.null(palette)) {
       base_pal <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
                     "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999")
@@ -58,10 +63,11 @@ gsea_running_sum_plot <- function(gsea_obj,
   } else if (length(palette) < n_sets) {
       palette <- rep(palette, length.out = n_sets)
   }
-  names(palette) <- gene_set_ids
+  # Key palette by Description (not ID) to match enrichplot's aesthetic
+  names(palette) <- descriptions
 
   if (is.null(labels)) {
-      labels <- res_df$Description[match(gene_set_ids, res_df$ID)]
+      labels <- descriptions
   }
   ## truncate long labels like in your SynGO plot
   labels <- vapply(labels, function(x) {
@@ -69,7 +75,8 @@ gsea_running_sum_plot <- function(gsea_obj,
           paste0(substr(x, 1, max_name_length - 3), "…")
       else x
   }, FUN.VALUE = character(1))
-  names(labels) <- gene_set_ids
+  # Key labels by Description (consistent with palette)
+  names(labels) <- descriptions
 
   ## ------ 3. build raw panels ------------------------------------------
   p_raw <- enrichplot::gseaplot2(gsea_obj,
