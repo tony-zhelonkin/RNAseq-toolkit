@@ -64,12 +64,19 @@ gsea_running_sum_plot <- function(gsea_obj,
   names(labels) <- gene_set_ids
 
   ## ------ 3. build raw panels ------------------------------------------
+  ## CRITICAL FIX: gseaplot2 matches colors by Description, not ID
+  ## For MSIGDB: ID == Description, so either works
+  ## For non-MSIGDB: ID != Description, must use Description
+  descriptions <- res_df$Description[match(gene_set_ids, res_df$ID)]
+  palette_for_plot <- palette
+  names(palette_for_plot) <- descriptions
+
   p_raw <- enrichplot::gseaplot2(gsea_obj,
                                  geneSetID    = gene_set_ids,
                                  subplots     = c(1, 2, 3),
                                  pvalue_table = FALSE,
                                  rel_heights  = c(1.5, .5, .5),
-                                 color        = palette)
+                                 color        = palette_for_plot)
 
   ## ------ 4. styling helper  -------------------------------------------
   stylise <- function(p, show_x, show_y, show_legend) {
