@@ -49,8 +49,8 @@ run_gsea <- function(
     rank_metric   = "t",
     species       = "Mus musculus",
     db_species    = NULL,       # NEW: Database species (MM, HS, etc.) - if NULL, uses species-based lookup
-    collection    = "H",         # Default: Hallmark
-    subcollection = "",          # Default: empty for Hallmark
+    category      = "H",         # Default: Hallmark (msigdbr v7.5+ uses 'category')
+    subcategory   = NULL,        # Default: NULL for Hallmark (msigdbr v7.5+ uses 'subcategory')
     pvalue_cutoff = 1,
     padj_method   = "fdr",
     nperm         = 100000,
@@ -97,49 +97,27 @@ run_gsea <- function(
    }
 
   # Retrieve gene sets using msigdbr
-  # NEW BEHAVIOR: Support both db_species (MM/HS) and legacy species-only modes
-  if (!is.null(db_species)) {
-    message(paste("Fetching MSigDB sets with db_species='", db_species,
-                  "', species='", species,
-                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
+  # Note: msigdbr v7.5+ uses 'category' and 'subcategory' parameters (not 'collection'/'subcollection')
+  message(paste("Fetching MSigDB sets for species='", species,
+                "', category='", category, "', subcategory='",
+                ifelse(is.null(subcategory), "", subcategory), "'", sep=""))
 
-    # Use db_species parameter (new msigdbr API supporting native databases)
-    if (nzchar(subcollection)) {
-      msigdb_df <- msigdbr(
-        db_species    = db_species,  # Explicitly specify database (MM = mouse-native, HS = human)
-        species       = species,      # Output species (for ortholog mapping if db_species != species)
-        collection    = collection,
-        subcollection = subcollection
-      )
-    } else {
-      msigdb_df <- msigdbr(
-        db_species    = db_species,
-        species       = species,
-        collection    = collection
-      )
-    }
+  if (!is.null(subcategory) && nzchar(subcategory)) {
+    msigdb_df <- msigdbr(
+      species      = species,
+      category     = category,
+      subcategory  = subcategory
+    )
   } else {
-    # Legacy mode: species-only (uses human database with ortholog mapping)
-    message(paste("Fetching MSigDB sets for species='", species,
-                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
-
-    if (nzchar(subcollection)) {
-      msigdb_df <- msigdbr(
-        species       = species,
-        collection    = collection,
-        subcollection = subcollection
-      )
-    } else {
-      msigdb_df <- msigdbr(
-        species       = species,
-        collection    = collection
-      )
-    }
+    msigdb_df <- msigdbr(
+      species   = species,
+      category  = category
+    )
   }
   
   if(nrow(msigdb_df) == 0) {
-    stop(sprintf("No gene sets found for collection='%s', subcollection='%s'.\nUse msigdbr_collections() to see available collections.", 
-                 collection, subcollection))
+    stop(sprintf("No gene sets found for category='%s', subcategory='%s'.\nUse msigdbr_collections() to see available collections.",
+                 category, ifelse(is.null(subcategory), "", subcategory)))
   }
 
   # Prepare TERM2GENE dataframe
@@ -160,8 +138,8 @@ run_gsea <- function(
 
   # Check if GSEA result is valid
    if (is.null(GSEA_result) || nrow(GSEA_result@result) == 0) {
-       warning(sprintf("GSEA returned no significant results for collection='%s', subcollection='%s'.",
-                       collection, subcollection))
+       warning(sprintf("GSEA returned no significant results for category='%s', subcategory='%s'.",
+                       category, ifelse(is.null(subcategory), "", subcategory)))
        # Return the empty/NULL object as is
    } else {
         message("GSEA completed successfully.")
