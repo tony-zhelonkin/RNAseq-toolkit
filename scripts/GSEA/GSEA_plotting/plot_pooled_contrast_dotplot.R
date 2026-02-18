@@ -143,9 +143,9 @@ plot_pooled_contrast_dotplot <- function(
                                      fill = NES, size = negLogPadj)) +
         ggplot2::geom_point(shape = 21, color = "black") +
         ggplot2::scale_fill_gradient2(
-            low = "#91bfdb",
-            mid = "white",
-            high = "#fc8d59",
+            low = "#2166AC",
+            mid = "#F7F7F7",
+            high = "#B35806",
             midpoint = 0,
             name = "NES"
         ) +
