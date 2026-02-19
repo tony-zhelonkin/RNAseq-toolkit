@@ -18,6 +18,7 @@ A modular R toolkit for bulk RNA-seq analysis, focusing on Differential Expressi
   - [Differential Expression](#differential-expression-de)
   - [GSEA Processing](#gsea-processing)
   - [GSEA Visualization](#gsea-visualization)
+  - [ORA](#ora-over-representation-analysis)
   - [Shared Utilities](#shared-utilities)
 - [Design Patterns](#design-patterns)
 - [Usage Examples](#usage-examples)
@@ -82,7 +83,7 @@ gsea_result <- run_gsea(
   DE_results = de_table,
   rank_metric = "t",
   species = "Mus musculus",
-  category = "H"  # Hallmark
+  collection = "H"  # Hallmark; auto-detects msigdbr v7.5 vs v8+ API
 )
 
 # Create dotplot
@@ -144,6 +145,10 @@ RNAseq-toolkit/
 │   │   │
 │   │   └── GSEA_plotting_python/   # Python alternatives
 │   │
+│   ├── ORA/                        # Over-Representation Analysis
+│   │   ├── run_ora.R               # Fisher-exact ORA
+│   │   └── ora_dotplot.R           # ORA dotplot visualization
+│   │
 │   ├── custom_minimal_theme.R      # Publication ggplot2 theme
 │   └── utils_plotting.R            # DRY utilities
 │
@@ -183,7 +188,7 @@ RNAseq-toolkit/
 
 | Function | File | Description |
 |----------|------|-------------|
-| `run_gsea()` | `run_gsea.R` | Single-database GSEA via clusterProfiler |
+| `run_gsea()` | `run_gsea.R` | Single-database GSEA; auto-detects msigdbr v7.5/v8+ API |
 | `run_gsea_analysis()` | `run_gsea_analysis.R` | Multi-database pipeline with auto-plotting |
 | `run_pooled_gsea()` | `run_pooled_gsea.R` | Cross-contrast aggregation with scoring |
 | `normalize_gsea_results()` | `normalize_gsea.R` | Convert gseaResult to standardized tibble |
@@ -203,10 +208,17 @@ RNAseq-toolkit/
 | `gsea_dotplot_facet()` | `gsea_dotplot_facet.R` | Separate Up/Down panels |
 | `gsea_dotplot_compare()` | `gsea_dotplot_compare.R` | Side-by-side comparison |
 | `gsea_barplot()` | `gsea_barplot.R` | NES horizontal barplot |
-| `gsea_running_sum_plot()` | `gsea_running_sum_plot.R` | Classic enrichment curve |
+| `gsea_running_sum_plot()` | `gsea_running_sum_plot.R` | Enrichment curve; works with non-MSigDB external DBs |
 | `format_pathway_name()` | `format_pathway_names.R` | Smart biological capitalization |
 | `gsea_heatmap_save()` | `gsea_heatmap.R` | Sample x pathway heatmap |
 | `plot_pooled_contrast_dotplot()` | `plot_pooled_contrast_dotplot.R` | Cross-database dotplot |
+
+### ORA (Over-Representation Analysis)
+
+| Function | File | Description |
+|----------|------|-------------|
+| `run_ora()` | `ORA/run_ora.R` | Fisher-exact ORA against MSigDB or custom gene sets |
+| `ora_dotplot()` | `ORA/ora_dotplot.R` | Dotplot for ORA results with significance highlighting |
 
 ### Shared Utilities
 
@@ -330,8 +342,9 @@ for (db_name in names(databases)) {
     DE_results = de_table,
     rank_metric = "t",
     species = "Mus musculus",
-    category = databases[[db_name]][1],
-    subcategory = databases[[db_name]][2]
+    collection    = databases[[db_name]][1],
+    subcollection = databases[[db_name]][2]
+    # run_gsea() auto-detects msigdbr v7.5 (category/subcategory) vs v8+ (collection/subcollection)
   )
 }
 
@@ -449,7 +462,7 @@ library(scales)
 ### Version Requirements
 
 - R >= 4.0
-- msigdbr >= 7.5 (uses `category`/`subcategory`, not `collection`/`subcollection`)
+- msigdbr >= 7.5 (`run_gsea()` auto-detects v7.5 `category`/`subcategory` vs v8+ `collection`/`subcollection` API)
 - clusterProfiler >= 4.0
 
 ---
