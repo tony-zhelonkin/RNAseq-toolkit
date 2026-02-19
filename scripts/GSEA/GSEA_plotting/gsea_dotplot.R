@@ -1,9 +1,10 @@
-#' Enhanced GSEA Dotplot
+#' Enhanced GSEA Dotplot with Continuous NES Gradient
 #'
 #' Creates a dotplot showing gene ratio vs pathway descriptions.
-#' Unlike standard methods, this function separates "what to plot" (top N pathways by metric)
-#' from "what to highlight" (significance). This ensures top pathways are always visible,
-#' with significant ones highlighted by a border.
+#' Separates "what to plot" (top N pathways by metric) from "what to highlight"
+#' (significance). Top pathways are always visible; significant ones are
+#' highlighted with a black border. Uses continuous NES gradient coloring
+#' (Blue-White-Orange colorblind-safe palette).
 #'
 #' @param gsea_obj GSEA result object
 #' @param filterBy Method to sort/filter results:
@@ -16,9 +17,10 @@
 #' @param padj_cutoff Significance threshold for highlighting (drawing black outline)
 #' @param title Plot title
 #' @param wrap_width Width for text wrapping
-#' @param pos_color Color for positive NES (used when use_gradient=FALSE, or as gradient high)
-#' @param neg_color Color for negative NES (used when use_gradient=FALSE, or as gradient low)
-#' @param mid_color Color for zero NES (midpoint of gradient, default white)
+#' @param neg_color Color for negative NES (default: colorblind-safe blue #2166AC)
+#' @param mid_color Color for zero NES (default: white #F7F7F7)
+#' @param pos_color Color for positive NES (default: colorblind-safe orange #B35806)
+#' @param nes_limits Numeric vector of length 2 for symmetric NES limits (auto if NULL)
 #' @param min.dotSize Minimum dot size
 #' @param max.dotSize Maximum dot size
 #' @param highlight_sig Whether to highlight significant points with black outline.
@@ -27,13 +29,15 @@
 #'        If NULL (default), uses padj_cutoff. Set explicitly to override.
 #' @param strip_prefix Logical, whether to strip common prefixes like "HALLMARK_"
 #' @param use_gradient Logical, use continuous gradient for NES (TRUE) or binary colors (FALSE)
-#' @param nes_limits Numeric vector of length 2 for symmetric NES limits (auto if NULL)
 #'
 #' @return A ggplot2 object
 #' @export
 #'
 #' @note Requires format_pathway_name() function to be available in environment.
 #'       This is typically sourced by run_gsea_analysis() before calling this function.
+#'
+#' @note Color scheme updated 2025-12-02 to use continuous NES gradient
+#'       (colorblind-safe Blue-White-Orange) matching Python publication figures.
 
 gsea_dotplot <- function(
     gsea_obj,
@@ -43,9 +47,9 @@ gsea_dotplot <- function(
     padj_cutoff = 0.05,
     title = "GSEA Dotplot",
     wrap_width = 50,
-    pos_color = "#B35806",
     neg_color = "#2166AC",
     mid_color = "#F7F7F7",
+    pos_color = "#B35806",
     min.dotSize = 2,
     max.dotSize = 10,
     highlight_sig = TRUE,
@@ -67,7 +71,6 @@ gsea_dotplot <- function(
         ifelse(nchar(gsea_data$core_enrichment) > 0, 1, 0)
     gsea_data$GeneRatio <- gsea_data$count / gsea_data$setSize
     gsea_data$negLogPval <- -log10(gsea_data[[sig_col]])
-    gsea_data$NES_sign <- ifelse(gsea_data$NES > 0, "Positive NES", "Negative NES")
 
     # Format pathway names using smart capitalization with biological exceptions
     gsea_data$Description <- format_pathway_name(
@@ -201,7 +204,7 @@ gsea_dotplot <- function(
             )
     }
 
-    # Add outline for significant points if requested
+    # Add outline for highly significant points if requested
     if (highlight_sig) {
         # Use explicit threshold if provided, otherwise default to padj_cutoff
         if (!is.null(highlight_threshold)) {
@@ -281,8 +284,6 @@ gsea_dotplot <- function(
             plot.margin = ggplot2::margin(10, 10, 10, 10),
             axis.text.y = ggplot2::element_text(size = y_font_size)
         )
-
-
 
     return(p)
 }

@@ -10,7 +10,8 @@ Complete function documentation for RNAseq-toolkit.
 2. [GSEA Visualization](#gsea-visualization)
 3. [Differential Expression](#differential-expression)
 4. [General Utilities](#general-utilities)
-5. [Shared Utilities](#shared-utilities)
+5. [ORA (Over-Representation Analysis)](#ora-over-representation-analysis)
+6. [Shared Utilities](#shared-utilities)
 
 ---
 
@@ -703,7 +704,7 @@ build_dge(
 
 **File:** `scripts/General/io_helpers.R`
 
-Read count matrix from various formats.
+Read count matrix from various formats (featureCounts, generic TSV/CSV). Returns a numeric matrix with gene IDs as rownames.
 
 ```r
 read_counts_matrix(
@@ -712,6 +713,162 @@ read_counts_matrix(
   gene_id_col = 1
 )
 ```
+
+---
+
+### read_metadata()
+
+**File:** `scripts/General/io_helpers.R`
+
+Read sample metadata from an Excel file with validation. Returns a data.frame with samples as rows.
+
+```r
+read_metadata(xlsx_fp)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `xlsx_fp` | character | Path to `.xlsx` metadata file |
+
+---
+
+### align_metadata_to_counts()
+
+**File:** `scripts/General/io_helpers.R`
+
+Reorder metadata rows to match count matrix column order. Stops with an error if samples do not match.
+
+```r
+align_metadata_to_counts(md, counts_cols)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `md` | data.frame | Metadata with sample IDs |
+| `counts_cols` | character | Column names of count matrix (colnames of counts) |
+
+**Returns:** data.frame aligned to `counts_cols` order
+
+---
+
+## ORA (Over-Representation Analysis)
+
+### run_ora()
+
+**File:** `scripts/ORA/run_ora.R`
+
+Run GO Over-Representation Analysis (Fisher's exact test) against an organism annotation database.
+
+```r
+run_ora(
+  gene_list,
+  species = "Mus musculus",
+  ont = "BP",
+  pvalue_cutoff = 0.05,
+  qvalue_cutoff = 0.2,
+  min_gs_size = 10,
+  max_gs_size = 500
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gene_list` | character | required | Gene symbols to test |
+| `species` | character | "Mus musculus" | "Mus musculus" or "Homo sapiens" |
+| `ont` | character | "BP" | GO ontology: "BP", "MF", "CC", or "ALL" |
+| `pvalue_cutoff` | numeric | 0.05 | P-value cutoff |
+| `qvalue_cutoff` | numeric | 0.2 | Q-value cutoff |
+| `min_gs_size` | integer | 10 | Minimum gene set size |
+| `max_gs_size` | integer | 500 | Maximum gene set size |
+
+**Returns:** `enrichResult` object (clusterProfiler), or `NULL` if no enrichment found
+
+**Example:**
+
+```r
+sig_genes <- rownames(de_table)[de_table$adj.P.Val < 0.05]
+ora_result <- run_ora(sig_genes, species = "Mus musculus", ont = "BP")
+```
+
+---
+
+### run_ora_all_ontologies()
+
+**File:** `scripts/ORA/run_ora.R`
+
+Convenience wrapper that runs `run_ora()` for all three GO ontologies (BP, MF, CC) and returns a named list.
+
+```r
+run_ora_all_ontologies(gene_list, species = "Mus musculus", ...)
+```
+
+**Returns:** Named list: `list(BP = enrichResult, MF = enrichResult, CC = enrichResult)`
+
+---
+
+### normalize_ora_results()
+
+**File:** `scripts/ORA/run_ora.R`
+
+Convert `enrichResult` to a standardized tibble for aggregation and cross-database comparison.
+
+```r
+normalize_ora_results(
+  ora_result,
+  database = "GO",
+  module = "unknown",
+  padj_cutoff = 1,
+  format_names = TRUE,
+  max_name_length = 60
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ora_result` | enrichResult | required | Output from `run_ora()` |
+| `database` | character | "GO" | Label for the database (e.g., "GO_BP", "KEGG") |
+| `module` | character | "unknown" | Gene list name for labeling |
+| `padj_cutoff` | numeric | 1 | Filter to padj ≤ cutoff (1 = no filter) |
+| `format_names` | logical | TRUE | Apply smart name cleaning |
+| `max_name_length` | integer | 60 | Truncate long term names |
+
+**Returns:** tibble with columns: `term_id`, `term_name`, `database`, `module`, `gene_count`, `gene_ratio`, `pvalue`, `padj`, `genes`
+
+---
+
+### ora_dotplot()
+
+**File:** `scripts/ORA/ora_dotplot.R`
+
+Create a publication-quality dotplot for ORA results.
+
+```r
+ora_dotplot(
+  ora_result,
+  top_n = 20,
+  sort_by = "padj",
+  padj_cutoff = 0.05,
+  title = NULL,
+  show_padj_threshold = TRUE,
+  color_by = "neg_log_padj",
+  size_by = "gene_count",
+  strip_prefix = TRUE,
+  max_name_length = 50,
+  base_size = 11
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ora_result` | enrichResult | required | Output from `run_ora()` |
+| `top_n` | integer | 20 | Number of top terms to display |
+| `sort_by` | character | "padj" | Sort terms by "padj" or "gene_ratio" |
+| `padj_cutoff` | numeric | 0.05 | Show only terms with padj ≤ cutoff |
+| `title` | character | NULL | Plot title (auto-generated if NULL) |
+| `color_by` | character | "neg_log_padj" | Color aesthetic: "neg_log_padj" or "gene_ratio" |
+| `size_by` | character | "gene_count" | Size aesthetic: "gene_count" or "gene_ratio" |
+
+**Returns:** ggplot object (or empty-results plot if no significant terms)
 
 ---
 

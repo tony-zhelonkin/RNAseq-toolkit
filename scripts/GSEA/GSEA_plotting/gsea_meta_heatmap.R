@@ -64,7 +64,7 @@ gsea_heatmap_save <- function(nes_matrix,
     ph <- pheatmap::pheatmap(
             mat                = nes_matrix,
             color              = colorRampPalette(
-                                    c("#4575B4","white","#D73027"))(100),
+                                    c("#2166AC","#F7F7F7","#B35806"))(100),
             scale              = "none",
             clustering_method  = "complete",
             cluster_rows       = TRUE,

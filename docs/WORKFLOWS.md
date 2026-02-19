@@ -38,23 +38,23 @@ source("{path}/RNAseq-toolkit/scripts/custom_minimal_theme.R")
 
 ```r
 gsea_result <- run_gsea(
-  DE_results   = de_table,          # data.frame, rownames = gene symbols
-  rank_metric  = "t",               # Column to rank by (default: "t")
-  species      = "Mus musculus",    # or "Homo sapiens"
-  category     = "H",               # MSigDB: H, C2, C3, C5, etc.
-  subcategory  = NULL,              # e.g., "CP:KEGG", "BP", "CP:REACTOME"
+  DE_results    = de_table,         # data.frame, rownames = gene symbols
+  rank_metric   = "t",              # Column to rank by (default: "t")
+  species       = "Mus musculus",   # or "Homo sapiens"
+  collection    = "H",              # MSigDB: H, C2, C3, C5, etc.
+  subcollection = NULL,             # e.g., "CP:KEGG", "GO:BP", "CP:REACTOME"
   pvalue_cutoff = 1,                # Filter at GSEA step (1 = no filter)
-  nperm        = 100000,            # Permutations
-  seed         = 123                # Reproducibility
+  nperm         = 100000,           # Permutations
+  seed          = 123               # Reproducibility
 )
 ```
 
 **Returns:** `gseaResult` S4 object from clusterProfiler.
 
-**Category/Subcategory Reference:**
+**Collection/Subcollection Reference:**
 
-| Database | category | subcategory |
-|----------|----------|-------------|
+| Database | collection | subcollection |
+|----------|------------|---------------|
 | Hallmark | `"H"` | `NULL` |
 | KEGG | `"C2"` | `"CP:KEGG"` |
 | Reactome | `"C2"` | `"CP:REACTOME"` |
@@ -276,7 +276,7 @@ source("{path}/RNAseq-toolkit/scripts/GSEA/GSEA_processing/normalize_gsea.R")
 
 # 2. Run GSEA per database
 for (db in databases) {
-  gsea_result <- run_gsea(de_table, category = db$cat, subcategory = db$subcat)
+  gsea_result <- run_gsea(de_table, collection = db$cat, subcollection = db$subcat)
   all_results[[db$name]] <- gsea_result
 }
 
@@ -378,7 +378,7 @@ library(clusterProfiler)
 library(msigdbr)
 
 # === Run Hallmark GSEA ===
-gsea_H <- run_gsea(de_results, category = "H", species = "Mus musculus")
+gsea_H <- run_gsea(de_results, collection = "H", species = "Mus musculus")
 
 # === Normalize ===
 df <- normalize_gsea_results(gsea_H, database = "Hallmark", contrast = "Treatment_vs_Control")
