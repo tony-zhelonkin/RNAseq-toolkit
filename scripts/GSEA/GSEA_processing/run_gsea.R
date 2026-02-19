@@ -103,37 +103,63 @@ run_gsea <- function(
                   "', species='", species,
                   "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
 
-    # Use db_species parameter (new msigdbr API supporting native databases)
-    if (nzchar(subcollection)) {
-      msigdb_df <- msigdbr(
-        db_species    = db_species,  # Explicitly specify database (MM = mouse-native, HS = human)
-        species       = species,      # Output species (for ortholog mapping if db_species != species)
-        collection    = collection,
-        subcollection = subcollection
-      )
+    # Map parameter names to installed msigdbr version
+    # v7.5.x uses: species, category, subcategory
+    # v8+ uses: db_species, species, collection, subcollection
+    msigdbr_params <- names(formals(msigdbr::msigdbr))
+    use_new_api <- "collection" %in% msigdbr_params
+
+    if (use_new_api) {
+      # New API (v8+)
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(
+          db_species    = db_species,
+          species       = species,
+          collection    = collection,
+          subcollection = subcollection
+        )
+      } else {
+        msigdb_df <- msigdbr(
+          db_species    = db_species,
+          species       = species,
+          collection    = collection
+        )
+      }
     } else {
-      msigdb_df <- msigdbr(
-        db_species    = db_species,
-        species       = species,
-        collection    = collection
-      )
+      # Legacy API (v7.5.x): category/subcategory
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(
+          species       = species,
+          category      = collection,
+          subcategory   = subcollection
+        )
+      } else {
+        msigdb_df <- msigdbr(
+          species       = species,
+          category      = collection
+        )
+      }
     }
   } else {
     # Legacy mode: species-only (uses human database with ortholog mapping)
     message(paste("Fetching MSigDB sets for species='", species,
                   "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
 
-    if (nzchar(subcollection)) {
-      msigdb_df <- msigdbr(
-        species       = species,
-        collection    = collection,
-        subcollection = subcollection
-      )
+    msigdbr_params <- names(formals(msigdbr::msigdbr))
+    use_new_api <- "collection" %in% msigdbr_params
+
+    if (use_new_api) {
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(species = species, collection = collection, subcollection = subcollection)
+      } else {
+        msigdb_df <- msigdbr(species = species, collection = collection)
+      }
     } else {
-      msigdb_df <- msigdbr(
-        species       = species,
-        collection    = collection
-      )
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(species = species, category = collection, subcategory = subcollection)
+      } else {
+        msigdb_df <- msigdbr(species = species, category = collection)
+      }
     }
   }
   
