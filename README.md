@@ -87,7 +87,7 @@ gsea_result <- run_gsea(
 )
 
 # Create dotplot
-plot <- gsea_dotplot(gsea_result, n_top = 20, padj_cutoff = 0.05)
+plot <- gsea_dotplot(gsea_result, showCategory = 20, padj_cutoff = 0.05)
 
 # Create volcano plot
 volcano <- create_standard_volcano(
@@ -96,6 +96,13 @@ volcano <- create_standard_volcano(
   p_cutoff = 0.05,
   fc_cutoff = 2
 )
+
+# Run ORA on a gene list (e.g. significant DE genes)
+source("01_modules/RNAseq-toolkit/scripts/ORA/run_ora.R")
+source("01_modules/RNAseq-toolkit/scripts/ORA/ora_dotplot.R")
+sig_genes  <- rownames(de_table)[de_table$adj.P.Val < 0.05]
+ora_result <- run_ora(sig_genes, species = "Mus musculus", ont = "BP")
+ora_plot   <- ora_dotplot(ora_result, top_n = 20, padj_cutoff = 0.05)
 ```
 
 ---
@@ -352,7 +359,7 @@ for (db_name in names(databases)) {
 for (db_name in names(results)) {
   plot <- gsea_dotplot(
     results[[db_name]],
-    n_top = 20,
+    showCategory = 20,
     padj_cutoff = 0.05,
     title = paste(db_name, "Pathways")
   )
@@ -516,7 +523,7 @@ git push origin dev-YourProject
 5. **Update documentation** if adding new features
 6. **Submit PR** to `dev` branch
 
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
+Follow snake_case naming, 2-space indentation, and add roxygen2 docs + a visual regression test for any new plotting function.
 
 ---
 
