@@ -49,8 +49,8 @@ run_gsea <- function(
     rank_metric   = "t",
     species       = "Mus musculus",
     db_species    = NULL,       # NEW: Database species (MM, HS, etc.) - if NULL, uses species-based lookup
-    category      = "H",         # Default: Hallmark (msigdbr v7.5+ uses 'category')
-    subcategory   = NULL,        # Default: NULL for Hallmark (msigdbr v7.5+ uses 'subcategory')
+    collection    = "H",         # Default: Hallmark
+    subcollection = "",          # Default: empty for Hallmark
     pvalue_cutoff = 1,
     padj_method   = "fdr",
     nperm         = 100000,
@@ -97,27 +97,75 @@ run_gsea <- function(
    }
 
   # Retrieve gene sets using msigdbr
-  # Note: msigdbr v7.5+ uses 'category' and 'subcategory' parameters (not 'collection'/'subcollection')
-  message(paste("Fetching MSigDB sets for species='", species,
-                "', category='", category, "', subcategory='",
-                ifelse(is.null(subcategory), "", subcategory), "'", sep=""))
+  # NEW BEHAVIOR: Support both db_species (MM/HS) and legacy species-only modes
+  if (!is.null(db_species)) {
+    message(paste("Fetching MSigDB sets with db_species='", db_species,
+                  "', species='", species,
+                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
 
-  if (!is.null(subcategory) && nzchar(subcategory)) {
-    msigdb_df <- msigdbr(
-      species      = species,
-      category     = category,
-      subcategory  = subcategory
-    )
+    # Map parameter names to installed msigdbr version
+    # v7.5.x uses: species, category, subcategory
+    # v8+ uses: db_species, species, collection, subcollection
+    msigdbr_params <- names(formals(msigdbr::msigdbr))
+    use_new_api <- "collection" %in% msigdbr_params
+
+    if (use_new_api) {
+      # New API (v8+)
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(
+          db_species    = db_species,
+          species       = species,
+          collection    = collection,
+          subcollection = subcollection
+        )
+      } else {
+        msigdb_df <- msigdbr(
+          db_species    = db_species,
+          species       = species,
+          collection    = collection
+        )
+      }
+    } else {
+      # Legacy API (v7.5.x): category/subcategory
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(
+          species       = species,
+          category      = collection,
+          subcategory   = subcollection
+        )
+      } else {
+        msigdb_df <- msigdbr(
+          species       = species,
+          category      = collection
+        )
+      }
+    }
   } else {
-    msigdb_df <- msigdbr(
-      species   = species,
-      category  = category
-    )
+    # Legacy mode: species-only (uses human database with ortholog mapping)
+    message(paste("Fetching MSigDB sets for species='", species,
+                  "', collection='", collection, "', subcollection='", subcollection, "'", sep=""))
+
+    msigdbr_params <- names(formals(msigdbr::msigdbr))
+    use_new_api <- "collection" %in% msigdbr_params
+
+    if (use_new_api) {
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(species = species, collection = collection, subcollection = subcollection)
+      } else {
+        msigdb_df <- msigdbr(species = species, collection = collection)
+      }
+    } else {
+      if (nzchar(subcollection)) {
+        msigdb_df <- msigdbr(species = species, category = collection, subcategory = subcollection)
+      } else {
+        msigdb_df <- msigdbr(species = species, category = collection)
+      }
+    }
   }
   
   if(nrow(msigdb_df) == 0) {
-    stop(sprintf("No gene sets found for category='%s', subcategory='%s'.\nUse msigdbr_collections() to see available collections.",
-                 category, ifelse(is.null(subcategory), "", subcategory)))
+    stop(sprintf("No gene sets found for collection='%s', subcollection='%s'.\nUse msigdbr_collections() to see available collections.", 
+                 collection, subcollection))
   }
 
   # Prepare TERM2GENE dataframe
@@ -138,8 +186,8 @@ run_gsea <- function(
 
   # Check if GSEA result is valid
    if (is.null(GSEA_result) || nrow(GSEA_result@result) == 0) {
-       warning(sprintf("GSEA returned no significant results for category='%s', subcategory='%s'.",
-                       category, ifelse(is.null(subcategory), "", subcategory)))
+       warning(sprintf("GSEA returned no significant results for collection='%s', subcollection='%s'.",
+                       collection, subcollection))
        # Return the empty/NULL object as is
    } else {
         message("GSEA completed successfully.")

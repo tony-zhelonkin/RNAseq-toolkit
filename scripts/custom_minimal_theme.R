@@ -32,8 +32,8 @@ custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
       panel.grid.minor = ggplot2::element_blank(),
       
       # Ensure axis lines and ticks are visible
-      axis.line = ggplot2::element_line(color = "black", size = 0.5),
-      axis.ticks = ggplot2::element_line(color = "black", size = 0.5),
+      axis.line = ggplot2::element_line(color = "black", linewidth = 0.5),
+      axis.ticks = ggplot2::element_line(color = "black", linewidth = 0.5),
       
       # No panel border
       panel.border = ggplot2::element_blank(),

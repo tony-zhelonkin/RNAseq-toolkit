@@ -1,31 +1,43 @@
-#' Enhanced GSEA Dotplot
+#' Enhanced GSEA Dotplot with Continuous NES Gradient
 #'
-#' Creates a dotplot showing gene ratio vs pathway descriptions with improved filtering
-#' and highlighting of significant results.
+#' Creates a dotplot showing gene ratio vs pathway descriptions.
+#' Separates "what to plot" (top N pathways by metric) from "what to highlight"
+#' (significance). Top pathways are always visible; significant ones are
+#' highlighted with a black border. Uses continuous NES gradient coloring
+#' (Blue-White-Orange colorblind-safe palette).
 #'
 #' @param gsea_obj GSEA result object
-#' @param filterBy Method to filter results ("NES_positive", "NES_negative", "p.adjust", "NES")
-#' @param sortBy How to sort results ("GeneRatio" or "p.adjust")
-#' @param showCategory Number of pathways to show
-#' @param padj_cutoff Adjusted p-value cutoff
+#' @param filterBy Method to sort/filter results:
+#'        - "p.adjust": Sort by significance (default)
+#'        - "NES": Sort by absolute NES magnitude
+#'        - "NES_positive": Keep only positive NES, sort by NES
+#'        - "NES_negative": Keep only negative NES, sort by NES
+#' @param sortBy Secondary sort for display ("GeneRatio" or "p.adjust")
+#' @param showCategory Number of top pathways to show
+#' @param padj_cutoff Significance threshold for highlighting (drawing black outline)
 #' @param title Plot title
 #' @param wrap_width Width for text wrapping
-#' @param pos_color Color for positive NES (used when use_gradient=FALSE, or as gradient high)
-#' @param neg_color Color for negative NES (used when use_gradient=FALSE, or as gradient low)
-#' @param mid_color Color for zero NES (midpoint of gradient, default white)
+#' @param neg_color Color for negative NES (default: colorblind-safe blue #2166AC)
+#' @param mid_color Color for zero NES (default: white #F7F7F7)
+#' @param pos_color Color for positive NES (default: colorblind-safe orange #B35806)
+#' @param nes_limits Numeric vector of length 2 for symmetric NES limits (auto if NULL)
 #' @param min.dotSize Minimum dot size
 #' @param max.dotSize Maximum dot size
-#' @param highlight_sig Whether to highlight highly significant points (FDR < padj_cutoff/10)
-#'        with black outline. Base points have no outline; legend shows solid black circles.
+#' @param highlight_sig Whether to highlight significant points with black outline.
+#'        Base points have no outline; legend shows solid black circles.
+#' @param highlight_threshold FDR threshold for highlighting significant points.
+#'        If NULL (default), uses padj_cutoff. Set explicitly to override.
 #' @param strip_prefix Logical, whether to strip common prefixes like "HALLMARK_"
 #' @param use_gradient Logical, use continuous gradient for NES (TRUE) or binary colors (FALSE)
-#' @param nes_limits Numeric vector of length 2 for symmetric NES limits (auto if NULL)
 #'
 #' @return A ggplot2 object
 #' @export
 #'
 #' @note Requires format_pathway_name() function to be available in environment.
 #'       This is typically sourced by run_gsea_analysis() before calling this function.
+#'
+#' @note Color scheme updated 2025-12-02 to use continuous NES gradient
+#'       (colorblind-safe Blue-White-Orange) matching Python publication figures.
 
 gsea_dotplot <- function(
     gsea_obj,
@@ -35,16 +47,20 @@ gsea_dotplot <- function(
     padj_cutoff = 0.05,
     title = "GSEA Dotplot",
     wrap_width = 50,
-    pos_color = "#B35806",
     neg_color = "#2166AC",
     mid_color = "#F7F7F7",
+    pos_color = "#B35806",
     min.dotSize = 2,
     max.dotSize = 10,
     highlight_sig = TRUE,
+    highlight_threshold = NULL,
     strip_prefix = TRUE,
     use_gradient = TRUE,
     nes_limits = NULL) {
-    # Extract and filter data
+    # ========================================================================
+    # STAGE 1: DATA PREPARATION
+    # Extract all pathways and compute display metrics (no filtering)
+    # ========================================================================
     gsea_data <- as.data.frame(gsea_obj@result)
 
     # Use qvalue if present, otherwise p.adjust
@@ -55,7 +71,6 @@ gsea_dotplot <- function(
         ifelse(nchar(gsea_data$core_enrichment) > 0, 1, 0)
     gsea_data$GeneRatio <- gsea_data$count / gsea_data$setSize
     gsea_data$negLogPval <- -log10(gsea_data[[sig_col]])
-    gsea_data$NES_sign <- ifelse(gsea_data$NES > 0, "Positive NES", "Negative NES")
 
     # Format pathway names using smart capitalization with biological exceptions
     gsea_data$Description <- format_pathway_name(
@@ -96,22 +111,20 @@ gsea_dotplot <- function(
         return(txt)
     }, USE.NAMES = FALSE)
 
-    # Initial filtering by significance
-    gsea_data_filtered <- gsea_data[gsea_data[[sig_col]] < padj_cutoff, ]
-
-    if (nrow(gsea_data_filtered) == 0) {
-        return(ggplot2::ggplot() +
-            ggplot2::labs(title = paste(title, "(No significant pathways)")))
-    }
-
-    # Apply direction filtering if needed
+    # ========================================================================
+    # STAGE 2: PATHWAY SELECTION
+    # Select which pathways to SHOW (not based on significance!)
+    # - filterBy controls sorting method (NES, p.adjust, direction)
+    # - showCategory controls how many pathways to display
+    # Significance only controls HIGHLIGHTING (black outline), not visibility
+    # ========================================================================
+    gsea_data_filtered <- gsea_data
     if (filterBy == "NES_positive") {
         # Filter for positive NES values
         pos_data <- gsea_data_filtered[gsea_data_filtered$NES > 0, ]
         if (nrow(pos_data) > 0) {
             gsea_data_filtered <- pos_data[order(pos_data$NES, decreasing = TRUE), ]
         } else {
-            # If no positive NES values, return empty plot with message
             return(ggplot2::ggplot() +
                 ggplot2::labs(title = paste(title, "(No positive NES pathways)")))
         }
@@ -121,14 +134,14 @@ gsea_dotplot <- function(
         if (nrow(neg_data) > 0) {
             gsea_data_filtered <- neg_data[order(neg_data$NES), ]
         } else {
-            # If no negative NES values, return empty plot with message
             return(ggplot2::ggplot() +
                 ggplot2::labs(title = paste(title, "(No negative NES pathways)")))
         }
     } else if (filterBy == "NES") {
+        # Sort by absolute NES magnitude
         gsea_data_filtered <- gsea_data_filtered[order(abs(gsea_data_filtered$NES), decreasing = TRUE), ]
     } else {
-        # Default to p.adjust sorting
+        # Default to p.adjust sorting (most significant first)
         gsea_data_filtered <- gsea_data_filtered[order(gsea_data_filtered[[sig_col]]), ]
     }
 
@@ -140,7 +153,10 @@ gsea_dotplot <- function(
     # Take top categories
     gsea_data_filtered <- utils::head(gsea_data_filtered, showCategory)
 
-    # Sort for display
+    # ========================================================================
+    # STAGE 3: DISPLAY ORDERING
+    # Reorder selected pathways for y-axis arrangement
+    # ========================================================================
     if (sortBy == "GeneRatio") {
         plot_data <- gsea_data_filtered[order(gsea_data_filtered$GeneRatio, decreasing = TRUE), ]
     } else {
@@ -158,7 +174,12 @@ gsea_dotplot <- function(
         nes_limits <- c(-nes_max, nes_max)
     }
 
-    # Create base plot with conditional aesthetics
+    # ========================================================================
+    # STAGE 4: VISUALIZATION
+    # Build ggplot with two layers:
+    # - Base layer: ALL selected pathways, colored by NES, NO outline
+    # - Overlay layer: ONLY significant pathways get black outline
+    # ========================================================================
     if (use_gradient) {
         # Use continuous fill for NES gradient
         # Base points have NO outline; black outline added only for significant points
@@ -169,7 +190,8 @@ gsea_dotplot <- function(
                     fill = NES
                 ),
                 shape = 21,  # Filled circle with border
-                stroke = 0   # No outline on base points
+                stroke = 0,  # No outline on base points
+                color = "transparent"  # Transparent border (NA causes removal in ggplot2 4.0+)
             )
     } else {
         # Use binary colors for NES direction
@@ -182,14 +204,19 @@ gsea_dotplot <- function(
             )
     }
 
-    # Add outline for significant points if requested
+    # Add outline for highly significant points if requested
     if (highlight_sig) {
-        padj_cutoff_num <- as.numeric(padj_cutoff)
-        if (is.na(padj_cutoff_num)) {
-            warning("padj_cutoff is not numeric, using default value of 0.05")
-            padj_cutoff_num <- 0.05
+        # Use explicit threshold if provided, otherwise default to padj_cutoff
+        if (!is.null(highlight_threshold)) {
+            high_sig_threshold <- as.numeric(highlight_threshold)
+        } else {
+            padj_cutoff_num <- as.numeric(padj_cutoff)
+            if (is.na(padj_cutoff_num)) {
+                warning("padj_cutoff is not numeric, using default value of 0.05")
+                padj_cutoff_num <- 0.05
+            }
+            high_sig_threshold <- padj_cutoff_num
         }
-        high_sig_threshold <- padj_cutoff_num / 10
         highlight_data <- plot_data[plot_data[[sig_col]] < high_sig_threshold, ]
 
         if (nrow(highlight_data) > 0) {
@@ -197,7 +224,7 @@ gsea_dotplot <- function(
                 ggplot2::geom_point(
                     data = highlight_data,
                     ggplot2::aes(size = negLogPval),
-                    shape = 21, color = "black", fill = NA, stroke = 1.2
+                    shape = 21, color = "black", fill = NA, stroke = 2  # Thick black outline for significant
                 )
         }
     }
@@ -257,8 +284,6 @@ gsea_dotplot <- function(
             plot.margin = ggplot2::margin(10, 10, 10, 10),
             axis.text.y = ggplot2::element_text(size = y_font_size)
         )
-
-
 
     return(p)
 }
