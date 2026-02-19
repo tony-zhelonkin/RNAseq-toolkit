@@ -10,7 +10,9 @@
 #' @param output_dir Directory to save plots
 #' @param databases List of databases to analyze (default: NULL, uses predefined set)
 #' @param nperm Number of permutations for GSEA (default: 100000)
-#' @param pvalue_cutoff P-value cutoff for GSEA (default: 0.05)
+#' @param pvalue_cutoff P-value cutoff for storing GSEA results (default: 1, stores ALL pathways).
+#'        Set to 1 to retain all pathways in results for downstream analysis.
+#'        Display filtering is controlled separately by padj_cutoff.
 #'
 #' @return List of GSEA results for each database
 #' @export
@@ -31,7 +33,7 @@ run_gsea_analysis <- function(
     output_dir = "./GSEA_Plots",
     databases = NULL,
     nperm = 100000,
-    pvalue_cutoff = 0.05,
+    pvalue_cutoff = 1, # save all pathways for downstream visualisations
     sample_annotation = NULL,
     sample_order = NULL,
     helper_root = NULL # <── NEW  (default = NULL)

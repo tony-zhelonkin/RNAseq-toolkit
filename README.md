@@ -1,331 +1,534 @@
-# RNAseq toolkit 
+# RNAseq-toolkit
 
-An R toolkit for RNA-seq data analysis with personal convenience scripts, focusing on Differential Expression (DE) analysis visualization and Gene Set Enrichment Analysis (GSEA) processing and visualization. These tools are designed primarily for use with `limma`/`edgeR` DE results and `clusterProfiler`/`msigdbr` GSEA results.
+A modular R toolkit for bulk RNA-seq analysis, focusing on Differential Expression visualization and Gene Set Enrichment Analysis. Built for reproducibility, designed for bioinformatics workflows.
 
-## Overview
+**Version:** 2.0.0
+**License:** MIT
+**Author:** Anton Zhelonkin
 
-This collection provides a modular set of R functions for:
+---
 
-1.  **Differential Expression (DE) Visualization:** Creating volcano plots (standard and pathway-focused) and PCA plots (2D and 3D).
-2.  **Gene Set Enrichment Analysis (GSEA):** Running GSEA using `clusterProfiler` with gene sets from `msigdbr`, processing results across multiple contrasts, calculating pathway scores, and generating various GSEA plots (dotplots, barplots, heatmaps, running sum plots).
-3.  **Custom Visualization Theme:** A minimal ggplot2 theme (`custom_minimal_theme_with_grid`) for consistent plot aesthetics.
+## Table of Contents
 
-## Script Organization
+- [Philosophy](#philosophy)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Module Reference](#module-reference)
+  - [General Utilities](#general-utilities)
+  - [Differential Expression](#differential-expression-de)
+  - [GSEA Processing](#gsea-processing)
+  - [GSEA Visualization](#gsea-visualization)
+  - [ORA](#ora-over-representation-analysis)
+  - [Shared Utilities](#shared-utilities)
+- [Design Patterns](#design-patterns)
+- [Usage Examples](#usage-examples)
+- [Dependencies](#dependencies)
+- [Git Workflow](#git-workflow)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Philosophy
+
+This toolkit implements the **"Normalize Once, Visualize Many"** principle:
+
+### Core Tenets
+
+1. **Separation of Concerns**
+   - Data processing scripts never plot
+   - Visualization scripts never compute
+   - Config files never contain logic
+
+2. **Checkpoint Everything Expensive**
+   - Any computation taking >1 minute should be cached
+   - First run: 45-60 minutes; subsequent runs: 5-10 minutes
+   - Use `load_or_compute()` pattern for caching
+
+3. **Single Source of Truth**
+   - Configuration lives in one YAML file
+   - Colors defined once, used everywhere
+   - Schemas validated at every boundary
+
+4. **Master Tables as Bridges**
+   - CSV exports connect R computation to Python visualization
+   - Standardized schemas enable cross-tool compatibility
+   - No language lock-in
+
+5. **Decision by FDR, Display by Raw P**
+   - Volcano plots use FDR for significance decisions
+   - Y-axis displays -log10(raw p-value) for maximal resolution
+   - Avoids stair-step artifacts of plotting -log10(FDR)
+
+### Guiding Questions
+
+Before writing code, ask:
+- Does a checkpoint already exist for this computation?
+- Is this the right phase for this code (processing vs visualization)?
+- Is there a single source of truth for this parameter/color/threshold?
+- Can this be done with existing toolkit functions?
+
+---
+
+## Quick Start
+
+```r
+# Source the toolkit from your project
+source("01_modules/RNAseq-toolkit/scripts/GSEA/GSEA_processing/run_gsea.R")
+source("01_modules/RNAseq-toolkit/scripts/GSEA/GSEA_plotting/gsea_dotplot.R")
+source("01_modules/RNAseq-toolkit/scripts/DE/plot_standard_volcano.R")
+
+# Run GSEA on DE results
+gsea_result <- run_gsea(
+  DE_results = de_table,
+  rank_metric = "t",
+  species = "Mus musculus",
+  collection = "H"  # Hallmark; auto-detects msigdbr v7.5 vs v8+ API
+)
+
+# Create dotplot
+plot <- gsea_dotplot(gsea_result, showCategory = 20, padj_cutoff = 0.05)
+
+# Create volcano plot
+volcano <- create_standard_volcano(
+  de_results,
+  decision_by = "fdr",
+  p_cutoff = 0.05,
+  fc_cutoff = 2
+)
+
+# Run ORA on a gene list (e.g. significant DE genes)
+source("01_modules/RNAseq-toolkit/scripts/ORA/run_ora.R")
+source("01_modules/RNAseq-toolkit/scripts/ORA/ora_dotplot.R")
+sig_genes  <- rownames(de_table)[de_table$adj.P.Val < 0.05]
+ora_result <- run_ora(sig_genes, species = "Mus musculus", ont = "BP")
+ora_plot   <- ora_dotplot(ora_result, top_n = 20, padj_cutoff = 0.05)
+```
+
+---
+
+## Architecture
 
 ```
-scripts/
-├── custom_minimal_theme.R       # Custom ggplot2 theme function
-├── DE/                          # Differential Expression visualization functions
-│   ├── analyzePathVolcanoViz.R  # Volcano plots highlighting specific GSEA pathways
-│   ├── plot_standard_volcano.R  # Standard volcano plots for DE results
-│   ├── plotPCA.R                # 2D PCA plots from DGEList objects
-│   └── plotPCA3d.R              # Interactive 3D PCA plots from DGEList objects
-└── GSEA/                        # GSEA analysis and visualization functions
-    ├── GSEA_processing/         # Core GSEA analysis functions
-    │   ├── calculate_pathway_scores.R    # Calculate average pathway scores per sample
-    │   ├── get_pathway_genes_all.R       # Extract core genes for top pathways across contrasts
-    │   ├── get_pathway_genes.R           # Extract core genes for significant pathways (single result)
-    │   ├── get_significant_pathways.R    # Get unique significant pathway IDs from a list of results
-    │   ├── run_gsea_analysis.R           # Pipeline to run GSEA & plots for multiple databases
-    │   ├── run_gsea.R                    # Wrapper to run clusterProfiler::GSEA with msigdbr
-    │   └── run_pooled_gsea.R             # Pipeline to run GSEA across contrasts & calculate scores
-    └── GSEA_plotting/           # GSEA visualization functions
-        ├── gsea_barplot.R                # Barplot of NES values for top pathways
-        ├── gsea_dotplot_compare.R        # Side-by-side dotplot comparing two GSEA results
-        ├── gsea_dotplot_facet.R          # Faceted dotplot separating Up/Down regulated pathways
-        ├── gsea_dotplot.R                # Standard customizable GSEA dotplot
-        ├── gsea_nes_comparison.R         # Scatter plot comparing NES/ES between two results
-        ├── gsea_pathway_heatmap.R        # Heatmap of core enrichment gene expression for one pathway
-        ├── gsea_running_sum_plot.R       # GSEA running sum enrichment plots (enrichplot::gseaplot2)
-        └── gsea_scores_heatmap.R         # Heatmap of pathway scores across samples (+ wrapper)
-        # Note: pathway_heatmap.R and plot_pathway_heatmap.R are likely redundant
+RNAseq-toolkit/
+├── scripts/
+│   ├── General/                    # Core utilities
+│   │   ├── annotate_genes.R        # Ensembl -> Symbol annotation
+│   │   ├── dge_helpers.R           # DGEList construction
+│   │   └── io_helpers.R            # File I/O utilities
+│   │
+│   ├── DE/                         # Differential Expression
+│   │   ├── plot_standard_volcano.R # FDR-decision volcano plots
+│   │   ├── volcano_helpers.R       # Vertical volcano, multi-panel
+│   │   ├── analyzePathVolcanoViz.R # Pathway-highlighted volcano
+│   │   ├── plotPCA.R               # 2D PCA visualization
+│   │   ├── plotPCA3d.R             # Interactive 3D PCA
+│   │   ├── create_fc_b_plot.R      # FC vs B-statistic
+│   │   └── create_MD_plot.R        # Mean-Difference plot
+│   │
+│   ├── GSEA/
+│   │   ├── GSEA_processing/        # Core analysis
+│   │   │   ├── run_gsea.R              # Single-database GSEA
+│   │   │   ├── run_gsea_analysis.R     # Multi-database pipeline
+│   │   │   ├── run_pooled_gsea.R       # Cross-contrast aggregation
+│   │   │   ├── normalize_gsea.R        # gseaResult -> tibble
+│   │   │   ├── pathway_utils.R         # Gene set utilities
+│   │   │   ├── parse_external_genesets.R # External DB parsers
+│   │   │   ├── get_pathway_genes.R     # Leading edge extraction
+│   │   │   ├── get_pathway_genes_all.R # Cross-contrast genes
+│   │   │   ├── get_significant_pathways.R # Pathway pooling
+│   │   │   └── calculate_pathway_scores.R # Sample scores
+│   │   │
+│   │   ├── GSEA_plotting/          # Visualization
+│   │   │   ├── gsea_dotplot.R          # Main dotplot
+│   │   │   ├── gsea_dotplot_facet.R    # Up/Down faceted
+│   │   │   ├── gsea_dotplot_compare.R  # Side-by-side comparison
+│   │   │   ├── gsea_barplot.R          # NES barplot
+│   │   │   ├── gsea_running_sum_plot.R # Enrichment curve
+│   │   │   ├── gsea_heatmap.R          # Pathway heatmaps
+│   │   │   ├── format_pathway_names.R  # Smart capitalization
+│   │   │   ├── gsea_plotting_utils.R   # Shared helpers
+│   │   │   └── ...                     # Additional plots
+│   │   │
+│   │   └── GSEA_plotting_python/   # Python alternatives
+│   │
+│   ├── ORA/                        # Over-Representation Analysis
+│   │   ├── run_ora.R               # Fisher-exact ORA
+│   │   └── ora_dotplot.R           # ORA dotplot visualization
+│   │
+│   ├── custom_minimal_theme.R      # Publication ggplot2 theme
+│   └── utils_plotting.R            # DRY utilities
+│
+├── tests/                          # Visual regression tests
+├── examples/                       # Usage examples
+└── docs/                           # Extended documentation
 ```
 
-## Key Functions
+---
 
+## Module Reference
 
-### GSEA Processing (`scripts/GSEA/GSEA_processing/`)
+### General Utilities
 
-| Function                     | Description                                                                 | Key Inputs                                     | Output                                      |
-| :--------------------------- | :-------------------------------------------------------------------------- | :--------------------------------------------- | :------------------------------------------ |
-| `run_gsea()`                 | Runs `clusterProfiler::GSEA` using gene sets from `msigdbr`.                | DE results table, rank metric, species, MSigDB collection/subcollection | `gseaResult` object                         |
-| `run_gsea_analysis()`        | Runs `run_gsea` & plotting functions for multiple databases.                | DE results table, analysis name, species, database list | List of `gseaResult` objects per database |
-| `run_pooled_gsea()`          | Runs `run_gsea` across multiple contrasts, aggregates results, calculates scores. | `limma` fit, contrasts matrix, `DGEList` object | List (gsea_results, pools, genes, scores) |
-| `get_significant_pathways()` | Extracts unique significant pathway IDs from a list of `gseaResult` objects. | List of `gseaResult`, `padj_cutoff`            | Character vector of pathway IDs             |
-| `get_pathway_genes()`        | Extracts core genes for top significant pathways from one `gseaResult`.     | `gseaResult`, `padj_cutoff`, `top`             | Named list (PathwayID -> Gene Vector)       |
-| `get_pathway_genes_all()`    | Extracts core genes for top pathways across multiple contrasts/results.     | Nested list of `gseaResult`, database name, `padj_cutoff`, `top` | Named list (PathwayID -> Gene Vector)       |
-| `calculate_pathway_scores()` | Calculates average expression scores for pathways across samples.           | Expression matrix (genes x samples), pathway gene list | Matrix (samples x pathways)               |
+| Function | File | Description |
+|----------|------|-------------|
+| `annotate_genes_from_ensembl()` | `annotate_genes.R` | Convert Ensembl IDs to symbols using org.*.eg.db |
+| `build_dge()` | `dge_helpers.R` | Construct validated DGEList with TMM normalization |
+| `read_counts_matrix()` | `io_helpers.R` | Flexible featureCounts/generic count parser |
+| `read_metadata()` | `io_helpers.R` | Excel metadata reader with validation |
+| `align_metadata_to_counts()` | `io_helpers.R` | Sync metadata to count matrix columns |
 
-### GSEA Visualization (`scripts/GSEA/GSEA_plotting/`)
+### Differential Expression (DE)
 
-| Function                  | Description                                                              | Key Inputs                               | Output          |
-| :------------------------ | :----------------------------------------------------------------------- | :--------------------------------------- | :-------------- |
-| `gsea_dotplot()`          | Creates standard customizable dotplots for GSEA results.                 | `gseaResult`, `showCategory`, `filterBy`, `sortBy`, `padj_cutoff` | ggplot object |
-| `gsea_dotplot_facet()`    | Creates faceted dotplots separating Up/Down regulated pathways.          | `gseaResult`, `showCategory`, `padj_cutoff` | ggplot object |
-| `gsea_dotplot_compare()`  | Creates side-by-side comparison dotplot for two `gseaResult` objects.    | `gseaResult` (x2), `pathway_ids`         | ggplot object |
-| `gsea_barplot()`          | Creates barplots of NES values for top pathways.                         | `gseaResult`, `top_n`, `padj_cutoff`     | ggplot object |
-| `gsea_running_sum_plot()` | Creates running sum enrichment plots (`enrichplot::gseaplot2`).          | `gseaResult`, `gene_set_ids`             | ggplot object(s) |
-| `gsea_pathway_heatmap()`  | Creates heatmap of core enrichment gene expression for one pathway.      | `gseaResult`, `pathway_name`, expression matrix, `sample_order` | pheatmap object |
-| `gsea_scores_heatmap()`   | Creates heatmap of pathway scores across samples.                        | Scores matrix (samples x pathways), `sample_order`, annotations | pheatmap object |
-| `gsea_visualize_all_databases()` | Wrapper to generate & save heatmaps for multiple score matrices. | Output from `run_pooled_gsea`, annotations, `output_dir` | List of pheatmap objects |
-| `gsea_nes_comparison()`   | Creates scatter plot comparing NES/ES between two `gseaResult` objects.  | `gseaResult` (x2), labels                | List (data, plot, common_pathways, gmt) |
+| Function | File | Description |
+|----------|------|-------------|
+| `create_standard_volcano()` | `plot_standard_volcano.R` | FDR-decision volcano with raw-p y-axis |
+| `create_vertical_volcano()` | `volcano_helpers.R` | 90-degree rotated volcano for grids |
+| `combine_volcano_row()` | `volcano_helpers.R` | Multi-panel volcano with unified legend |
+| `analyze_pathway_volcano()` | `analyzePathVolcanoViz.R` | Highlight genes from GSEA pathway |
+| `create_pca_plot()` | `plotPCA.R` | Standard 2D PCA from DGEList |
+| `create_3d_pca_plot()` | `plotPCA3d.R` | Interactive 3D PCA (plotly) |
+| `create_fc_b_plot()` | `create_fc_b_plot.R` | logFC vs B-statistic scatter |
+| `create_MD_plot()` | `create_MD_plot.R` | Mean-Difference (MA) plot |
 
-### DE Visualization (`scripts/DE/`)
+### GSEA Processing
 
-| Function                    | Description                                                              | Key Inputs                               | Output          |
-| :-------------------------- | :----------------------------------------------------------------------- | :--------------------------------------- | :-------------- |
-| `create_volcano_plot()`     | Creates standard customizable volcano plots for DE results.              | DE results table, `p_cutoff`, `fc_cutoff` | ggplot object |
-| `analyze_pathway_volcano()` | Creates volcano plots highlighting genes from a specific GSEA pathway.   | `pathway_name`, `gseaResult`, DE results table | ggplot object |
-| `create_pca_plot()`         | Creates 2D PCA plots from a `DGEList` object.                          | `DGEList` object                         | ggplot object |
-| `create_3d_pca_plot()`      | Creates interactive 3D PCA plots (`plotly`) from a `DGEList` object.     | `DGEList` object                         | plotly object |
+| Function | File | Description |
+|----------|------|-------------|
+| `run_gsea()` | `run_gsea.R` | Single-database GSEA; auto-detects msigdbr v7.5/v8+ API |
+| `run_gsea_analysis()` | `run_gsea_analysis.R` | Multi-database pipeline with auto-plotting |
+| `run_pooled_gsea()` | `run_pooled_gsea.R` | Cross-contrast aggregation with scoring |
+| `normalize_gsea_results()` | `normalize_gsea.R` | Convert gseaResult to standardized tibble |
+| `filter_pathways_by_size()` | `pathway_utils.R` | Filter gene sets by size |
+| `list_to_term2gene()` | `pathway_utils.R` | Convert list to TERM2GENE format |
+| `parse_transportdb()` | `parse_external_genesets.R` | Parse TransportDB2.0 |
+| `parse_gmt()` | `parse_external_genesets.R` | Parse GMT gene set files |
+| `get_pathway_genes()` | `get_pathway_genes.R` | Extract leading edge genes |
+| `get_significant_pathways()` | `get_significant_pathways.R` | Pool significant pathway IDs |
+| `calculate_pathway_scores()` | `calculate_pathway_scores.R` | Sample-wise pathway scores |
 
-### Custom Theme (`scripts/`)
+### GSEA Visualization
 
-| Function                         | Description                                  | Key Inputs | Output          |
-| :------------------------------- | :------------------------------------------- | :--------- | :-------------- |
-| `custom_minimal_theme_with_grid()` | Custom `ggplot2` theme for consistent plots. | None       | ggplot theme object |
+| Function | File | Description |
+|----------|------|-------------|
+| `gsea_dotplot()` | `gsea_dotplot.R` | Customizable GSEA dotplot |
+| `gsea_dotplot_facet()` | `gsea_dotplot_facet.R` | Separate Up/Down panels |
+| `gsea_dotplot_compare()` | `gsea_dotplot_compare.R` | Side-by-side comparison |
+| `gsea_barplot()` | `gsea_barplot.R` | NES horizontal barplot |
+| `gsea_running_sum_plot()` | `gsea_running_sum_plot.R` | Enrichment curve; works with non-MSigDB external DBs |
+| `format_pathway_name()` | `format_pathway_names.R` | Smart biological capitalization |
+| `gsea_heatmap_save()` | `gsea_heatmap.R` | Sample x pathway heatmap |
+| `plot_pooled_contrast_dotplot()` | `plot_pooled_contrast_dotplot.R` | Cross-database dotplot |
+
+### ORA (Over-Representation Analysis)
+
+| Function | File | Description |
+|----------|------|-------------|
+| `run_ora()` | `ORA/run_ora.R` | Fisher-exact ORA against MSigDB or custom gene sets |
+| `ora_dotplot()` | `ORA/ora_dotplot.R` | Dotplot for ORA results with significance highlighting |
+
+### Shared Utilities
+
+| Function | File | Description |
+|----------|------|-------------|
+| `custom_minimal_theme_with_grid()` | `custom_minimal_theme.R` | Publication-ready ggplot2 theme |
+| `ensure_dir()` | `utils_plotting.R` | Create directories idempotently |
+| `save_plot()` | `utils_plotting.R` | PDF saving with device management |
+| `load_checkpoint()` | `utils_plotting.R` | RDS checkpoint loader |
+| `log_message()` | `utils_plotting.R` | Timestamped logging |
+
+---
+
+## Design Patterns
+
+### 1. Volcano Plot: FDR Decision, Raw-P Axis
+
+The `create_standard_volcano()` function implements a best-practice approach:
+
+```r
+# Why raw p on the y-axis?
+# - Raw p-values are per-gene test statistics
+# - FDR is an average over the rejected set
+# - Plotting raw p gives maximal resolution
+# - Avoids stair-step artifacts of -log10(FDR)
+
+volcano <- create_standard_volcano(
+  de_results,
+  decision_by = "fdr",     # Use FDR for color decisions
+  p_cutoff = 0.05,         # FDR threshold
+  fc_cutoff = 2            # log2FC threshold
+)
+# Horizontal dashed line: boundary p-value where FDR = cutoff
+# This aligns EXACTLY with the color transition
+```
+
+### 2. Smart Biological Term Formatting
+
+The `format_pathway_name()` function handles biological nomenclature:
+
+```r
+format_pathway_name("HALLMARK_TNFR1_INDUCED_NF_KAPPA_B_SIGNALING")
+# Returns: "TNFR1-Induced NF-kappaB Signaling"
+
+format_pathway_name("GOBP_TYPE_II_INTERFERON_SIGNALING_PATHWAY")
+# Returns: "Type II Interferon Signaling Pathway"
+```
+
+**Features:**
+- 400+ exception dictionary for biological terms
+- Multi-word pattern recognition ("nf kappa b" -> "NF-kappaB")
+- Greek letter preservation
+- Roman numeral handling
+- Chemical prefix awareness
+
+### 3. GSEA Result Normalization
+
+Convert clusterProfiler results to standardized tibbles:
+
+```r
+source("scripts/GSEA/GSEA_processing/normalize_gsea.R")
+
+# Convert gseaResult to standardized tibble
+normalized <- normalize_gsea_results(
+  gsea_result,
+  database = "Hallmark",
+  contrast = "Treatment_vs_Control"
+)
+
+# Schema:
+# pathway_id, pathway_name, database, contrast, NES, pvalue, padj,
+# set_size, core_enrichment, direction
+```
+
+### 4. External Gene Set Integration
+
+Support for custom databases beyond MSigDB:
+
+```r
+source("scripts/GSEA/GSEA_processing/parse_external_genesets.R")
+
+# Parse TransportDB
+transport_sets <- parse_transportdb("TransportDB2.0.csv")
+
+# Parse GMT file
+custom_sets <- parse_gmt("custom_pathways.gmt")
+
+# Use with clusterProfiler
+gsea_result <- GSEA(
+  geneList = ranked_genes,
+  TERM2GENE = transport_sets$TERM2GENE,
+  TERM2NAME = transport_sets$TERM2NAME
+)
+```
+
+---
 
 ## Usage Examples
 
-*(Note: Ensure required packages are installed and scripts are sourced correctly. Saving logic has been removed from individual plotting functions; use `ggsave()` for ggplot objects or `pheatmap::save_pheatmap_pdf()` for pheatmap objects.)*
+### Basic GSEA Analysis
 
-### Basic GSEA Analysis and Dotplot
-
-```R
-# Source necessary scripts
+```r
+# Source required scripts
 source("scripts/GSEA/GSEA_processing/run_gsea.R")
 source("scripts/GSEA/GSEA_plotting/gsea_dotplot.R")
-source("scripts/custom_minimal_theme.R") # Source the theme
+source("scripts/GSEA/GSEA_plotting/format_pathway_names.R")
 
-# Assuming 'de_results_table' has rownames (genes) and a 't' column for ranking
-# Run GSEA for Hallmark pathways (Mouse)
-gsea_hallmark_res <- run_gsea(
-  DE_results = de_results_table,
-  rank_metric = "t",
-  species = "Mus musculus",
-  db_species = "MM", # Mouse abbreviation for msigdbr
-  collection = "MH"  # Hallmark collection for Mouse
-  # subcollection = "" # Default empty for Hallmark
+# DE results from limma (rownames = gene symbols)
+de_table <- topTable(fit, coef = "Treatment_vs_Control", n = Inf)
+
+# Run GSEA for multiple databases
+databases <- list(
+  H = c("H", ""),
+  KEGG = c("C2", "CP:KEGG"),
+  GO_BP = c("C5", "GO:BP")
 )
 
-# Create a dotplot of the results (Top 15, filtered by p.adjust < 0.05, sorted by GeneRatio)
-if (!is.null(gsea_hallmark_res) && nrow(gsea_hallmark_res@result) > 0) {
-  p_dotplot <- gsea_dotplot(
-    gsea_hallmark_res,
-    showCategory = 15,
-    filterBy = "p.adjust", # Filter by significance first
-    sortBy = "GeneRatio",  # Sort the top significant by GeneRatio
-    padj_cutoff = 0.05,
-    title = "Hallmark Pathways GSEA"
+results <- list()
+for (db_name in names(databases)) {
+  results[[db_name]] <- run_gsea(
+    DE_results = de_table,
+    rank_metric = "t",
+    species = "Mus musculus",
+    collection    = databases[[db_name]][1],
+    subcollection = databases[[db_name]][2]
+    # run_gsea() auto-detects msigdbr v7.5 (category/subcategory) vs v8+ (collection/subcollection)
   )
-  print(p_dotplot)
-  # To save: ggsave("hallmark_dotplot.png", p_dotplot, width = 10, height = 7)
+}
+
+# Create dotplots
+for (db_name in names(results)) {
+  plot <- gsea_dotplot(
+    results[[db_name]],
+    showCategory = 20,
+    padj_cutoff = 0.05,
+    title = paste(db_name, "Pathways")
+  )
+  ggsave(paste0("dotplot_", db_name, ".pdf"), plot, width = 10, height = 8)
 }
 ```
 
-### Comprehensive Analysis Pipeline (Multiple Databases & Plots)
+### Comprehensive Pipeline
 
-```R
-# Source the pipeline script and dependencies (it sources others internally)
+```r
+# Use run_gsea_analysis for automated multi-database analysis
 source("scripts/GSEA/GSEA_processing/run_gsea_analysis.R")
 
-# Assuming 'de_results_table' is ready
-# Run the comprehensive analysis for default databases (Mouse)
-# This will run GSEA and generate/save multiple plots to 'results/gsea/'
-all_gsea_results <- run_gsea_analysis(
-  de_table = de_results_table,
-  analysis_name = "Treatment_vs_Control", # Used for plot titles/filenames
+all_results <- run_gsea_analysis(
+  de_table = de_table,
+  analysis_name = "Treatment_vs_Control",
   species = "Mus musculus",
   rank_metric = "t",
-  padj_cutoff = 0.05, # Cutoff for plots
-  output_dir = "results/gsea_analysis_output/", # Specify output directory
-  save_plots = TRUE # Enable saving plots
+  padj_cutoff = 0.05,
+  output_dir = "results/GSEA/"
 )
 
-# Access results for a specific database
-# hallmark_results <- all_gsea_results$HALLMARK
+# Automatically generates:
+# - Dotplots (standard, faceted up/down)
+# - Barplots
+# - Running sum plots for top pathways
+# - Heatmaps
 ```
 
 ### Pooled Analysis Across Contrasts
 
-```R
-# Source the pipeline script and dependencies
+```r
 source("scripts/GSEA/GSEA_processing/run_pooled_gsea.R")
-source("scripts/GSEA/GSEA_plotting/gsea_scores_heatmap.R") # For visualization wrapper
 
-# Assuming 'limma_fit', 'contrast_matrix', 'dge_list', 'sample_annot', 'annot_colors' are prepared
-pooled_results <- run_pooled_gsea(
+# Run GSEA across all contrasts and aggregate
+pooled <- run_pooled_gsea(
   fit = limma_fit,
   contrasts = contrast_matrix,
   DGEobject = dge_list,
   species = "Mus musculus",
-  top_n = 25, # Get genes/scores for top 25 pathways per DB
-  padj_cutoff = 0.05, # Significance threshold for pooling
-  log_file = "results/pooled_gsea_log.txt"
+  top_n = 25,
+  padj_cutoff = 0.05
 )
 
-# Visualize the scores using the wrapper function (saves plots)
-gsea_visualize_all_databases(
-  gsea_pooled_results = pooled_results,
-  annotation_col = sample_annot,
-  annotation_colors = annot_colors,
-  sample_order = rownames(sample_annot), # Ensure order matches annotation
-  output_dir = "results/pooled_gsea_heatmaps/"
-)
+# Returns:
+# - gsea_results: per-contrast results
+# - pools: significant pathway IDs per database
+# - genes: leading edge genes
+# - scores: sample x pathway score matrix
 ```
 
-### Pathway Gene Expression Heatmap
+### Custom Volcano Plot
 
-```R
-# Source necessary scripts
-source("scripts/GSEA/GSEA_plotting/gsea_pathway_heatmap.R")
-library(pheatmap) # Needed for saving
+```r
+source("scripts/DE/plot_standard_volcano.R")
 
-# Assuming 'gsea_hallmark_res', 'logcpm_matrix', 'sample_ordering', 'sample_annot' exist
-# Plot heatmap for a specific pathway (e.g., by ID)
-pathway_id_to_plot <- "HALLMARK_INFLAMMATORY_RESPONSE" # Example ID
-
-heatmap_obj <- gsea_pathway_heatmap(
-  gsea_obj = gsea_hallmark_res,
-  pathway_name = pathway_id_to_plot,
-  expression_data = logcpm_matrix,
-  sample_order = sample_ordering,
-  annotation_col = sample_annot,
-  # annotation_colors = your_color_list, # Optional
-  scale = "row" # Scale genes
+volcano <- create_standard_volcano(
+  de_results,
+  decision_by = "fdr",
+  p_cutoff = 0.05,
+  fc_cutoff = 1,
+  top_n = 10,
+  highlight_gene = c("Il6", "Tnf", "Ccl2"),  # Priority labels
+  title = "Treatment vs Control",
+  subtitle = "FDR < 0.05, |log2FC| > 1"
 )
 
-# Save the heatmap object if generated
-if (!is.null(heatmap_obj)) {
-  # Use pheatmap's saving function
-  pheatmap::save_pheatmap_pdf(heatmap_obj, filename = paste0("heatmap_", pathway_id_to_plot, ".pdf"))
-}
+ggsave("volcano.pdf", volcano, width = 10, height = 8)
 ```
 
-## Recent Updates & Enhancements (2025-09-30)
-
-### Critical Bug Fixes
-
-1. **Environment Scoping in `run_pooled_gsea.R`**
-   - **Issue**: Helper functions (`get_significant_pathways`, `get_pathway_genes_all`, `calculate_pathway_scores`) were not accessible after sourcing due to incorrect environment scoping in `sapply()` wrapper
-   - **Fix**: Replaced `sapply()` sourcing with explicit `for` loop that sources into function environment using `func_env <- environment()`
-   - **Impact**: Pooled GSEA now correctly finds and uses helper functions
-
-2. **Pathway Name Formatter Sourcing**
-   - **Issue**: Plotting functions tried to source `format_pathway_names.R` using `sys.frame(1)$ofile` which returned NULL when called from another script
-   - **Fix**: Centralized sourcing in `run_gsea_analysis.R` by adding formatter to `helper_paths` list
-   - **Impact**: All plotting functions now have access to `format_pathway_name()` for clean pathway labels
-
-### New Features
-
-1. **GSEA Result Caching**
-   - **Purpose**: Avoid redundant GSEA computation between per-contrast and pooled analyses
-   - **Implementation**:
-     - Added `cache_dir` and `use_cache` parameters to `run_gsea_model1()` wrapper
-     - Automatically saves GSEA results as `{contrast}_gsea_results.rds` in cache directory
-     - Loads from cache on subsequent runs, dramatically reducing analysis time
-     - Added `cached_gsea_results` parameter to `run_pooled_gsea()` to reuse per-contrast results
-   - **Usage**:
-     ```r
-     # First run: computes and caches
-     results <- run_gsea_model1(de_table, "KO_vs_WT_LPS",
-                                cache_dir = "03_Results/GSEA/cache",
-                                use_cache = TRUE)
-
-     # Second run: loads from cache instantly
-     results <- run_gsea_model1(de_table, "KO_vs_WT_LPS",
-                                cache_dir = "03_Results/GSEA/cache",
-                                use_cache = TRUE)
-
-     # Pooled GSEA reuses per-contrast results
-     pooled <- run_pooled_gsea(...,
-                               cached_gsea_results = all_gsea_results)
-     ```
-
-2. **Enhanced Pathway Filtering Logging**
-   - **Purpose**: Understand which pathways are being filtered and why
-   - **Implementation**: Added `verbose` parameter to `get_significant_pathways()`
-   - **Logging Output**:
-     ```
-     [get_significant_pathways] Processing 14 GSEA result(s)
-     [get_significant_pathways] Using padj cutoff: 0.05
-     [get_significant_pathways]   KO_vs_WT_LPS: 50 total pathways, 35 significant, 15 filtered out
-     [get_significant_pathways] Total significant pathways before deduplication: 420
-     [get_significant_pathways] Unique significant pathways: 380
-     [get_significant_pathways] Removed 40 duplicates
-     ```
-
-3. **Per-Contrast Cross-Database Pooled Visualization**
-   - **Purpose**: Show top pathways from ALL databases for a single contrast (user-requested feature)
-   - **File**: `scripts/GSEA/GSEA_plotting/plot_pooled_contrast_heatmap.R`
-   - **Function**: `plot_pooled_contrast_heatmap()`
-   - **Output**: Bubble plot with:
-     - X-axis: Databases (Hallmark, KEGG, GO, Reactome, etc.)
-     - Y-axis: Pathways (top N per database)
-     - Fill color: NES (blue = downregulated, red = upregulated)
-     - Size: -log10(padj) (larger = more significant)
-   - **Usage**:
-     ```r
-     plot_pooled_contrast_heatmap(
-       gsea_results_list = all_gsea_results[["KO_vs_WT_LPS"]],
-       contrast_name = "KO_vs_WT_LPS",
-       top_n = 10,
-       padj_cutoff = 0.05,
-       output_file = "KO_vs_WT_LPS_cross_database.pdf"
-     )
-     ```
-   - **Integration**: Automatically generated for each contrast in `02b_DEG_GSEA.R`
-
-### Clarification: Pooled GSEA Logic
-
-**Current "Pooled GSEA" (`run_pooled_gsea.R`):**
-- Pools pathways **ACROSS contrasts** (not across databases)
-- Identifies pathways significant in multiple biological comparisons
-- Generates sample × pathway score heatmaps showing patterns across conditions
-
-**New "Cross-Database Pooled" (`plot_pooled_contrast_heatmap.R`):**
-- Pools pathways **ACROSS databases** for a single contrast
-- Shows which databases contribute to enrichment for one comparison
-- Helps identify consensus pathways across gene set collections
-
-Both approaches are complementary and serve different analytical purposes.
+---
 
 ## Dependencies
 
-This toolkit relies on several R packages:
+### Core Packages
 
--   **Core:** `dplyr`, `stringr`, `tidyr`
--   **GSEA Analysis:** `clusterProfiler`, `msigdbr`, `stats`
--   **DE:** `limma`, `edgeR` (primarily for input object types `MArrayLM`, `DGEList` and functions like `topTable`, `cpm`)
--   **Visualization:** `ggplot2`, `ggrepel`, `enrichplot`, `pheatmap`, `plotly` (for 3D PCA), `scales`, `grDevices`
--   **Organism Databases:** Specific annotation packages like `org.Mm.eg.db` or `org.Hs.eg.db` are required depending on the species analyzed.
+```r
+# Data manipulation
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tibble)
 
-Ensure these packages are installed.
+# Differential expression
+library(limma)
+library(edgeR)
+
+# GSEA
+library(clusterProfiler)
+library(msigdbr)
+library(fgsea)
+library(enrichplot)
+
+# Annotation
+library(org.Mm.eg.db)  # Mouse
+library(org.Hs.eg.db)  # Human
+library(AnnotationDbi)
+
+# Visualization
+library(ggplot2)
+library(ggrepel)
+library(pheatmap)
+library(plotly)  # 3D PCA
+library(scales)
+```
+
+### Version Requirements
+
+- R >= 4.0
+- msigdbr >= 7.5 (`run_gsea()` auto-detects v7.5 `category`/`subcategory` vs v8+ `collection`/`subcollection` API)
+- clusterProfiler >= 4.0
+
+---
+
+## Git Workflow
+
+### Branch Structure
+
+| Branch | Purpose | Merge Target |
+|--------|---------|--------------|
+| `main` | Stable releases | N/A |
+| `dev` | Integration branch | `main` |
+| `dev-{project}` | Project-specific | `dev` |
+
+### For Project Use
+
+```bash
+# Add as submodule tracking your project branch
+git submodule add git@github.com:user/RNAseq-toolkit.git
+cd RNAseq-toolkit
+git checkout -b dev-YourProject origin/dev
+
+# Update .gitmodules
+[submodule "RNAseq-toolkit"]
+    path = path/to/toolkit
+    url = git@github.com:user/RNAseq-toolkit.git
+    branch = dev-YourProject
+```
+
+### Contributing Features Back
+
+```bash
+# Push to your project branch
+git push origin dev-YourProject
+
+# Create PR: dev-YourProject -> dev
+# After review/merge, all projects benefit
+```
+
+---
 
 ## Contributing
 
-Contributions, bug reports, and suggestions are welcome. Please feel free to fork the repository and submit pull requests.
+1. **Fork the repository**
+2. **Create a feature branch** from `dev`
+3. **Follow coding standards:**
+   - snake_case for functions/variables
+   - 2-space indentation
+   - roxygen2 documentation
+4. **Add visual regression tests** for plotting functions
+5. **Update documentation** if adding new features
+6. **Submit PR** to `dev` branch
+
+Follow snake_case naming, 2-space indentation, and add roxygen2 docs + a visual regression test for any new plotting function.
+
+---
 
 ## License
 
-MIT License
+MIT License - Copyright (c) 2025 Anton Zhelonkin
 
-Copyright (c) 2025 Anton Zhelonkin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+See [LICENSE.md](LICENSE.md) for full text.

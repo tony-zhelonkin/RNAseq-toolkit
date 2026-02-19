@@ -79,17 +79,20 @@ create_vertical_volcano <- function(
     sig_pvals <- de_results$P.Value[sig_logic]
     if (length(sig_pvals) > 0) {
       p_thresh <- max(sig_pvals, na.rm = TRUE)
+      vert_line <- -log10(p_thresh)
+      draw_vert_line <- TRUE
     } else {
-      # No significant genes, use p_cutoff as fallback
-      p_thresh <- p_cutoff
+      # No significant genes - don't draw a line
+      vert_line <- NA
+      draw_vert_line <- FALSE
     }
-    vert_line <- -log10(p_thresh)
     legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
   } else {  # decision_by == "p"
     sig_stat   <- de_results$P.Value
     stat_name  <- "p-value"
     sig_logic  <- sig_stat <= p_cutoff
     vert_line <- -log10(p_cutoff)
+    draw_vert_line <- TRUE
     legend_sig <- sprintf("p ≤ %.2g", p_cutoff)
   }
 
@@ -152,7 +155,6 @@ create_vertical_volcano <- function(
   g <- ggplot2::ggplot(df, ggplot2::aes(-log10(P.Value), logFC, colour = cat)) +
        ggplot2::geom_point(size = 2, alpha = .65) +
        ggplot2::geom_hline(yintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
-       ggplot2::geom_vline(xintercept = vert_line, linetype = "dashed") +
        ggplot2::scale_colour_manual(name = NULL,
          values = color_palette,
          breaks = names(color_palette),
@@ -168,13 +170,32 @@ create_vertical_volcano <- function(
                     x = expression(-log[10](p-value)),
                     title = title,
                     caption = if (decision_by == "fdr") {
-                      sprintf("Dashed lines: vert. – FDR ≤ %.2g (p ≤ %.2g); horiz. – |log2FC| ≥ %.1f",
-                             p_cutoff, signif(10^(-vert_line),2), fc_cutoff)
+                      if (draw_vert_line) {
+                        sprintf("Dashed lines: vert. – FDR ≤ %.2g (p ≤ %.2g); horiz. – |log2FC| ≥ %.1f",
+                               p_cutoff, signif(10^(-vert_line),2), fc_cutoff)
+                      } else {
+                        sprintf("No genes pass FDR ≤ %.2g. Dashed lines: horiz. – |log2FC| ≥ %.1f",
+                               p_cutoff, fc_cutoff)
+                      }
                     } else {
                       sprintf("Dashed lines: vert. – p ≤ %.2g; horiz. – |log2FC| ≥ %.1f",
                              p_cutoff, fc_cutoff)
                     }) +
        custom_minimal_theme_with_grid()
+
+  # Add vertical line only if there are significant genes
+  if (draw_vert_line) {
+    g <- g + ggplot2::geom_vline(xintercept = vert_line, linetype = "dashed")
+  } else if (decision_by == "fdr") {
+    # Add annotation when no genes pass FDR threshold
+    g <- g + ggplot2::annotate("text",
+                               x = xmax * 0.5,
+                               y = 0,
+                               label = sprintf("No genes pass FDR ≤ %.2g", p_cutoff),
+                               size = 4,
+                               color = "darkred",
+                               fontface = "italic")
+  }
 
   if (!show_grid) {
     g <- g + ggplot2::theme(panel.grid.major = ggplot2::element_blank(),

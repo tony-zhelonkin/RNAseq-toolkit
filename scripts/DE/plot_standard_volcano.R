@@ -46,6 +46,8 @@
 #'                    backward compatibility. "top" delegates to the new logic.
 #' @param x_breaks    Numeric. Spacing between x‑axis ticks (default 1).
 #' @param title       Character. Plot title (default "Volcano plot").
+#' @param subtitle    Character. Optional subtitle to clarify the plot approach
+#'                    (e.g., "Highlighting by FDR"). Default NULL (no subtitle).
 #' @param caption     Character. Optional caption; if `NULL` a caption that
 #'                    documents the thresholds will be generated.
 #' @param color_palette Named character vector of four colours for the point
@@ -75,6 +77,7 @@ create_standard_volcano <- function(
     label_method  = "top",
     x_breaks      = 1,
     title         = "Volcano plot",
+    subtitle      = NULL,
     caption       = NULL,
     color_palette = c(
       "NS"               = "#7F7F7F",   # grey
@@ -124,17 +127,20 @@ create_standard_volcano <- function(
     sig_pvals <- de_results$P.Value[sig_logic]
     if (length(sig_pvals) > 0) {
       p_thresh <- max(sig_pvals, na.rm = TRUE)
+      horiz_line <- -log10(p_thresh)
+      draw_horiz_line <- TRUE
     } else {
-      # No significant genes, use p_cutoff as fallback
-      p_thresh <- p_cutoff
+      # No significant genes - don't draw a line
+      horiz_line <- NA
+      draw_horiz_line <- FALSE
     }
-    horiz_line <- -log10(p_thresh)
     legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
   } else {  # decision_by == "p"
     sig_stat   <- de_results$P.Value
     stat_name  <- "p-value"
     sig_logic  <- sig_stat <= p_cutoff
     horiz_line <- -log10(p_cutoff)
+    draw_horiz_line <- TRUE
     legend_sig <- sprintf("p ≤ %.2g", p_cutoff)
   }
 
@@ -190,7 +196,6 @@ create_standard_volcano <- function(
   g <- ggplot2::ggplot(df, ggplot2::aes(logFC, -log10(P.Value), colour = cat)) +
        ggplot2::geom_point(size = 2, alpha = .65) +
        ggplot2::geom_vline(xintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
-       ggplot2::geom_hline(yintercept = horiz_line,                 linetype = "dashed") +
        ggplot2::scale_colour_manual(name = NULL,
          values = color_palette,
          breaks = names(color_palette),
@@ -205,16 +210,36 @@ create_standard_volcano <- function(
        ggplot2::labs(x = "log2(FC)",
                      y = expression(-log[10](p-value)),
                      title = title,
+                     subtitle = subtitle,
                      caption = if (is.null(caption)) {
                        if (decision_by == "fdr") {
-                         sprintf("Dashed lines: horiz. – FDR ≤ %.2g (p ≤ %.2g); vert. – |log2FC| ≥ %.1f",
-                                 p_cutoff, signif(10^(-horiz_line),2), fc_cutoff)
+                         if (draw_horiz_line) {
+                           sprintf("Dashed lines: horiz. – FDR ≤ %.2g (p ≤ %.2g); vert. – |log2FC| ≥ %.1f",
+                                   p_cutoff, signif(10^(-horiz_line),2), fc_cutoff)
+                         } else {
+                           sprintf("No genes pass FDR ≤ %.2g. Dashed lines: vert. – |log2FC| ≥ %.1f",
+                                   p_cutoff, fc_cutoff)
+                         }
                        } else {
                          sprintf("Dashed lines: horiz. – p ≤ %.2g; vert. – |log2FC| ≥ %.1f",
                                  p_cutoff, fc_cutoff)
                        }
                      } else caption) +
        custom_minimal_theme_with_grid()
+
+  # Add horizontal line only if there are significant genes
+  if (draw_horiz_line) {
+    g <- g + ggplot2::geom_hline(yintercept = horiz_line, linetype = "dashed")
+  } else if (decision_by == "fdr") {
+    # Add annotation when no genes pass FDR threshold - positioned on the right
+    g <- g + ggplot2::annotate("text",
+                               x = xmax * 0.5,
+                               y = ymax * 0.95,
+                               label = sprintf("No genes pass FDR ≤ %.2g", p_cutoff),
+                               size = 4,
+                               color = "darkred",
+                               fontface = "italic")
+  }
 
   if (!show_grid) {
     g <- g + ggplot2::theme(panel.grid.major = ggplot2::element_blank(),
@@ -223,18 +248,46 @@ create_standard_volcano <- function(
 
   # ────────────────── 5. labels ───────────────────────────────────────
   if (nrow(lab_df)) {
-    g <- g + ggrepel::geom_text_repel(
-      data            = lab_df,
-      ggplot2::aes(label = rownames(lab_df)),
-      colour          = ifelse(rownames(lab_df) %in% highlight_gene, "black",
-                               dark_pal[lab_df$cat]),
-      fontface        = ifelse(rownames(lab_df) %in% highlight_gene, "bold", "plain"),
-      size            = 3.5,
-      box.padding     = .4,
-      point.padding   = .3,
-      max.overlaps    = max.overlaps,
-      min.segment.length = 0,
-      show.legend     = FALSE)
+    # Separate highlighted genes (e.g., calcium genes) from regular labels
+    # This ensures priority genes are never suppressed by ggrepel overlap detection
+    if (!is.null(highlight_gene) && any(rownames(lab_df) %in% highlight_gene)) {
+      calcium_labs <- lab_df[rownames(lab_df) %in% highlight_gene, , drop = FALSE]
+      regular_labs <- lab_df[!rownames(lab_df) %in% highlight_gene, , drop = FALSE]
+    } else {
+      calcium_labs <- lab_df[0, , drop = FALSE]  # Empty data frame
+      regular_labs <- lab_df
+    }
+
+    # Layer 1: Regular labels (standard max.overlaps)
+    if (nrow(regular_labs) > 0) {
+      g <- g + ggrepel::geom_text_repel(
+        data            = regular_labs,
+        ggplot2::aes(label = rownames(regular_labs)),
+        colour          = dark_pal[regular_labs$cat],
+        fontface        = "plain",
+        size            = 3.5,
+        box.padding     = .4,
+        point.padding   = .3,
+        max.overlaps    = max.overlaps,
+        min.segment.length = 0,
+        show.legend     = FALSE)
+    }
+
+    # Layer 2: Highlighted genes (priority - never suppressed)
+    if (nrow(calcium_labs) > 0) {
+      g <- g + ggrepel::geom_text_repel(
+        data            = calcium_labs,
+        ggplot2::aes(label = rownames(calcium_labs)),
+        colour          = "black",
+        fontface        = "bold",
+        size            = 3.5,
+        box.padding     = .5,
+        point.padding   = .3,
+        max.overlaps    = Inf,     # NEVER suppress highlighted genes
+        force           = 5,        # Push harder to find space
+        min.segment.length = 0,
+        show.legend     = FALSE)
+    }
   }
 
   return(g)
