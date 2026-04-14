@@ -28,7 +28,9 @@ scripts/
 │   │   ├── run_pooled_gsea.R   # Cross-contrast GSEA aggregation
 │   │   ├── normalize_gsea.R    # Convert gseaResult → standard tibble
 │   │   ├── get_pathway_genes.R # Extract leading edge genes
-│   │   └── calculate_pathway_scores.R
+│   │   ├── calculate_pathway_scores.R
+│   │   ├── load_reference_db.R # Load bundled reference databases
+│   │   └── build_reference_databases.R # Rebuild processed RDS from raw
 │   └── GSEA_plotting/          # Visualization functions
 │       ├── gsea_dotplot.R      # Standard dotplot
 │       ├── gsea_dotplot_facet.R # Up/Down faceted dotplot
@@ -37,6 +39,14 @@ scripts/
 │       ├── gsea_heatmap.R      # Pathway × sample heatmaps
 │       └── format_pathway_names.R # Clean MSigDB pathway names
 └── custom_minimal_theme.R      # Shared ggplot2 theme
+
+data/
+└── references/                 # Bundled reference databases for GSEA
+    ├── METADATA.yaml           # Database registry
+    ├── mitocarta3.0/           # MitoCarta + MitoPathways (raw + processed)
+    ├── mitoxplorer3.0/         # mitoXplorer (raw + processed)
+    ├── mitochondria_unified/   # Merged mito databases (processed only)
+    └── transportdb/            # TransportDB 2.0 (raw + processed)
 ```
 
 ### Key Patterns
@@ -125,6 +135,9 @@ gsea_dotplot(gsea_obj, filterBy = "NES", showCategory = 20, highlight_sig = FALS
 | `create_standard_volcano()` | DE volcano plot | DE table → ggplot |
 | `gsea_dotplot()` | GSEA dotplot | gseaResult → ggplot |
 | `build_dge()` | Construct DGEList | count matrix + metadata → DGEList |
+| `load_reference_db()` | Load bundled reference database | database name → T2G/T2N list |
+| `list_reference_dbs()` | List available reference databases | → data frame |
+| `download_gatom_references()` | Download GATOM network files | dest_dir → file paths |
 
 ## Required R Packages
 
