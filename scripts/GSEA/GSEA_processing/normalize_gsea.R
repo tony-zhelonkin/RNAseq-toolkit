@@ -104,6 +104,45 @@ normalize_gsea_results <- function(
     length(strsplit(as.character(x), "/")[[1]])
   })
 
+  # --- genes_full_set semantics for GSEA rows (MADR-008) ---
+  # For unweighted gene-set methods (MSigDB, custom GMT, CoReSh-derived GMT,
+  # MitoPathways), `genes_full_set` is the full pathway membership intersected
+  # with the ranked gene-list universe — the genes the running-sum statistic
+  # actually scored against.
+  #
+  # `core_enrichment` (above) is the *leading edge* — the contrast-dependent
+  # gene subset that drove the running sum past its extremum. By construction
+  # `core_enrichment ⊆ genes_full_set`. Both columns are emitted; they are
+  # NOT the same value here (unlike for PROGENy/TF rows where MLM/ULM produce
+  # no leading-edge concept and the columns coincide).
+  #
+  # `genes_full_set` is contrast-dependent only via the universe filter (which
+  # genes appear in the DE table); it is NOT contrast-dependent via the
+  # statistic. This is the property pathway-explorer's similarity-driven UMAP
+  # layout relies on for cross-contrast stability — see
+  # pathway_explorer/similarity.py and the MADR-008 stability fix.
+  #
+  # Source of truth: clusterProfiler stores the materialised TERM2GENE list at
+  # gsea_obj@geneSets (named list keyed by pathway ID) and the ranked input at
+  # gsea_obj@geneList. Their intersection per pathway IS the filtered full set.
+  if (methods::is(gsea_obj, "gseaResult")) {
+    .gene_universe <- names(gsea_obj@geneList)
+    .gene_sets     <- gsea_obj@geneSets
+    result_df$genes_full_set <- vapply(
+      as.character(result_df$ID),
+      function(pid) {
+        members <- .gene_sets[[pid]]
+        if (is.null(members)) return(NA_character_)
+        paste(intersect(members, .gene_universe), collapse = "/")
+      },
+      character(1)
+    )
+  } else {
+    # data.frame input path: no @geneSets available; consumer should populate
+    # genes_full_set upstream or accept NA (data_loader fallback applies).
+    result_df$genes_full_set <- NA_character_
+  }
+
   # Calculate gene ratio
   result_df$gene_ratio <- result_df$leading_edge_size / result_df$setSize
   result_df$gene_ratio[is.na(result_df$gene_ratio) | is.infinite(result_df$gene_ratio)] <- 0
@@ -147,6 +186,7 @@ normalize_gsea_results <- function(
     leading_edge_size = as.integer(result_df$leading_edge_size),
     gene_ratio = as.numeric(result_df$gene_ratio),
     core_enrichment = as.character(result_df$core_enrichment),
+    genes_full_set = as.character(result_df$genes_full_set),  # MADR-008
     direction = ifelse(result_df$NES > 0, "Up", "Down")
   )
 
@@ -178,6 +218,7 @@ empty_gsea_tibble <- function() {
     leading_edge_size = integer(),
     gene_ratio = numeric(),
     core_enrichment = character(),
+    genes_full_set = character(),  # MADR-008
     direction = character(),
     neg_log_padj = numeric()
   )
