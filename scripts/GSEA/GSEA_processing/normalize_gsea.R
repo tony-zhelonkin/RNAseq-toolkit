@@ -53,7 +53,8 @@ normalize_gsea_results <- function(
     contrast,
     padj_cutoff = 1,
     format_names = TRUE,
-    max_name_length = 80
+    max_name_length = 80,
+    atlas_universe = NULL
 ) {
 
   # Validate input
@@ -104,29 +105,48 @@ normalize_gsea_results <- function(
     length(strsplit(as.character(x), "/")[[1]])
   })
 
-  # --- genes_full_set semantics for GSEA rows (MADR-008) ---
+  # --- genes_full_set semantics for GSEA rows (MADR-008, atlas-universe fix) ---
   # For unweighted gene-set methods (MSigDB, custom GMT, CoReSh-derived GMT,
   # MitoPathways), `genes_full_set` is the full pathway membership intersected
-  # with the ranked gene-list universe — the genes the running-sum statistic
-  # actually scored against.
+  # with a *gene universe*. Two universes are possible; which is used depends
+  # on the `atlas_universe` argument:
   #
-  # `core_enrichment` (above) is the *leading edge* — the contrast-dependent
-  # gene subset that drove the running sum past its extremum. By construction
-  # `core_enrichment ⊆ genes_full_set`. Both columns are emitted; they are
-  # NOT the same value here (unlike for PROGENy/TF rows where MLM/ULM produce
-  # no leading-edge concept and the columns coincide).
+  #   (a) atlas_universe = NULL (legacy default):
+  #         universe = names(gsea_obj@geneList) — i.e. the per-contrast ranked
+  #         list, which equals the post-filterByExpr DE universe for THIS
+  #         contrast. Under per-contrast filterByExpr (1.1_pseudobulk_de.R),
+  #         this universe varies with sequencing depth and cluster size
+  #         (empirically 26x range across 53 contrasts in cdc1_path), making
+  #         genes_full_set silently contrast-dependent and breaking
+  #         cross-contrast stability of pathway-explorer's similarity layer.
   #
-  # `genes_full_set` is contrast-dependent only via the universe filter (which
-  # genes appear in the DE table); it is NOT contrast-dependent via the
-  # statistic. This is the property pathway-explorer's similarity-driven UMAP
-  # layout relies on for cross-contrast stability — see
-  # pathway_explorer/similarity.py and the MADR-008 stability fix.
+  #   (b) atlas_universe = <character vector of HGNC symbols> (preferred):
+  #         universe = atlas_universe, the union of every contrast's
+  #         post-filterByExpr universe (written by 1.1_pseudobulk_de.R as
+  #         tables/atlas_gene_universe.txt). genes_full_set then depends only
+  #         on pathway membership and the atlas universe — both contrast-
+  #         invariant. This is what pathway-explorer's geometry layer needs.
+  #
+  # `core_enrichment` (above) remains the *leading edge* — the contrast-
+  # dependent gene subset that drove the running sum past its extremum. By
+  # construction `core_enrichment ⊆ genes_full_set` only when the leading
+  # edge sits inside the chosen universe; under (b) some pathway members may
+  # have been filtered out of the per-contrast ranked list and would not
+  # contribute to core_enrichment, but they DO appear in genes_full_set.
+  # Both columns are emitted; they are NOT the same value here (unlike for
+  # PROGENy/TF rows where MLM/ULM produce no leading-edge concept and the
+  # columns coincide).
   #
   # Source of truth: clusterProfiler stores the materialised TERM2GENE list at
-  # gsea_obj@geneSets (named list keyed by pathway ID) and the ranked input at
-  # gsea_obj@geneList. Their intersection per pathway IS the filtered full set.
+  # gsea_obj@geneSets (named list keyed by pathway ID). Per-contrast universe
+  # comes from gsea_obj@geneList; atlas universe comes from the caller.
+  # Originating concern: pathway-geometry/synthesis.md P0-1.
   if (methods::is(gsea_obj, "gseaResult")) {
-    .gene_universe <- names(gsea_obj@geneList)
+    .gene_universe <- if (!is.null(atlas_universe)) {
+      as.character(atlas_universe)
+    } else {
+      names(gsea_obj@geneList)
+    }
     .gene_sets     <- gsea_obj@geneSets
     result_df$genes_full_set <- vapply(
       as.character(result_df$ID),
