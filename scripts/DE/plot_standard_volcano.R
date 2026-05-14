@@ -79,6 +79,7 @@ create_standard_volcano <- function(
     title         = "Volcano plot",
     subtitle      = NULL,
     caption       = NULL,
+    fixed_p_boundary = NULL,
     color_palette = c(
       "NS"               = "#7F7F7F",   # grey
       "Log2FC"           = "#0173B2",   # blue
@@ -123,16 +124,22 @@ create_standard_volcano <- function(
     sig_logic  <- sig_stat <= p_cutoff                # inclusive
 
     # Find the boundary p-value: the largest raw p among significant genes
-    # This ensures the line aligns with the actual color boundary
-    sig_pvals <- de_results$P.Value[sig_logic]
-    if (length(sig_pvals) > 0) {
-      p_thresh <- max(sig_pvals, na.rm = TRUE)
-      horiz_line <- -log10(p_thresh)
+    # This ensures the line aligns with the actual color boundary.
+    # If fixed_p_boundary is provided (e.g. from a pre-filtered dataset), use it.
+    if (!is.null(fixed_p_boundary)) {
+      horiz_line <- -log10(fixed_p_boundary)
       draw_horiz_line <- TRUE
     } else {
-      # No significant genes - don't draw a line
-      horiz_line <- NA
-      draw_horiz_line <- FALSE
+      sig_pvals <- de_results$P.Value[sig_logic]
+      if (length(sig_pvals) > 0) {
+        p_thresh <- max(sig_pvals, na.rm = TRUE)
+        horiz_line <- -log10(p_thresh)
+        draw_horiz_line <- TRUE
+      } else {
+        # No significant genes - don't draw a line
+        horiz_line <- NA
+        draw_horiz_line <- FALSE
+      }
     }
     legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
   } else {  # decision_by == "p"
