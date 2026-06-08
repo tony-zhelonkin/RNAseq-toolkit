@@ -166,8 +166,6 @@ class DotplotRenderer:
         # Add grid for clarity
         ax.set_xticks(range(ncols))
         ax.set_yticks(range(nrows))
-        ax.grid(True, alpha=0.2, linestyle='-', linewidth=0.5, color='gray')
-        ax.set_axisbelow(True)
 
         # Set labels
         if row_labels is not None:
