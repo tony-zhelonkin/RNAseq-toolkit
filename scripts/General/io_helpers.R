@@ -213,3 +213,57 @@ aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
 
   collapsed
 }
+
+# 5) Collapse duplicate row IDs by summing counts across rows with the same ID.
+#
+#   mat  — numeric matrix; rownames or a caller-supplied `ids` vector identify rows
+#   ids  — character vector of length nrow(mat); defaults to rownames(mat)
+#
+#   Rows sharing the same ID are collapsed by colSums.
+#   When no duplicates exist, rownames are simply set to `ids` unchanged.
+#
+#   Output rownames come out in split() order = sort(unique(ids)), NOT input order.
+#   Callers that match annotation downstream MUST re-match to rownames(mat) after
+#   collapsing (reference lines 219 / 267 of the gene-annotation recipe).
+#
+#   attr(mat, “input_gene_name”) is preserved: for each unique ID the first non-NA
+#   gene_name in that group is retained, re-ordered to match the collapsed rowname order.
+aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
+  stopifnot(is.matrix(mat), length(ids) == nrow(mat))
+
+  # Retrieve the per-row gene name attribute (NA scalar or named character vector)
+  ign <- attr(mat, “input_gene_name”)
+
+  if (!anyDuplicated(ids)) {
+    # Fast path: no duplicates — just assign rownames
+    rownames(mat) <- ids
+    attr(mat, “input_gene_name”) <- ign
+    return(mat)
+  }
+
+  # Split row indices by id; split() sorts groups alphabetically
+  groups <- split(seq_len(nrow(mat)), ids)
+
+  # Collapse each group by summing columns
+  collapsed <- do.call(rbind, lapply(groups, function(idx) {
+    if (length(idx) == 1L) mat[idx, , drop = FALSE] else colSums(mat[idx, , drop = FALSE])
+  }))
+  # rownames already set to the unique ids by split() + do.call(rbind)
+
+  # Rebuild input_gene_name: first non-NA gene_name per group, in collapsed-row order
+  if (length(ign) > 1L) {
+    # ign is a named vector (Salmon path); align by position
+    new_ign <- vapply(groups, function(idx) {
+      vals <- ign[idx]
+      first_valid <- vals[!is.na(vals)]
+      if (length(first_valid)) first_valid[1L] else NA_character_
+    }, character(1L))
+    names(new_ign) <- rownames(collapsed)
+  } else {
+    # ign is NA (featureCounts / generic path); pass through as-is
+    new_ign <- ign
+  }
+  attr(collapsed, “input_gene_name”) <- new_ign
+
+  collapsed
+}
