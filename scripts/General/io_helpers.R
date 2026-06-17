@@ -226,18 +226,18 @@ aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
 #   Callers that match annotation downstream MUST re-match to rownames(mat) after
 #   collapsing (reference lines 219 / 267 of the gene-annotation recipe).
 #
-#   attr(mat, “input_gene_name”) is preserved: for each unique ID the first non-NA
+#   attr(mat, "input_gene_name") is preserved: for each unique ID the first non-NA
 #   gene_name in that group is retained, re-ordered to match the collapsed rowname order.
 aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
   stopifnot(is.matrix(mat), length(ids) == nrow(mat))
 
   # Retrieve the per-row gene name attribute (NA scalar or named character vector)
-  ign <- attr(mat, “input_gene_name”)
+  ign <- attr(mat, "input_gene_name")
 
   if (!anyDuplicated(ids)) {
     # Fast path: no duplicates — just assign rownames
     rownames(mat) <- ids
-    attr(mat, “input_gene_name”) <- ign
+    attr(mat, "input_gene_name") <- ign
     return(mat)
   }
 
@@ -263,7 +263,7 @@ aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
     # ign is NA (featureCounts / generic path); pass through as-is
     new_ign <- ign
   }
-  attr(collapsed, “input_gene_name”) <- new_ign
+  attr(collapsed, "input_gene_name") <- new_ign
 
   collapsed
 }
