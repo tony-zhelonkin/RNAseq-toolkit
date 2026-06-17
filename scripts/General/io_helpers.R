@@ -56,30 +56,41 @@ read_counts_matrix <- function(fp) {
   mat
 }
 
-# 2) Read Excel metadata and standardize key fields
-read_metadata <- function(xlsx_fp) {
-  md <- readxl::read_xlsx(xlsx_fp)
+# 2) Read metadata (Excel or CSV) and standardize the Sample_ID column.
+#
+#   fp                   — path to an .xlsx or .csv file
+#   sample_col_candidates — column name(s) tried in order for the sample-ID column
+#   required_cols        — opt-in character vector of additional column names that MUST
+#                          be present (stop() if any are missing); empty by default so
+#                          non-project-specific sheets load without error
+read_metadata <- function(fp,
+                          sample_col_candidates = c("Sample_ID", "Sample ID"),
+                          required_cols = character(0)) {
+  # Dispatch on extension
+  ext <- tolower(tools::file_ext(fp))
+  if (ext %in% c("xlsx", "xls")) {
+    md <- readxl::read_xlsx(fp)
+  } else {
+    # .csv and any other plain-text format
+    md <- as.data.frame(data.table::fread(fp), check.names = FALSE)
+  }
   nm <- names(md)
 
-  # Sample ID column name could be "Sample_ID" or "Sample ID"
-  sample_col <- if ("Sample_ID" %in% nm) "Sample_ID" else if ("Sample ID" %in% nm) "Sample ID" else stop("Metadata must have 'Sample_ID' or 'Sample ID'.")
+  # Resolve sample-ID column
+  sample_col <- NULL
+  for (cand in sample_col_candidates) {
+    if (cand %in% nm) { sample_col <- cand; break }
+  }
+  if (is.null(sample_col)) {
+    stop("Metadata must have one of: ", paste(sample_col_candidates, collapse = ", "))
+  }
   names(md)[names(md) == sample_col] <- "Sample_ID"
 
-  # Normalize expected fields (present in your sheet)
-  # Keep original names, but we’ll reference these exact ones:
-  #  Treatment 1
-  #  Duration of Treatment 1 before Treatment 2
-  #  Total Duration of Treatment 1
-  #  Treatment 2
-  #  Duration of Treatment 2
-  #  Biological Replicate (mouse)
-  #  Batch
-  needed <- c("Sample_ID",
-              "Treatment 1","Duration of Treatment 1 before Treatment 2","Total Duration of Treatment 1",
-              "Treatment 2","Duration of Treatment 2",
-              "Biological Replicate (mouse)","Batch")
-  missing <- setdiff(needed, names(md))
-  if (length(missing)) stop("Metadata missing columns: ", paste(missing, collapse=", "))
+  # Enforce only the caller-specified required columns
+  if (length(required_cols)) {
+    missing <- setdiff(required_cols, names(md))
+    if (length(missing)) stop("Metadata missing required columns: ", paste(missing, collapse = ", "))
+  }
 
   as.data.frame(md, check.names = FALSE)
 }
