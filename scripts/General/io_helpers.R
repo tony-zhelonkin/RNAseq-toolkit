@@ -107,7 +107,7 @@ align_metadata_to_counts <- function(md, counts_cols) {
   md2
 }
 
-# 4) Write “annotated wide” matrix with optional factor top rows.
+# 4) Write "annotated wide" matrix with optional factor top rows.
 #
 #   mat        — numeric matrix; colnames == md$Sample_ID
 #   md         — metadata data.frame with a Sample_ID column
@@ -115,7 +115,7 @@ align_metadata_to_counts <- function(md, counts_cols) {
 #   outfile    — output path (tab-separated)
 #   factor_cols — character vector of metadata column names to embed as top rows
 #                 (reference layout, line 277): factor name in first annot col,
-#                 second annot col blank (“”), all remaining annot cols blank,
+#                 second annot col blank (""), all remaining annot cols blank,
 #                 factor values across sample columns; NULL → no top block
 write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NULL) {
   stopifnot(is.matrix(mat))
@@ -132,18 +132,18 @@ write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NUL
     # Build one top row per factor_col entry.
     # Layout (reference line 277):
     #   first annot col  = factor name (row label)
-    #   second annot col = “” (blank)
-    #   remaining annot cols = “” (blank)
+    #   second annot col = "" (blank)
+    #   remaining annot cols = "" (blank)
     #   sample cols = factor values from md
     top_block <- do.call(
       rbind,
       lapply(factor_cols, function(fc) {
-        annot_row <- as.list(setNames(rep(“”, length(annot_cols)), annot_cols))
+        annot_row <- as.list(setNames(rep("", length(annot_cols)), annot_cols))
         annot_row[[annot_cols[1]]] <- fc
-        if (length(annot_cols) >= 2) annot_row[[annot_cols[2]]] <- “”
+        if (length(annot_cols) >= 2) annot_row[[annot_cols[2]]] <- ""
         sample_vals <- md[[fc]]
         if (is.null(sample_vals)) {
-          warning(“factor_col '”, fc, “' not found in metadata; using NA”)
+          warning("factor_col '", fc, "' not found in metadata; using NA")
           sample_vals <- rep(NA_character_, length(samples))
         }
         df <- as.data.frame(c(annot_row, as.list(sample_vals)), check.names = FALSE)
@@ -156,8 +156,8 @@ write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NUL
     out <- body
   }
 
-  data.table::fwrite(out, outfile, sep = “\t”, quote = FALSE, na = “”)
-  message(“Wrote: “, outfile, “ [rows: “, nrow(out), “, cols: “, ncol(out), “]”)
+  data.table::fwrite(out, outfile, sep = "\t", quote = FALSE, na = "")
+  message("Wrote: ", outfile, " [rows: ", nrow(out), ", cols: ", ncol(out), "]")
 }
 
 # 5) Collapse duplicate row IDs by summing counts across rows with the same ID.
@@ -172,18 +172,18 @@ write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NUL
 #   Callers that match annotation downstream MUST re-match to rownames(mat) after
 #   collapsing (reference lines 219 / 267 of the gene-annotation recipe).
 #
-#   attr(mat, “input_gene_name”) is preserved: for each unique ID the first non-NA
+#   attr(mat, "input_gene_name") is preserved: for each unique ID the first non-NA
 #   gene_name in that group is retained, re-ordered to match the collapsed rowname order.
 aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
   stopifnot(is.matrix(mat), length(ids) == nrow(mat))
 
   # Retrieve the per-row gene name attribute (NA scalar or named character vector)
-  ign <- attr(mat, “input_gene_name”)
+  ign <- attr(mat, "input_gene_name")
 
   if (!anyDuplicated(ids)) {
     # Fast path: no duplicates — just assign rownames
     rownames(mat) <- ids
-    attr(mat, “input_gene_name”) <- ign
+    attr(mat, "input_gene_name") <- ign
     return(mat)
   }
 
@@ -209,7 +209,7 @@ aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
     # ign is NA (featureCounts / generic path); pass through as-is
     new_ign <- ign
   }
-  attr(collapsed, “input_gene_name”) <- new_ign
+  attr(collapsed, "input_gene_name") <- new_ign
 
   collapsed
 }
