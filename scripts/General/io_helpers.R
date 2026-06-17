@@ -5,24 +5,45 @@ suppressPackageStartupMessages({
   library(dplyr)
 })
 
-# 1) Read featureCounts-like wide table (Geneid + samples...) or generic (gene_id)
+# 1) Read featureCounts-like wide table (Geneid + samples...) or generic (gene_id).
+#    Also handles Salmon gene-level output (gene_id + gene_name + sample columns).
+#    Returns a numeric matrix with an attribute:
+#      attr(mat, "input_gene_name") — named character vector (name = stripped stable ID,
+#        value = gene_name) for Salmon gene-level input; NA for featureCounts/generic.
 read_counts_matrix <- function(fp) {
   dt <- fread(fp)
   # Accept common shapes:
   # - featureCounts-processed: Geneid + sample columns
   # - featureCounts raw: columns 1..6 metadata, samples from 7..N
+  # - Salmon gene-level: gene_id + gene_name + sample columns
+  # - generic: gene_id + sample columns (no gene_name)
   if ("Geneid" %in% names(dt) && !"Chr" %in% names(dt)) {
     gene_col <- "Geneid"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, setdiff(names(dt), gene_col), with = FALSE])
+    input_gene_name <- NA
   } else if (all(c("Geneid","Chr","Start","End","Strand","Length") %in% names(dt))) {
     gene_col <- "Geneid"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, (7):ncol(dt), with = FALSE])
+    input_gene_name <- NA
+  } else if (all(c("gene_id","gene_name") %in% names(dt))) {
+    # Salmon gene-level: gene_id + gene_name + sample columns
+    gene_col <- "gene_id"
+    rn <- dt[[gene_col]]
+    sample_cols <- setdiff(names(dt), c("gene_id", "gene_name"))
+    mat <- as.matrix(dt[, sample_cols, with = FALSE])
+    # Build input_gene_name: first gene_name per stripped stable id (handles versioned ids)
+    stripped <- sub("\\..*$", "", rn)
+    gn_dt <- data.table(stripped_id = stripped, gene_name = dt[["gene_name"]])
+    first_gn <- gn_dt[, .(gene_name = gene_name[1L]), by = stripped_id]
+    input_gene_name <- setNames(first_gn$gene_name, first_gn$stripped_id)
   } else if ("gene_id" %in% names(dt)) {
+    # Generic: gene_id without gene_name
     gene_col <- "gene_id"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, setdiff(names(dt), gene_col), with = FALSE])
+    input_gene_name <- NA
   } else {
     stop("Unsupported counts file format for: ", fp)
   }
@@ -31,6 +52,7 @@ read_counts_matrix <- function(fp) {
   colnames(mat) <- basename(colnames(mat))
   colnames(mat) <- str_remove(colnames(mat), "\\.bam$|\\.sam$|\\.sorted$|\\.markdup$|\\.txt$")
   rownames(mat) <- rn
+  attr(mat, "input_gene_name") <- input_gene_name
   mat
 }
 
