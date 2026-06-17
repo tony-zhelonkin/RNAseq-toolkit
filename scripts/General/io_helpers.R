@@ -107,48 +107,55 @@ align_metadata_to_counts <- function(md, counts_cols) {
   md2
 }
 
-# 4) Write “annotated wide” matrix with top metadata rows
-#    add_cols: a data.frame of annotation columns (same row order as mat rows)
-write_annotated_matrix <- function(mat, md, add_cols, outfile) {
+# 4) Write “annotated wide” matrix with optional factor top rows.
+#
+#   mat        — numeric matrix; colnames == md$Sample_ID
+#   md         — metadata data.frame with a Sample_ID column
+#   add_cols   — data.frame of annotation columns (same row order as mat rows)
+#   outfile    — output path (tab-separated)
+#   factor_cols — character vector of metadata column names to embed as top rows
+#                 (reference layout, line 277): factor name in first annot col,
+#                 second annot col blank (“”), all remaining annot cols blank,
+#                 factor values across sample columns; NULL → no top block
+write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NULL) {
   stopifnot(is.matrix(mat))
   samples <- colnames(mat)
   stopifnot(identical(samples, md$Sample_ID))
-
-  # Map metadata rows (order matches your Excel header names)
-  top_map <- list(
-    treat1                = md[["Treatment 1"]],
-    treat1_exposure_ante  = md[["Duration of Treatment 1 before Treatment 2"]],
-    treat1_exposure_total = md[["Total Duration of Treatment 1"]],
-    treat2                = md[["Treatment 2"]],
-    treat2_exposure       = md[["Duration of Treatment 2"]],
-    bio_replicate         = md[["Biological Replicate (mouse)"]],
-    batch                 = md[["Batch"]]
-  )
 
   # Body = annotation columns + counts
   stopifnot(nrow(add_cols) == nrow(mat))
   body <- cbind(add_cols, as.data.frame(mat, check.names = FALSE))
 
-  # Build top rows with the SAME annotation columns as 'add_cols'
   annot_cols <- colnames(add_cols)
 
-  top_block <- do.call(
-    rbind,
-    lapply(names(top_map), function(k) {
-      # blank row for all annotation columns
-      annot_row <- as.list(setNames(rep("", length(annot_cols)), annot_cols))
-      # put the row label into the first annotation column (assumed "Symbol" if present)
-      first_col <- annot_cols[1]
-      annot_row[[first_col]] <- k
-      # bind metadata vector across sample columns
-      df <- as.data.frame(c(annot_row, as.list(top_map[[k]])), check.names = FALSE)
-      colnames(df) <- c(annot_cols, samples)
-      df
-    })
-  )
+  if (!is.null(factor_cols) && length(factor_cols) > 0) {
+    # Build one top row per factor_col entry.
+    # Layout (reference line 277):
+    #   first annot col  = factor name (row label)
+    #   second annot col = “” (blank)
+    #   remaining annot cols = “” (blank)
+    #   sample cols = factor values from md
+    top_block <- do.call(
+      rbind,
+      lapply(factor_cols, function(fc) {
+        annot_row <- as.list(setNames(rep(“”, length(annot_cols)), annot_cols))
+        annot_row[[annot_cols[1]]] <- fc
+        if (length(annot_cols) >= 2) annot_row[[annot_cols[2]]] <- “”
+        sample_vals <- md[[fc]]
+        if (is.null(sample_vals)) {
+          warning(“factor_col '”, fc, “' not found in metadata; using NA”)
+          sample_vals <- rep(NA_character_, length(samples))
+        }
+        df <- as.data.frame(c(annot_row, as.list(sample_vals)), check.names = FALSE)
+        colnames(df) <- c(annot_cols, samples)
+        df
+      })
+    )
+    out <- rbind(top_block, body)
+  } else {
+    out <- body
+  }
 
-  # Combine and write
-  out <- rbind(top_block, body)
-  data.table::fwrite(out, outfile, sep = "\t", quote = FALSE, na = "")
-  message("Wrote: ", outfile, " [rows: ", nrow(out), ", cols: ", ncol(out), "]")
+  data.table::fwrite(out, outfile, sep = “\t”, quote = FALSE, na = “”)
+  message(“Wrote: “, outfile, “ [rows: “, nrow(out), “, cols: “, ncol(out), “]”)
 }
