@@ -29,16 +29,24 @@ format_pathway_name <- function(text, use_formatting = TRUE, strip_prefix = TRUE
   # Store original for fallback
   original <- text
 
-  # Step 1: Replace underscores with spaces and collapse multiple spaces
-  text <- stringr::str_replace_all(text, "_", " ")
+  # Step 1: Replace underscores AND dots with spaces, then collapse runs.
+  # Dots are hierarchy separators in some custom DBs (e.g. MitoPathways
+  # "Metabolism.Lipid_metabolism.Fatty_acid_oxidation"); treating them like
+  # underscores lets each segment capitalize and read cleanly.
+  text <- stringr::str_replace_all(text, "[_.]", " ")
   text <- stringr::str_replace_all(text, " +", " ")  # Collapse multiple spaces
 
-  # Step 2: Strip common prefixes if requested
+  # Step 2: Strip common prefixes if requested. Underscores are already spaces
+  # (Step 1), so prefixes are matched in their space form, anchored at the start.
   if (strip_prefix) {
     common_prefixes <- c(
+      # MSigDB collections
       "HALLMARK ", "KEGG ", "REACTOME ", "BIOCARTA ", "MEDICUS ",
       "GOBP ", "GOCC ", "GOMF ", "PID ", "WIKIPATHWAY ",
-      "WP ", "^GO ", "GTRD ", "NABA ", "HP "
+      "WP ", "^GO ", "GTRD ", "NABA ", "HP ",
+      # Custom / metabolic / transport databases (IDs are upper-cased, e.g.
+      # MITOXPLORER_Pyruvate_Metabolism -> "MITOXPLORER Pyruvate Metabolism").
+      "MITOXPLORER ", "MITOPATHWAYS ", "MITOCARTA ", "TRANSPORTDB "
     )
     for (prefix in common_prefixes) {
       text <- stringr::str_replace(text, paste0("^", prefix), "")
@@ -366,6 +374,17 @@ build_exception_dictionary <- function() {
     # Receptor types
     "gpcr" = "GPCR",
     "rtk" = "RTK",
+
+    # Membrane-transporter families (TransportDB classification codes; once the
+    # "TRANSPORTDB " prefix is stripped these acronyms ARE the whole label).
+    "abc" = "ABC",            # ATP-binding cassette
+    "mfs" = "MFS",            # major facilitator superfamily
+    "mc"  = "MC",             # mitochondrial carrier
+    "vic" = "VIC",            # voltage-gated ion channel
+    "dmt" = "DMT",            # drug/metabolite transporter
+    "mpt" = "MPT",            # metal-ion / membrane permease
+    "p-atpase" = "P-ATPase",
+    "f-atpase" = "F-ATPase",
 
     # Organelles
     "er" = "ER",
