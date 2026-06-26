@@ -1,3 +1,41 @@
+#' Significant-gene up/down counts tied to the highest-priority populated legend
+#' category (internal helper; not part of the stable API).
+#'
+#' Walks the colour categories in priority order and returns the up/down split of
+#' the FIRST one that has any members, so the rendered counts always belong to
+#' the strongest claim the legend actually makes:
+#'   1. `"both"` — combined *FDR & |log2FC|* (`sig_dec & sig_fc`). If ≥1 gene
+#'      qualifies, counts are those genes split by `logFC` sign.
+#'   2. `"fdr"`  — *FDR*-only (`sig_dec`). Used when priority-1 is empty; counts
+#'      are the `sig_dec` genes split by sign.
+#'   3. `"none"` — nothing crosses FDR; counts are `0 / 0`.
+#' `legend_key` names the colour category whose legend label should receive the
+#' appended count line (`"p-value & Log2FC"` for `"both"`, `"p-value"` for
+#' `"fdr"`, `NA` for `"none"`). `↑` counts `logFC > 0`, `↓` counts `logFC < 0`.
+#'
+#' @param df Data frame carrying `logFC`, `sig_dec`, `sig_fc` (as built inside
+#'           `create_standard_volcano()`).
+#' @return list(category, n_up, n_down, legend_key)
+#' @keywords internal
+.volcano_sig_counts <- function(df) {
+  if (any(df$sig_dec & df$sig_fc, na.rm = TRUE)) {
+    sel <- df$sig_dec & df$sig_fc
+    category   <- "both"
+    legend_key <- "p-value & Log2FC"
+  } else if (any(df$sig_dec, na.rm = TRUE)) {
+    sel <- df$sig_dec
+    category   <- "fdr"
+    legend_key <- "p-value"
+  } else {
+    return(list(category = "none", n_up = 0L, n_down = 0L,
+                legend_key = NA_character_))
+  }
+  list(category   = category,
+       n_up       = sum(sel & df$logFC > 0, na.rm = TRUE),
+       n_down     = sum(sel & df$logFC < 0, na.rm = TRUE),
+       legend_key = legend_key)
+}
+
 #' Create a Standard Volcano Plot for Differential Expression Results
 #'
 
@@ -54,6 +92,17 @@
 #'                    categories *NS*, *Log2FC*, *p‑value*, *Both*.
 #' @param show_grid   Logical. If `TRUE` keep panel grid; otherwise drop it.
 #' @param max.overlaps Passed to **ggrepel**.
+#' @param annotate_counts Logical (default `FALSE`). When `TRUE`, append a
+#'                    second line of significant‑gene up/down counts
+#'                    (`↑ n   ↓ m`) directly beneath the legend label of the
+#'                    highest‑priority POPULATED significance category. Priority:
+#'                    the combined *FDR & |log2FC|* line first; if empty, the
+#'                    *FDR*‑only line; otherwise `0 / 0` under the combined line.
+#'                    `↑` counts `logFC > 0`, `↓` counts `logFC < 0`. The colour
+#'                    key dot stays aligned with the threshold text (line 1) and
+#'                    the counts sit on line 2, so the annotation survives any
+#'                    later legend repositioning. Opt‑in; default keeps the
+#'                    legend (and all existing consumers/tests) unchanged.
 #' @param ...         Soft‑absorbs deprecated args such as `use_fdr`.
 #'
 #' @return A `ggplot2` object.
@@ -88,6 +137,7 @@ create_standard_volcano <- function(
     ),
     show_grid     = FALSE,
     max.overlaps  = 10,
+    annotate_counts = FALSE,    # opt-in: counts under the top sig legend line
     ...                         # absorb deprecated args (e.g. use_fdr)
 ) {
   decision_by <- match.arg(decision_by)
@@ -199,6 +249,24 @@ create_standard_volcano <- function(
   ymax <- ceiling(max(-log10(df$P.Value)))
   dark_pal <- vapply(color_palette, shade, character(1))
 
+  # Legend labels (one per colour category). When annotate_counts is on, append
+  # a second line of up/down counts under the highest-priority populated sig
+  # line so the colour key dot stays on line 1 (the threshold) and the counts
+  # sit on line 2 — anchored to that exact legend entry, not floating.
+  legend_labels <- c(
+    "p-value & Log2FC" = sprintf("%s & |log2FC| ≥ %.1f", legend_sig, fc_cutoff),
+    "Log2FC"           = sprintf("|log2FC| ≥ %.1f", fc_cutoff),
+    "p-value"          = legend_sig,
+    "NS"               = "NS")
+
+  if (isTRUE(annotate_counts)) {
+    sc  <- .volcano_sig_counts(df)
+    # "none" → no populated sig line; pin the 0/0 under the combined (top) line.
+    key <- if (is.na(sc$legend_key)) "p-value & Log2FC" else sc$legend_key
+    legend_labels[key] <- paste0(legend_labels[key],
+                                 sprintf("\n↑ %d   ↓ %d", sc$n_up, sc$n_down))
+  }
+
   # ────────────────── 4. build ggplot ────────────────────────────────
   g <- ggplot2::ggplot(df, ggplot2::aes(logFC, -log10(P.Value), colour = cat)) +
        ggplot2::geom_point(size = 2, alpha = .65) +
@@ -206,11 +274,7 @@ create_standard_volcano <- function(
        ggplot2::scale_colour_manual(name = NULL,
          values = color_palette,
          breaks = names(color_palette),
-         labels = c(
-           "p-value & Log2FC" = sprintf("%s & |log2FC| ≥ %.1f", legend_sig, fc_cutoff),
-           "Log2FC"           = sprintf("|log2FC| ≥ %.1f", fc_cutoff),
-           "p-value"          = legend_sig,
-           "NS"               = "NS")) +
+         labels = legend_labels) +
        ggplot2::scale_x_continuous(breaks = seq(-xmax, xmax, by = x_breaks),
                                    limits = c(-xmax, xmax)) +
        ggplot2::coord_cartesian(ylim = c(0, ymax)) +
