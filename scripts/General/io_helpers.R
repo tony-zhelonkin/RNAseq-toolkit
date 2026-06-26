@@ -5,24 +5,45 @@ suppressPackageStartupMessages({
   library(dplyr)
 })
 
-# 1) Read featureCounts-like wide table (Geneid + samples...) or generic (gene_id)
+# 1) Read featureCounts-like wide table (Geneid + samples...) or generic (gene_id).
+#    Also handles Salmon gene-level output (gene_id + gene_name + sample columns).
+#    Returns a numeric matrix with an attribute:
+#      attr(mat, "input_gene_name") — named character vector (name = stripped stable ID,
+#        value = gene_name) for Salmon gene-level input; NA for featureCounts/generic.
 read_counts_matrix <- function(fp) {
   dt <- fread(fp)
   # Accept common shapes:
   # - featureCounts-processed: Geneid + sample columns
   # - featureCounts raw: columns 1..6 metadata, samples from 7..N
+  # - Salmon gene-level: gene_id + gene_name + sample columns
+  # - generic: gene_id + sample columns (no gene_name)
   if ("Geneid" %in% names(dt) && !"Chr" %in% names(dt)) {
     gene_col <- "Geneid"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, setdiff(names(dt), gene_col), with = FALSE])
+    input_gene_name <- NA
   } else if (all(c("Geneid","Chr","Start","End","Strand","Length") %in% names(dt))) {
     gene_col <- "Geneid"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, (7):ncol(dt), with = FALSE])
+    input_gene_name <- NA
+  } else if (all(c("gene_id","gene_name") %in% names(dt))) {
+    # Salmon gene-level: gene_id + gene_name + sample columns
+    gene_col <- "gene_id"
+    rn <- dt[[gene_col]]
+    sample_cols <- setdiff(names(dt), c("gene_id", "gene_name"))
+    mat <- as.matrix(dt[, sample_cols, with = FALSE])
+    # Build input_gene_name: first gene_name per stripped stable id (handles versioned ids)
+    stripped <- sub("\\..*$", "", rn)
+    gn_dt <- data.table(stripped_id = stripped, gene_name = dt[["gene_name"]])
+    first_gn <- gn_dt[, .(gene_name = gene_name[1L]), by = stripped_id]
+    input_gene_name <- setNames(first_gn$gene_name, first_gn$stripped_id)
   } else if ("gene_id" %in% names(dt)) {
+    # Generic: gene_id without gene_name
     gene_col <- "gene_id"
     rn <- dt[[gene_col]]
     mat <- as.matrix(dt[, setdiff(names(dt), gene_col), with = FALSE])
+    input_gene_name <- NA
   } else {
     stop("Unsupported counts file format for: ", fp)
   }
@@ -31,33 +52,45 @@ read_counts_matrix <- function(fp) {
   colnames(mat) <- basename(colnames(mat))
   colnames(mat) <- str_remove(colnames(mat), "\\.bam$|\\.sam$|\\.sorted$|\\.markdup$|\\.txt$")
   rownames(mat) <- rn
+  attr(mat, "input_gene_name") <- input_gene_name
   mat
 }
 
-# 2) Read Excel metadata and standardize key fields
-read_metadata <- function(xlsx_fp) {
-  md <- readxl::read_xlsx(xlsx_fp)
+# 2) Read metadata (Excel or CSV) and standardize the Sample_ID column.
+#
+#   fp                   — path to an .xlsx or .csv file
+#   sample_col_candidates — column name(s) tried in order for the sample-ID column
+#   required_cols        — opt-in character vector of additional column names that MUST
+#                          be present (stop() if any are missing); empty by default so
+#                          non-project-specific sheets load without error
+read_metadata <- function(fp,
+                          sample_col_candidates = c("Sample_ID", "Sample ID"),
+                          required_cols = character(0)) {
+  # Dispatch on extension
+  ext <- tolower(tools::file_ext(fp))
+  if (ext %in% c("xlsx", "xls")) {
+    md <- readxl::read_xlsx(fp)
+  } else {
+    # .csv and any other plain-text format
+    md <- as.data.frame(data.table::fread(fp), check.names = FALSE)
+  }
   nm <- names(md)
 
-  # Sample ID column name could be "Sample_ID" or "Sample ID"
-  sample_col <- if ("Sample_ID" %in% nm) "Sample_ID" else if ("Sample ID" %in% nm) "Sample ID" else stop("Metadata must have 'Sample_ID' or 'Sample ID'.")
+  # Resolve sample-ID column
+  sample_col <- NULL
+  for (cand in sample_col_candidates) {
+    if (cand %in% nm) { sample_col <- cand; break }
+  }
+  if (is.null(sample_col)) {
+    stop("Metadata must have one of: ", paste(sample_col_candidates, collapse = ", "))
+  }
   names(md)[names(md) == sample_col] <- "Sample_ID"
 
-  # Normalize expected fields (present in your sheet)
-  # Keep original names, but we’ll reference these exact ones:
-  #  Treatment 1
-  #  Duration of Treatment 1 before Treatment 2
-  #  Total Duration of Treatment 1
-  #  Treatment 2
-  #  Duration of Treatment 2
-  #  Biological Replicate (mouse)
-  #  Batch
-  needed <- c("Sample_ID",
-              "Treatment 1","Duration of Treatment 1 before Treatment 2","Total Duration of Treatment 1",
-              "Treatment 2","Duration of Treatment 2",
-              "Biological Replicate (mouse)","Batch")
-  missing <- setdiff(needed, names(md))
-  if (length(missing)) stop("Metadata missing columns: ", paste(missing, collapse=", "))
+  # Enforce only the caller-specified required columns
+  if (length(required_cols)) {
+    missing <- setdiff(required_cols, names(md))
+    if (length(missing)) stop("Metadata missing required columns: ", paste(missing, collapse = ", "))
+  }
 
   as.data.frame(md, check.names = FALSE)
 }
@@ -74,48 +107,109 @@ align_metadata_to_counts <- function(md, counts_cols) {
   md2
 }
 
-# 4) Write “annotated wide” matrix with top metadata rows
-#    add_cols: a data.frame of annotation columns (same row order as mat rows)
-write_annotated_matrix <- function(mat, md, add_cols, outfile) {
+# 4) Write "annotated wide" matrix with optional factor top rows.
+#
+#   mat        — numeric matrix; colnames == md$Sample_ID
+#   md         — metadata data.frame with a Sample_ID column
+#   add_cols   — data.frame of annotation columns (same row order as mat rows)
+#   outfile    — output path (tab-separated)
+#   factor_cols — character vector of metadata column names to embed as top rows
+#                 (reference layout, line 277): factor name in first annot col,
+#                 second annot col blank (""), all remaining annot cols blank,
+#                 factor values across sample columns; NULL → no top block
+write_annotated_matrix <- function(mat, md, add_cols, outfile, factor_cols = NULL) {
   stopifnot(is.matrix(mat))
   samples <- colnames(mat)
   stopifnot(identical(samples, md$Sample_ID))
-
-  # Map metadata rows (order matches your Excel header names)
-  top_map <- list(
-    treat1                = md[["Treatment 1"]],
-    treat1_exposure_ante  = md[["Duration of Treatment 1 before Treatment 2"]],
-    treat1_exposure_total = md[["Total Duration of Treatment 1"]],
-    treat2                = md[["Treatment 2"]],
-    treat2_exposure       = md[["Duration of Treatment 2"]],
-    bio_replicate         = md[["Biological Replicate (mouse)"]],
-    batch                 = md[["Batch"]]
-  )
 
   # Body = annotation columns + counts
   stopifnot(nrow(add_cols) == nrow(mat))
   body <- cbind(add_cols, as.data.frame(mat, check.names = FALSE))
 
-  # Build top rows with the SAME annotation columns as 'add_cols'
   annot_cols <- colnames(add_cols)
 
-  top_block <- do.call(
-    rbind,
-    lapply(names(top_map), function(k) {
-      # blank row for all annotation columns
-      annot_row <- as.list(setNames(rep("", length(annot_cols)), annot_cols))
-      # put the row label into the first annotation column (assumed "Symbol" if present)
-      first_col <- annot_cols[1]
-      annot_row[[first_col]] <- k
-      # bind metadata vector across sample columns
-      df <- as.data.frame(c(annot_row, as.list(top_map[[k]])), check.names = FALSE)
-      colnames(df) <- c(annot_cols, samples)
-      df
-    })
-  )
+  if (!is.null(factor_cols) && length(factor_cols) > 0) {
+    # Build one top row per factor_col entry.
+    # Layout (reference line 277):
+    #   first annot col  = factor name (row label)
+    #   second annot col = "" (blank)
+    #   remaining annot cols = "" (blank)
+    #   sample cols = factor values from md
+    top_block <- do.call(
+      rbind,
+      lapply(factor_cols, function(fc) {
+        annot_row <- as.list(setNames(rep("", length(annot_cols)), annot_cols))
+        annot_row[[annot_cols[1]]] <- fc
+        if (length(annot_cols) >= 2) annot_row[[annot_cols[2]]] <- ""
+        sample_vals <- md[[fc]]
+        if (is.null(sample_vals)) {
+          warning("factor_col '", fc, "' not found in metadata; using NA")
+          sample_vals <- rep(NA_character_, length(samples))
+        }
+        df <- as.data.frame(c(annot_row, as.list(sample_vals)), check.names = FALSE)
+        colnames(df) <- c(annot_cols, samples)
+        df
+      })
+    )
+    out <- rbind(top_block, body)
+  } else {
+    out <- body
+  }
 
-  # Combine and write
-  out <- rbind(top_block, body)
   data.table::fwrite(out, outfile, sep = "\t", quote = FALSE, na = "")
   message("Wrote: ", outfile, " [rows: ", nrow(out), ", cols: ", ncol(out), "]")
+}
+
+# 5) Collapse duplicate row IDs by summing counts across rows with the same ID.
+#
+#   mat  — numeric matrix; rownames or a caller-supplied `ids` vector identify rows
+#   ids  — character vector of length nrow(mat); defaults to rownames(mat)
+#
+#   Rows sharing the same ID are collapsed by colSums.
+#   When no duplicates exist, rownames are simply set to `ids` unchanged.
+#
+#   Output rownames come out in split() order = sort(unique(ids)), NOT input order.
+#   Callers that match annotation downstream MUST re-match to rownames(mat) after
+#   collapsing (reference lines 219 / 267 of the gene-annotation recipe).
+#
+#   attr(mat, "input_gene_name") is preserved: for each unique ID the first non-NA
+#   gene_name in that group is retained, re-ordered to match the collapsed rowname order.
+aggregate_duplicate_ids <- function(mat, ids = rownames(mat)) {
+  stopifnot(is.matrix(mat), length(ids) == nrow(mat))
+
+  # Retrieve the per-row gene name attribute (NA scalar or named character vector)
+  ign <- attr(mat, "input_gene_name")
+
+  if (!anyDuplicated(ids)) {
+    # Fast path: no duplicates — just assign rownames
+    rownames(mat) <- ids
+    attr(mat, "input_gene_name") <- ign
+    return(mat)
+  }
+
+  # Split row indices by id; split() sorts groups alphabetically
+  groups <- split(seq_len(nrow(mat)), ids)
+
+  # Collapse each group by summing columns
+  collapsed <- do.call(rbind, lapply(groups, function(idx) {
+    if (length(idx) == 1L) mat[idx, , drop = FALSE] else colSums(mat[idx, , drop = FALSE])
+  }))
+  # rownames already set to the unique ids by split() + do.call(rbind)
+
+  # Rebuild input_gene_name: first non-NA gene_name per group, in collapsed-row order
+  if (length(ign) > 1L) {
+    # ign is a named vector (Salmon path); align by position
+    new_ign <- vapply(groups, function(idx) {
+      vals <- ign[idx]
+      first_valid <- vals[!is.na(vals)]
+      if (length(first_valid)) first_valid[1L] else NA_character_
+    }, character(1L))
+    names(new_ign) <- rownames(collapsed)
+  } else {
+    # ign is NA (featureCounts / generic path); pass through as-is
+    new_ign <- ign
+  }
+  attr(collapsed, "input_gene_name") <- new_ign
+
+  collapsed
 }
