@@ -932,9 +932,9 @@ Creates a dotplot with continuous NES gradient coloring (Blue-White-Orange). Sep
 #### `gsea_dotplot_facet()`
 **File:** `scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R`
 
-Faceted version split by Up/Down direction. Shows top N pathways per direction.
+Faceted version split by Up/Down direction. Shows the top N pathways by `p.adjust`/`qvalue` within each direction.
 
-Same parameters as `gsea_dotplot()` except `filterBy` is not available (both directions shown).
+Same rendering contract as `gsea_dotplot()` (fill-based NES gradient + outline-only significance). `filterBy` is not available because both directions are always shown.
 
 #### `gsea_barplot()`
 **File:** `scripts/GSEA/GSEA_plotting/gsea_barplot.R`

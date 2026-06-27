@@ -447,12 +447,12 @@ STAGE 4: VISUALIZATION
 
 **File:** `scripts/GSEA/GSEA_plotting/gsea_dotplot_facet.R`
 
-Create faceted dotplot separating up/down regulated pathways.
+Create faceted dotplot separating up/down regulated pathways. Uses the same rendering contract as `gsea_dotplot()` (filled `shape = 21` points, NES mapped to `fill`, significance shown only by a black outline) and selects the top pathways by `p.adjust`/`qvalue` WITHIN each Up/Down facet.
 
 ```r
 gsea_dotplot_facet(
   gsea_result,
-  n_top = 10,
+  showCategory = 10,
   padj_cutoff = 0.05,
   title = NULL
 )

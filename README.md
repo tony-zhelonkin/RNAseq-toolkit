@@ -2,7 +2,7 @@
 
 A modular R toolkit for bulk RNA-seq analysis, focusing on Differential Expression visualization and Gene Set Enrichment Analysis. Built for reproducibility, designed for bioinformatics workflows.
 
-**Version:** 2.0.0
+**Version:** 0.3.0
 **License:** MIT
 **Author:** Anton Zhelonkin
 

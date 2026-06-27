@@ -1,11 +1,16 @@
 #' Enhanced GSEA Faceted Dotplot with Continuous NES Gradient
 #'
-#' Creates a faceted dotplot showing pathways split by up/down regulation
-#' with continuous NES gradient coloring and improved sizing.
+#' Creates a faceted dotplot showing pathways split by up/down regulation.
+#' This function now shares the same rendering contract as `gsea_dotplot()`:
+#'   1. the base dots use a filled-circle glyph (`shape = 21`) with NES mapped
+#'      to `fill` via the same continuous diverging scale,
+#'   2. significance is indicated only by a black outline overlay,
+#'   3. pathway selection is driven by significance (`p.adjust`/`qvalue`), with
+#'      the top `showCategory` pathways chosen WITHIN each direction facet.
 #'
 #' @param gsea_obj GSEA result object
 #' @param showCategory Number of pathways to show per direction
-#' @param padj_cutoff Adjusted p-value cutoff
+#' @param padj_cutoff Adjusted p-value cutoff used for significance highlighting
 #' @param title Plot title
 #' @param wrap_width Width for text wrapping
 #' @param neg_color Color for negative NES (default: colorblind-safe blue #2166AC)
@@ -15,6 +20,8 @@
 #' @param min.dotSize Minimum dot size
 #' @param max.dotSize Maximum dot size
 #' @param highlight_sig Whether to highlight significant points with outline
+#' @param highlight_threshold FDR threshold for highlighting significant points.
+#'        If NULL (default), uses `padj_cutoff`. Set explicitly to override.
 #' @param strip_prefix Logical, whether to strip common prefixes like "HALLMARK_"
 #'
 #' @return A ggplot2 object
@@ -23,19 +30,19 @@
 #' @note Requires format_pathway_name() function to be available in environment.
 #'       This is typically sourced by run_gsea_analysis() before calling this function.
 #'
-#' @note Color scheme updated 2025-12-02 to use continuous NES gradient
-#'       (colorblind-safe Blue-White-Orange) matching Python publication figures.
+#' @note Rendering/selection contract updated 2026-06-26 to match
+#'       `gsea_dotplot()`: fill-based NES gradient, outline-only significance,
+#'       and top-by-significance selection within each Up/Down facet.
 
-# Add this function to your script
 facet_grid_with_left_border <- function(...) {
   facet <- ggplot2::facet_grid(...)
 
   facet$params$strip.background.y <- list(
-    element_rect(color = "black", fill = NA, size = 1.5, linewidth = 1.5,
-                 linetype = "solid", inherit.blank = FALSE)
+    ggplot2::element_rect(color = "black", fill = NA, size = 1.5, linewidth = 1.5,
+                          linetype = "solid", inherit.blank = FALSE)
   )
 
-  return(facet)
+  facet
 }
 
 
@@ -52,26 +59,25 @@ gsea_dotplot_facet <- function(
   min.dotSize = 2,
   max.dotSize = 10,
   highlight_sig = TRUE,
+  highlight_threshold = NULL,
   strip_prefix = TRUE
 ) {
-  # Extract and filter data
   gsea_data <- as.data.frame(gsea_obj@result)
 
+  if (is.null(gsea_data) || nrow(gsea_data) == 0) {
+    return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No pathways)")))
+  }
+
   # Use qvalue if present, otherwise p.adjust
-  sig_col <- if("qvalue" %in% colnames(gsea_data)) "qvalue" else "p.adjust"
+  sig_col <- if ("qvalue" %in% colnames(gsea_data)) "qvalue" else "p.adjust"
 
   gsea_data <- gsea_data %>%
-    dplyr::filter(.data[[sig_col]] < padj_cutoff) %>%
     dplyr::mutate(
       Direction = ifelse(.data$NES > 0, "Up", "Down"),
       count = stringr::str_count(.data$core_enrichment, "/") + ifelse(nchar(.data$core_enrichment) > 0, 1, 0),
       GeneRatio = .data$count / .data$setSize,
       negLogPval = -log10(.data[[sig_col]])
     )
-
-  if (nrow(gsea_data) == 0) {
-    return(ggplot2::ggplot() + ggplot2::labs(title = paste(title, "(No significant pathways)")))
-  }
 
   # Format pathway names using smart capitalization with biological exceptions
   gsea_data$Description <- format_pathway_name(
@@ -83,52 +89,51 @@ gsea_dotplot_facet <- function(
   # Apply text wrapping
   gsea_data$Description <- sapply(gsea_data$Description, smart_wrap, width = wrap_width)
 
-  # Check if we have both up and down regulated pathways
-  up_data <- gsea_data[gsea_data$Direction == "Up", ]
-  down_data <- gsea_data[gsea_data$Direction == "Down", ]
-
-  if (nrow(up_data) == 0 && nrow(down_data) == 0) {
-    return(ggplot2::ggplot() +
-           ggplot2::labs(title = paste(title, "(No significant pathways)")))
-  }
-
-  # Get top N for each direction
+  # Select top-N by significance WITHIN each direction facet (same display contract as gsea_dotplot)
   plot_data <- gsea_data %>%
     dplyr::group_by(.data$Direction) %>%
-    dplyr::slice_max(order_by = abs(.data$NES), n = showCategory) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(.data$NES)
+    dplyr::arrange(.data[[sig_col]], .by_group = TRUE) %>%
+    dplyr::slice_head(n = showCategory) %>%
+    dplyr::ungroup()
 
   if (nrow(plot_data) == 0) {
     return(ggplot2::ggplot() +
-           ggplot2::labs(title = paste(title, "(No significant pathways after filtering)")))
+             ggplot2::labs(title = paste(title, "(No pathways after selection)")))
   }
 
-  # For ordering within each facet
+  # Reorder within each facet for y-axis display (same GeneRatio-first ordering as gsea_dotplot)
   plot_data <- plot_data %>%
     dplyr::group_by(.data$Direction) %>%
+    dplyr::arrange(dplyr::desc(.data$GeneRatio), .by_group = TRUE) %>%
     dplyr::mutate(Description = factor(.data$Description,
-                                      levels = unique(.data$Description[order(.data$GeneRatio, decreasing = FALSE)]))) %>%
+                                       levels = rev(unique(.data$Description)))) %>%
     dplyr::ungroup()
 
-  # Create base plot with continuous NES gradient coloring
+  # Base layer: filled-circle dots with NES mapped to fill (same as gsea_dotplot)
   p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = .data$GeneRatio, y = .data$Description)) +
     ggplot2::geom_point(
       ggplot2::aes(
         size = .data$negLogPval,
-        color = .data$NES
-      )
+        fill = .data$NES
+      ),
+      shape = 21,
+      stroke = 0,
+      color = "transparent"
     )
 
   # Add outline for significant points if requested
   if (highlight_sig) {
-    # Ensure padj_cutoff is numeric before division
-    padj_cutoff_num <- as.numeric(padj_cutoff)
-    if (is.na(padj_cutoff_num)) {
-      warning("padj_cutoff is not numeric, using default value of 0.05")
-      padj_cutoff_num <- 0.05
+    if (!is.null(highlight_threshold)) {
+      high_sig_threshold <- as.numeric(highlight_threshold)
+    } else {
+      padj_cutoff_num <- as.numeric(padj_cutoff)
+      if (is.na(padj_cutoff_num)) {
+        warning("padj_cutoff is not numeric, using default value of 0.05")
+        padj_cutoff_num <- 0.05
+      }
+      high_sig_threshold <- padj_cutoff_num
     }
-    high_sig_threshold <- padj_cutoff_num / 10  # More stringent threshold for highlighting
+
     highlight_data <- plot_data %>%
       dplyr::filter(.data[[sig_col]] < high_sig_threshold)
 
@@ -137,23 +142,21 @@ gsea_dotplot_facet <- function(
         ggplot2::geom_point(
           data = highlight_data,
           ggplot2::aes(size = .data$negLogPval),
-          shape = 21, color = "black", fill = NA, stroke = 1
+          shape = 21, color = "black", fill = NA, stroke = 2
         )
     }
   }
 
-  # Complete the plot with scales, facets and theme
   y_font_size <- ifelse(nrow(plot_data) > 20, 8, 9)
 
-  # Create pval_label before building the plot
-  pval_label <- if("qvalue" %in% colnames(gsea_data)) {
+  pval_label <- if ("qvalue" %in% colnames(gsea_data)) {
     bquote(-log[10](q-value))
   } else {
     bquote(-log[10](p-value))
   }
 
-  p <- p +
-    ggplot2::scale_color_gradient2(
+  p +
+    ggplot2::scale_fill_gradient2(
       low = neg_color,
       mid = mid_color,
       high = pos_color,
@@ -166,6 +169,15 @@ gsea_dotplot_facet <- function(
       name = pval_label,
       range = c(min.dotSize, max.dotSize)
     ) +
+    ggplot2::guides(
+      size = ggplot2::guide_legend(
+        override.aes = list(
+          shape = 16,
+          fill = "black",
+          color = "black"
+        )
+      )
+    ) +
     facet_grid_with_left_border(Direction ~ ., scales = "free_y", space = "free_y") +
     ggplot2::labs(
       title = title,
@@ -175,19 +187,12 @@ gsea_dotplot_facet <- function(
     custom_minimal_theme_with_grid() +
     ggplot2::theme(
       panel.grid = ggplot2::element_blank(),
-      # Remove the strip background and border
       strip.background = ggplot2::element_blank(),
-      # Make the strip text bold and slightly larger
       strip.text = ggplot2::element_text(face = "plain"),
-      # Add some padding around the strip text
       strip.text.y = ggplot2::element_text(margin = ggplot2::margin(r = 5, l = 5)),
-      # Add a vertical line between facets
       panel.spacing.y = ggplot2::unit(1, "lines"),
       legend.position = "right",
       plot.margin = ggplot2::margin(10, 10, 10, 10),
       axis.text.y = ggplot2::element_text(size = y_font_size)
     )
-
-
-  return(p)
 }

@@ -8,6 +8,7 @@ This directory contains comprehensive tests for visualization functions.
 |-----------|----------|---------|
 | `test_volcano_plots.R` | `create_standard_volcano()` | Dashed line alignment with FDR boundaries |
 | `test_gsea_dotplot.R` | `gsea_dotplot()` | Show all pathways, highlight significant |
+| `test_gsea_dotplot_facet.R` | `gsea_dotplot_facet()` | Match dotplot rendering contract within Up/Down facets |
 | `test_pathway_formatting.R` | `format_pathway_name()` | Smart biological capitalization |
 
 ## Running All Tests
@@ -16,6 +17,7 @@ This directory contains comprehensive tests for visualization functions.
 cd /path/to/RNAseq-toolkit
 Rscript tests/test_volcano_plots.R
 Rscript tests/test_gsea_dotplot.R
+Rscript tests/test_gsea_dotplot_facet.R
 Rscript tests/test_pathway_formatting.R
 ```
 
