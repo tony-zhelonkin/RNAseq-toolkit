@@ -6,10 +6,12 @@
 ##
 ## Covers:
 ##   1. Multi-pathway MSigDB-style (default palette)
-##   2. Unnamed palette regression (Feb 2026 fix: named palettes → gseaplot2 error)
+##   2. Palette keying liveness: unnamed and named palettes both run
 ##   3. Single pathway
 ##   4. Custom DB (pre-populated @geneSets, simulating SynGO/MitoPathways)
 ##   5. Edge case: pathway ID not in results → warning, not crash
+##   6. COLOUR MAPPING REGRESSION — asserts the BUILT label→colour pairing
+##      (tests 1-5 are liveness only and cannot see a permuted mapping)
 ##
 ## Usage:
 ##   cd /path/to/RNAseq-toolkit
@@ -123,20 +125,20 @@ if (!is.null(p1) && inherits(p1, "patchwork")) {
 }
 
 ## ============================================================================
-## Test 2: Unnamed palette regression
+## Test 2: Palette keying liveness (unnamed AND named must both run)
 ##
-## The Feb 2026 bug: gsea_running_sum_plot() was naming the internal palette
-## vector (names = pathway IDs), which caused enrichplot::gseaplot2() to fail
-## for custom databases where pathway IDs don't match the Description field.
-## Fix: palette vector is intentionally kept UNNAMED inside the function.
+## History: the Feb 2026 bug was naming the palette by PATHWAY ID, which never
+## matches gseaplot2's mapped aesthetic (`Description`) and so silently produced
+## grey50 keys for custom DBs. The remedy at the time — "never name the palette"
+## — banned the only keying that works, leaving unnamed palettes matched
+## POSITIONALLY against alphabetically sorted levels, i.e. silently permuted.
+## Both keyings are now accepted and re-keyed onto the final plotted label.
 ##
-## This test:
-##   (a) Passes an unnamed color vector and verifies it runs without error
-##   (b) Passes a named color vector and verifies it also runs (the function
-##       should accept it without crashing — the fix is in the internal logic)
+## NOTE: this test is LIVENESS ONLY — it cannot detect a wrong colour mapping.
+## The mapping itself is asserted in Test 6.
 ## ============================================================================
 
-cat("\n=== Test 2: Unnamed palette regression ===\n")
+cat("\n=== Test 2: Palette keying liveness (unnamed + named) ===\n")
 
 unnamed_pal <- c("#E41A1C", "#377EB8", "#4DAF4A")
 
@@ -330,6 +332,269 @@ if (all_invalid == "error_caught") {
 }
 
 ## ============================================================================
+## Test 6: COLOUR MAPPING REGRESSION — assert the BUILT label -> colour pairing
+##
+## The defect this guards: `palette` was forwarded UNNAMED to
+## enrichplot::gseaplot2(color = ), which does scale_color_manual(values = color).
+## With unnamed values ggplot matches BY POSITION against discrete levels it has
+## sorted ALPHABETICALLY. So an "up"/"down" pair declared as c(up, down) rendered
+## SWAPPED, because "... down" sorts before "... up". The name-keyed `labels` kept
+## the legend TEXT correct, so it looked like a deliberate colour choice, not a bug.
+##
+## Every assertion below reads the mapping back out of the BUILT plot: the ES
+## panel's rendered `colour` per `group`, with `group` resolved through the
+## alphabetically sorted `Description` levels. That is the only way to see a
+## permutation — "runs without error" cannot.
+##
+## The fixture is chosen so alphabetical order DIFFERS from declared order (an
+## up/down pair), and all three accepted keyings are covered:
+##   (a) unnamed, zipped to gene_set_ids in the caller's declared order
+##   (b) named by pathway ID
+##   (c) named by the final plotted label
+## plus legend break order, the rug panel, and the restyle closure's overrides.
+## ============================================================================
+
+cat("\n=== Test 6: Built colour mapping (up/down permutation regression) ===\n")
+
+## Read the ACTUAL label -> colour pairing out of a built plot.
+built_color_map <- function(p) {
+  b  <- ggplot2::ggplot_build(p[[1]])                     # ES panel
+  d  <- unique(b$data[[1]][, c("colour", "group")])
+  lv <- levels(factor(b$plot$data$Description))           # ggplot's sorted levels
+  stats::setNames(toupper(d$colour), lv[d$group])
+}
+
+## Legend key order as the colour scale will draw it.
+built_legend_order <- function(p) {
+  b <- ggplot2::ggplot_build(p[[1]])
+  as.character(b$plot$scales$get_scales("colour")$get_breaks())
+}
+
+## Fixture: an up/down pair whose alphabetical label order is the REVERSE of the
+## declared order — exactly the case a positional mapping gets wrong.
+make_updown_gsea <- function(seed = 7) {
+  set.seed(seed)
+  n_genes <- 300
+  genes   <- paste0("Gene", seq_len(n_genes))
+  ranks   <- sort(rnorm(n_genes, sd = 2), decreasing = TRUE)
+  names(ranks) <- genes
+
+  pathway_ids <- c("WT_heat_up", "WT_heat_down")          # DECLARED order
+  gene_sets   <- lapply(pathway_ids, function(pid) sample(genes, size = 40))
+  names(gene_sets) <- pathway_ids
+
+  result_df <- data.frame(
+    ID             = pathway_ids,
+    Description    = pathway_ids,
+    setSize        = 40L,
+    NES            = c(2.1, -1.9),
+    pvalue         = c(0.001, 0.002),
+    p.adjust       = c(0.01, 0.02),
+    qvalue         = c(0.01, 0.02),
+    rank           = c(80L, 120L),
+    leading_edge   = rep("tags=30%, list=50%", 2),
+    core_enrichment = vapply(gene_sets, function(gs) paste(gs[1:5], collapse = "/"),
+                             character(1)),
+    stringsAsFactors = FALSE,
+    row.names        = pathway_ids
+  )
+
+  new("gseaResult",
+    result   = result_df,
+    geneSets = gene_sets,
+    geneList = ranks,
+    readable = FALSE,
+    keytype  = "SYMBOL",
+    organism = "Homo sapiens",
+    params   = list(exponent = 1)
+  )
+}
+
+gsea_updown <- make_updown_gsea()
+ud_ids      <- c("WT_heat_up", "WT_heat_down")            # DECLARED order
+ud_labels   <- c(WT_heat_up = "WT_heat up", WT_heat_down = "WT_heat down")
+BROWN       <- "#A6611A"
+BLUE        <- "#2166AC"
+## The one true mapping, whatever the keying: first declared id -> first colour.
+ud_expected <- c("WT_heat up" = toupper(BROWN), "WT_heat down" = toupper(BLUE))
+
+## Guard the fixture itself: if alphabetical == declared this test proves nothing.
+if (!identical(sort(names(ud_expected)), names(ud_expected))) {
+  test_passed("Fixture is discriminating (alphabetical label order != declared order)")
+} else {
+  test_failed("Fixture is discriminating",
+              "alphabetical order equals declared order - test cannot detect a swap")
+}
+
+fmt_map <- function(m) paste(sprintf("%s=%s", names(m), m), collapse = ", ")
+
+check_mapping <- function(name, p) {
+  if (is.null(p)) {
+    test_failed(name, "plot build returned NULL"); return(invisible(FALSE))
+  }
+  got <- built_color_map(p)
+  if (!all(names(ud_expected) %in% names(got))) {
+    test_failed(name, sprintf("expected labels %s, got %s",
+                              paste(names(ud_expected), collapse = "/"),
+                              paste(names(got), collapse = "/")))
+    return(invisible(FALSE))
+  }
+  got <- got[names(ud_expected)]
+  if (identical(unname(got), unname(ud_expected))) {
+    test_passed(sprintf("%s: %s", name, fmt_map(got)))
+    invisible(TRUE)
+  } else {
+    test_failed(name, sprintf("mapping is %s but must be %s (colours permuted)",
+                              fmt_map(got), fmt_map(ud_expected)))
+    invisible(FALSE)
+  }
+}
+
+build_ud <- function(pal) {
+  withCallingHandlers(
+    tryCatch(
+      gsea_running_sum_plot(gsea_updown, gene_set_ids = ud_ids,
+                            labels = ud_labels, palette = pal),
+      error = function(e) { cat(sprintf("  ERROR: %s\n", e$message)); NULL }),
+    warning = function(w) {
+      cat(sprintf("  [warn] %s\n", conditionMessage(w))); invokeRestart("muffleWarning")
+    })
+}
+
+## (a) unnamed palette, zipped to gene_set_ids in the caller's declared order.
+##     This is the case that used to render SWAPPED.
+p6a <- build_ud(c(BROWN, BLUE))
+check_mapping("Unnamed palette follows gene_set_ids declared order", p6a)
+
+## (b) palette named by PATHWAY ID (the Feb-2026 trap: re-keyed, not banned).
+p6b <- build_ud(c(WT_heat_up = BROWN, WT_heat_down = BLUE))
+check_mapping("ID-named palette re-keyed to the plotted label", p6b)
+
+## (c) palette named by the FINAL PLOTTED LABEL (used as-is).
+p6c <- build_ud(c(`WT_heat up` = BROWN, `WT_heat down` = BLUE))
+check_mapping("Label-named palette honoured as-is", p6c)
+
+## All three keyings must be indistinguishable in the built plot.
+if (!is.null(p6a) && !is.null(p6b) && !is.null(p6c) &&
+    identical(built_color_map(p6a)[names(ud_expected)],
+              built_color_map(p6b)[names(ud_expected)]) &&
+    identical(built_color_map(p6a)[names(ud_expected)],
+              built_color_map(p6c)[names(ud_expected)])) {
+  test_passed("All three palette keyings yield the same built mapping")
+} else {
+  test_failed("Palette keying equivalence", "keyings disagree on the built mapping")
+}
+
+## Legend key order follows the DECLARED order, not the alphabetical one.
+if (!is.null(p6a) && identical(built_legend_order(p6a), unname(ud_labels[ud_ids]))) {
+  test_passed("Legend breaks follow declared order (breaks = names(palette))")
+} else {
+  test_failed("Legend break order",
+              sprintf("got %s, expected %s",
+                      paste(built_legend_order(p6a), collapse = " | "),
+                      paste(unname(ud_labels[ud_ids]), collapse = " | ")))
+}
+
+## The rug panel must carry the SAME mapping as the ES curve it annotates.
+if (!is.null(p6a)) {
+  rb   <- ggplot2::ggplot_build(p6a[[2]])
+  rd   <- unique(rb$data[[1]][, c("colour", "group")])
+  rlv  <- levels(factor(rb$plot$data$Description))
+  rmap <- stats::setNames(toupper(rd$colour), rlv[rd$group])[names(ud_expected)]
+  if (identical(unname(rmap), unname(ud_expected))) {
+    test_passed("Rug panel shares the ES panel's label -> colour mapping")
+  } else {
+    test_failed("Rug panel mapping", sprintf("got %s", fmt_map(rmap)))
+  }
+}
+
+## The restyle closure must be able to override the palette (it previously could
+## not: the palette was baked into the raw panels before the closure existed).
+if (!is.null(p6c)) {
+  p6d <- attr(p6c, "grs_restyle")(palette = c("#111111", "#EEEEEE"))
+  got <- built_color_map(p6d)[names(ud_expected)]
+  if (identical(unname(got), c("#111111", "#EEEEEE"))) {
+    test_passed("restyle(palette = ) overrides colours without a panel rebuild")
+  } else {
+    test_failed("restyle palette override", sprintf("got %s", fmt_map(got)))
+  }
+
+  ## ...and overriding `labels` (a build-time knob) must rebuild AND re-key.
+  p6e <- attr(p6c, "grs_restyle")(labels = c(WT_heat_up = "UP set",
+                                             WT_heat_down = "DOWN set"),
+                                  palette = c(BROWN, BLUE))
+  got <- built_color_map(p6e)[c("UP set", "DOWN set")]
+  if (identical(unname(got), c(toupper(BROWN), toupper(BLUE)))) {
+    test_passed("restyle(labels = ) rebuilds panels and re-keys the palette")
+  } else {
+    test_failed("restyle labels override", sprintf("got %s", fmt_map(got)))
+  }
+}
+
+## Single set keeps gseaplot2's plain black rug (guard against a visual regression).
+p6f <- tryCatch(
+  gsea_running_sum_plot(gsea_updown, gene_set_ids = "WT_heat_up", palette = BROWN),
+  error = function(e) { cat(sprintf("  ERROR: %s\n", e$message)); NULL })
+if (!is.null(p6f)) {
+  es_col  <- toupper(unique(ggplot2::ggplot_build(p6f[[1]])$data[[1]]$colour))
+  rug_col <- unique(ggplot2::ggplot_build(p6f[[2]])$data[[1]]$colour)
+  if (identical(es_col, toupper(BROWN)) && identical(rug_col, "black")) {
+    test_passed("Single set: ES uses the palette colour, rug stays black")
+  } else {
+    test_failed("Single set colours",
+                sprintf("ES=%s rug=%s", paste(es_col, collapse = "/"),
+                        paste(rug_col, collapse = "/")))
+  }
+}
+
+## Default palette (NULL) must still be label-keyed, not positional.
+p6g <- tryCatch(
+  gsea_running_sum_plot(gsea_updown, gene_set_ids = ud_ids, labels = ud_labels,
+                        palette = NULL),
+  error = function(e) { cat(sprintf("  ERROR: %s\n", e$message)); NULL })
+if (!is.null(p6g)) {
+  got <- built_color_map(p6g)[names(ud_expected)]
+  if (identical(unname(got), c("#E41A1C", "#377EB8"))) {
+    test_passed("Default palette is label-keyed in declared order")
+  } else {
+    test_failed("Default palette keying", sprintf("got %s", fmt_map(got)))
+  }
+}
+
+## A palette LONGER than the number of plotted sets must still be honoured.
+## (gseaplot2 only applies `color=` when length(color) == length(geneSetID), so
+## the old code silently fell back to ggplot's default hue scale here.)
+p6h <- tryCatch(
+  gsea_running_sum_plot(gsea_updown, gene_set_ids = ud_ids, labels = ud_labels,
+                        palette = c(BROWN, BLUE, "#4DAF4A", "#984EA3")),
+  error = function(e) { cat(sprintf("  ERROR: %s\n", e$message)); NULL })
+check_mapping("Over-long palette truncated to declared order (not ignored)", p6h)
+
+## Label-keyed palette when the label is long enough to be SOFT-WRAPPED: the
+## plotted Description carries "\n", so keying must be whitespace-insensitive.
+long_labels <- c(WT_heat_up   = "WT heat shock response upregulated core module",
+                 WT_heat_down = "WT heat shock response downregulated core module")
+p6i <- tryCatch(
+  gsea_running_sum_plot(gsea_updown, gene_set_ids = ud_ids, labels = long_labels,
+                        max_name_length = 20,
+                        palette = stats::setNames(c(BROWN, BLUE), long_labels)),
+  error = function(e) { cat(sprintf("  ERROR: %s\n", e$message)); NULL })
+if (!is.null(p6i)) {
+  m6i <- built_color_map(p6i)
+  wrapped <- vapply(long_labels, function(x) paste(strwrap(x, width = 20), collapse = "\n"),
+                    character(1))
+  got <- m6i[unname(wrapped)]
+  if (identical(unname(got), c(toupper(BROWN), toupper(BLUE))) && any(grepl("\n", names(m6i)))) {
+    test_passed("Label-keyed palette matches even after the label is soft-wrapped")
+  } else {
+    test_failed("Wrapped label keying",
+                sprintf("got %s", fmt_map(m6i)))
+  }
+}
+
+ggsave(file.path(output_dir, "test6_updown_mapping.pdf"), p6a, width = 10, height = 8)
+
+## ============================================================================
 ## Summary
 ## ============================================================================
 
@@ -341,3 +606,5 @@ cat("  test2a: 3-panel running sum, clean unnamed colors\n")
 cat("  test3: Single running sum curve\n")
 cat("  test4: Custom DB paths (SynGO/Mito IDs), readable legend\n")
 cat("  test5: 1-panel running sum (invalid ID removed with warning)\n")
+cat("  test6: 'WT_heat up' curve is BROWN (#A6611A), 'WT_heat down' is BLUE (#2166AC),\n")
+cat("         legend lists up before down (declared, not alphabetical, order)\n")
