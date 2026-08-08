@@ -134,3 +134,40 @@ cat("  up / down:           ", sum(tt$adj.P.Val < .05 & tt$logFC > 0), "/",
                                sum(tt$adj.P.Val < .05 & tt$logFC < 0), "\n")
 cat("db_alpha sets:         ", length(db_alpha), "\n")
 cat("db_beta sets:          ", length(db_beta), "\n")
+
+# ---- real-symbol companion --------------------------------------------------
+# `run_gsea()` and `load_reference_db()` resolve gene sets by real gene symbol
+# (msigdbr / MitoCarta), so synthetic symbols would return empty results. This
+# builds a second ranked list over REAL mouse symbols with planted signal in two
+# real Hallmark sets, so those functions have a non-degenerate golden.
+#
+# Reproducibility note: depends on msigdbr's bundled data (26.1.0 at capture).
+
+set.seed(20260807)
+hs <- msigdbr::msigdbr(species = "Mus musculus", collection = "H")
+sets <- lapply(split(hs$gene_symbol, hs$gs_name)[c(
+  "HALLMARK_INTERFERON_ALPHA_RESPONSE", "HALLMARK_MYC_TARGETS_V1"
+)], unique)
+universe <- sort(unique(hs$gene_symbol))
+
+t_stat <- stats::setNames(rnorm(length(universe)), universe)
+t_stat[intersect(names(t_stat), sets[[1]])] <-
+  rnorm(length(intersect(names(t_stat), sets[[1]])), mean =  2.6, sd = 0.8)
+t_stat[intersect(names(t_stat), sets[[2]])] <-
+  rnorm(length(intersect(names(t_stat), sets[[2]])), mean = -2.6, sd = 0.8)
+
+de_real <- data.frame(
+  t         = t_stat,
+  logFC     = t_stat / 2.5,
+  P.Value   = 2 * stats::pnorm(-abs(t_stat)),
+  row.names = names(t_stat)
+)
+de_real$adj.P.Val <- stats::p.adjust(de_real$P.Value, "BH")
+de_real <- de_real[order(de_real$P.Value), ]
+
+saveRDS(de_real, file.path(out_dir, "de_real_symbols.rds"))
+saveRDS(sort(t_stat, decreasing = TRUE), file.path(out_dir, "ranks_real.rds"))
+
+cat("real-symbol universe:  ", length(universe), "\n")
+cat("  planted UP set:      ", names(sets)[1], "(", length(sets[[1]]), ")\n")
+cat("  planted DOWN set:    ", names(sets)[2], "(", length(sets[[2]]), ")\n")

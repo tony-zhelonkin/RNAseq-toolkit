@@ -7,12 +7,20 @@ biology, no identities.
 Regenerate deterministically (`set.seed(20260807)`):
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/pkg -w /pkg \
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache \
+  -v /data1/users/antonz/pipeline/.msigdb-cache:/cache \
+  -v "$PWD":/pkg -w /pkg \
   scdock-r-dev:v0.5.11 Rscript tests/fixtures/make_fixture.R
 ```
 
-The `--user` flag is required; without it the container writes as root and `saveRDS` fails
-on a permission error.
+Two container flags are mandatory, and both cost a cycle to discover:
+
+- **`--user "$(id -u):$(id -g)"`** — without it the container writes as root and `saveRDS`
+  fails with a permission error.
+- **`-e HOME=/cache` + a mounted cache** — **msigdbr 26.1.0 no longer bundles MSigDB**; it
+  downloads the release archive to `$HOME/.cache/R/msigdbr` on first use. With the default
+  container `HOME=/` the path resolves to `//.cache/...` and the download fails. Network is
+  required on a cold cache.
 
 ## Files (272 KB total)
 
@@ -24,6 +32,27 @@ on a permission error.
 | `gene_annotation.rds` | Ensembl ID → symbol map |
 | `genesets.rds` | `list(alpha = <15 sets>, beta = <8 sets>)`, keyed on symbol |
 | `de_intermediates.rds` | filtered counts, voom `logcpm`, `design`, `contrast` |
+| `de_real_symbols.rds` | DE frame over **real mouse symbols** (`t`, `logFC`, `P.Value`, `adj.P.Val`) |
+| `ranks_real.rds` | named ranked `t` vector over the same real symbols |
+
+### Why a real-symbol companion
+
+`run_gsea()` and `load_reference_db()` resolve sets by **real gene symbol** (msigdbr,
+MitoCarta), so synthetic `Gsym####` names return empty results and a worthless golden.
+`de_real_symbols.rds` / `ranks_real.rds` cover a 4393-symbol MSigDB-mouse universe with
+signal planted in two real Hallmark sets:
+
+| Planted | Recovered by fgsea |
+|---|---|
+| `HALLMARK_INTERFERON_ALPHA_RESPONSE` (100) up | NES **+4.06**, padj 2e-62 |
+| `HALLMARK_MYC_TARGETS_V1` (201) down | NES **−4.17**, padj 9e-128 |
+
+`HALLMARK_INTERFERON_GAMMA_RESPONSE` also comes out strongly — expected, since it shares
+genes with the alpha set. That overlap is realistic and left in.
+
+**Reproducibility caveat:** this half depends on the MSigDB release msigdbr downloads
+(2026.1 at capture) and on the human→mouse ortholog mapping msigdbr applies by default.
+The synthetic half has no such dependency.
 
 ## What is planted, and why
 
