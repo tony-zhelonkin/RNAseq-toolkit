@@ -7,7 +7,7 @@ during the 2026-08-10 session — a Phase 6 item, done early. The `hub` remote s
 **Fork point / revert target:** `752481f` (`dev` tip at fork)
 **Baseline at fork:** 9 legacy suites in `tests/`; 20 golden cases captured, 0 errors
 **Current:** Steps 0, A, B1, B2 complete and merged. `scripts/` still untouched and still
-working. **Next: dispatch B3, B4, B5** (see §3).
+working. **Next: dispatch B3, B4, B5, B6** (see §3; B6 = the `gatom_*` module, §5a).
 **Nothing is pushed.** 10 commits queued on the branch; the user pushes at the end.
 
 Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
@@ -35,6 +35,10 @@ Design record lives **outside this repo** in `/data1/users/antonz/pipeline/sciag
 | `05` | Namespace/rename plan; the near-duplicate families to collapse |
 | `07` | **API design — the contract every agent codes against** |
 | `08_refactor-execution-plan` | The multi-agent pass: Step 0/A/B1–B5/C, per-agent briefs |
+
+**B6 (`gatom_*`) is not in those docs** — it was agreed in session on 2026-08-10 and is
+specified in §5a of this file. `07` §7's "~30 exports" and `08`'s "five parallel agents"
+both predate it.
 
 Those are the record of *why* and *what shape*. **This file is the source of truth for
 _what is done_ and _what is next_.**
@@ -218,7 +222,7 @@ B1 and B2 never saw each other's code. Confirmed working on the merged branch:
 
 ---
 
-## 3. Next action — dispatch B3, B4, B5
+## 3. Next action — dispatch B3, B4, B5, B6
 
 Briefs are `08_refactor-execution-plan.md` §4; the rules are §5 + **§5.1 (the freeze rule)**,
 and the in-repo contract is **`CONVENTIONS.md`** — agents read that first.
@@ -230,6 +234,7 @@ cd /data1/users/antonz/pipeline/bulkiRNA
 git worktree add -b wt/b3-renderers ../.bulkirna-wt/b3 feat/bulkirna-package
 git worktree add -b wt/b4-running   ../.bulkirna-wt/b4 feat/bulkirna-package
 git worktree add -b wt/b5-de-io     ../.bulkirna-wt/b5 feat/bulkirna-package
+git worktree add -b wt/b6-gatom     ../.bulkirna-wt/b6 feat/bulkirna-package
 ```
 
 `../.bulkirna-wt/b1` and `b2` still exist and are fully merged — remove them with
@@ -285,7 +290,8 @@ Delete the byte-identical duplicate `aggregate_duplicate_ids` (`io_helpers.R:231
 1. Merge b3/b4/b5. **`NAMESPACE` will conflict — resolve by regenerating**, never by hand
    (this worked cleanly for b1+b2).
 2. Apply collected `DESCRIPTION`/`R/utils.R` requests.
-3. `devtools::document()`; confirm exports match `07` §7 (~30; currently 18).
+3. `devtools::document()`; confirm exports match `07` §7 plus B6's five (~35 total;
+   currently 18). **`07` §7's "~30" predates the B6 decision — update that doc in Step C.**
 4. **`R/deprecated.R`** — the 24 frozen names → new names with `.Deprecated()`. Each B
    agent's handback states how its names are reached. Known shim details:
    - `list_reference_dbs()`: `gsdb_list()` then `x$species[!x$bundled] <- "(not bundled)"` and
@@ -335,9 +341,81 @@ Record differences here; do not loosen the comparison.
 
 ---
 
-## 5a. Deferred: invert the GATOM ownership (post-Step C)
+## 5a. GATOM — IN SCOPE, as agent B6 in the B3–B5 batch
 
-**Decided in principle, deliberately not in this pass.**
+**Corrected 2026-08-10.** An earlier revision of this section called the `gatom_*` module
+"deferred by the user's decision". **That was wrong on both counts** — it was the
+integrator's recommendation, not the user's instruction, and the user's actual position is
+that GATOM is a routine part of their workflow and belongs here. It is **not deferred.**
+
+The deferral rested on a false premise: that `gatom` would need a new dependency baked into
+an image before anything could be verified. It does not. **`scbio-singleuser:v1.7.1` already
+has `gatom` 1.8.4, `mwcsr` 0.1.11, `igraph` 2.3.1, `devtools`, `testthat`, the full bulkiRNA
+Imports at identical versions, and the staged references at `/opt/gatom-refs/`**
+(`network.kegg.rds`, `met.kegg.db.rds`, `org.Hs.eg.gatom.anno.rds`). So B6 is testable today
+in a second container; `scdock-r-dev:v0.5.11` lacks `gatom`/`mwcsr`, and package tests
+`skip_if_not_installed("gatom")` there.
+
+```bash
+# B6's test image — note HOME=/tmp, and no msigdb cache mount needed
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD":/pkg -w /pkg scbio-singleuser:v1.7.1 <cmd>
+```
+
+`download_gatom_references()` is **already done and exported** (`3f8eb8d`) — that part was
+never deferred and is not B6's to redo. B6 absorbs it into the wider surface.
+
+### Where the presets actually live
+
+`/data1/users/antonz/pipeline/scbio-instruct/04_provision/seed_content/06_gatom/06_network_handoff.qmd`
+(291 lines) is the working pipeline and the real spec. Also read
+`scbio-instruct/docs/ai-research/gatom-validation.md`. The SciAgent skill
+(`SciAgent-toolkit/skills/gatom-metabolomic-predictions/SKILL.md`) is **prose only, no code**
+— it re-teaches the raw API. B6's job is to turn its four documented traps into enforced
+invariants, after which SKILL.md shrinks to a pointer:
+
+1. `pval` must be **raw**, never `padj` — BUM scoring breaks silently otherwise.
+2. `baseMean` must be **linear** scale (`2^AveExpr`), not log.
+3. In `topology = "atoms"` graphs, **genes live on EDGES**, not vertices —
+   `igraph::as_data_frame(m, "edges")$Symbol`.
+4. `met.db` is **required even when `met.de = NULL`**.
+
+Plus two operational traps from the qmd: `saveModuleToHtml()` needs pandoc on PATH
+(`Sys.setenv(RSTUDIO_PANDOC = ...)`), and `k.gene` is the module-size dial (smaller k →
+larger module; 50 is the gatom default, 25/75 are the sensitivity branches).
+
+### B6 — the agreed surface (user-chosen, 2026-08-10): 5 exports
+
+```r
+refs <- gatom_refs(species = "Homo sapiens")
+de   <- gatom_de(tt, id = gene, pval = p.value, log2FC = abs_zscore, baseMean = 1)
+m    <- gatom_module(de, refs, k_gene = 50, seed = 42)
+gatom_genes(m)
+gatom_save_html(m, "kyn_module.html", name = "Kynurenine")
+```
+
+| Export | Does | Encodes which trap |
+|---|---|---|
+| `gatom_refs(species, dir = NULL, download = FALSE)` | Loads + validates the three reference files as one object. Searches `/opt/gatom-refs`, then `download_gatom_references()`'s `dest_dir`, then `dir`. `download = TRUE` delegates to `download_gatom_references()` — does not reimplement it. Errors naming the missing file and how to fetch it. | 4 — carries `met.db` so it can never be omitted |
+| `gatom_de(x, id, pval, log2FC, baseMean)` | Builds `gene.de`: `arrange(pval)`, `distinct(ID)`. **Validates:** errors if the `pval` column name matches `adj\|fdr\|padj\|q.?val`; errors if any `pval` is outside `[0,1]`; **warns** if `baseMean` has negatives or `max(baseMean) < 30` (log-scale smell); errors on all-`NA`. | 1 and 2 |
+| `gatom_module(de, refs, k_gene = 50, k_met = NULL, met_de = NULL, seed = 42, solver = "rnc")` | `makeMetabolicGraph(topology = "atoms", keepReactionsWithoutEnzymes = FALSE)` → `scoreGraph()` → `solve_mwcsp()`. Returns the module igraph with `k_gene`/`seed`/`solver`/node+edge counts as attributes for provenance. | 4 |
+| `gatom_genes(m)` | `unique(igraph::as_data_frame(m, "edges")$Symbol)` | **3 — the big one** |
+| `gatom_save_html(m, path, name)` | Wraps `saveModuleToHtml()`, sets `RSTUDIO_PANDOC` if unset, `ensure_dir()`s the parent. The only B6 function that writes. | pandoc-on-PATH |
+
+Constraints for B6:
+- `gatom`, `mwcsr`, `igraph` are **`Suggests`** (added to DESCRIPTION `2026-08-10`, pre-dispatch).
+  Every entry point guards with `requireNamespace()` and an actionable install message.
+- Tests: `skip_if_not_installed("gatom")` so the suite passes in **both** images. Validation
+  tests for `gatom_de()` need no gatom at all — **those must run unskipped everywhere**, since
+  they encode the traps.
+- **No golden baseline exists for GATOM** (`download_gatom_references` is in the harness's
+  skip list). B6 is new surface, so nothing to preserve — but it must not perturb the 20
+  existing cases.
+- `set.seed()` before `solve_mwcsp()`: the solver is a heuristic. Pin it and test that the
+  same seed gives the same module size.
+- Only human refs are staged (`org.Hs.eg.gatom.anno.rds`). Mouse must fail with a clear
+  "run download_gatom_references(species = \"Mus_musculus\")" message, not a missing-file error.
+- Do **not** touch `R/gsdb-gatom.R`'s frozen `download_gatom_references()` formals.
 
 Today: `SciAgent-toolkit/skills/gatom-metabolomic-predictions/SKILL.md` is **prose only** —
 no code — re-teaching GATOM's raw API, while this repo vendors only the reference-file
@@ -392,8 +470,9 @@ merged — 18 exports, 311 tests passing, golden 20/20, R CMD check 0E/0W/1 NOTE
 `scripts/` is UNTOUCHED and still working, which is why golden passes. Nothing is
 pushed; the user pushes at the end.
 
-Task: dispatch B3 (renderers + theme), B4 (running-sum rewrite), B5 (DE + IO) as three
-parallel agents in git worktrees, then integrate as Step C. §3 of 00_INDEX.md has the
+Task: dispatch B3 (renderers + theme), B4 (running-sum rewrite), B5 (DE + IO) and
+B6 (gatom_* module — see §5a for the agreed 5-export surface) as four parallel agents
+in git worktrees, then integrate as Step C. §3 of 00_INDEX.md has the
 worktree commands and exactly what each agent must be told beyond its §4 brief — read
 it rather than re-deriving.
 
