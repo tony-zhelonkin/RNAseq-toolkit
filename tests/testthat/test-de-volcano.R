@@ -99,13 +99,23 @@ test_that("de_volcano_grid combines panels on shared limits", {
 
 test_that("de_volcano_grid applies shared limits without ggplot2 chatter", {
   skip_if_not_installed("patchwork")
-  de <- fake_de_table()
-  p  <- de_volcano(de, fc_cutoff = 1, orientation = "vertical")
+  # Two panels with DIFFERENT fold-change ranges. The narrow panel must end up
+  # on the wide panel's limits, so this fails if the shared coord is not
+  # actually applied -- an equal-range fixture would pass either way.
+  narrow <- fake_de_table()
+  narrow$logFC <- narrow$logFC / 4          # range -1 .. 1
+  wide   <- fake_de_table()                 # range -4 .. 4
 
-  expect_silent(g <- de_volcano_grid(list(A = p, B = p)))
-  # the shared coord really did replace the panel's own, and only one exists
-  global_y <- max(abs(ggplot2::layer_scales(p)$y$range$range))
+  pn <- de_volcano(narrow, fc_cutoff = 1, orientation = "vertical")
+  pw <- de_volcano(wide,   fc_cutoff = 1, orientation = "vertical")
+
+  expect_silent(g <- de_volcano_grid(list(narrow = pn, wide = pw)))
+
+  own_y    <- max(abs(ggplot2::layer_scales(pn)$y$range$range))
+  global_y <- max(abs(ggplot2::layer_scales(pw)$y$range$range))
+  expect_gt(global_y, own_y)                # the fixture is discriminating
+
+  # read the BUILT plot: a silently ignored assignment leaves own_y here
   panel <- ggplot2::ggplot_build(g[[1]])$layout$panel_params[[1]]
-  # c(-global_y, global_y) plus ggplot2's default 5%-of-span expansion
   expect_equal(panel$y.range, c(-global_y, global_y) * 1.1, tolerance = 1e-8)
 })
