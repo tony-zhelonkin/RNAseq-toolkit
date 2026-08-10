@@ -4,6 +4,9 @@ S3method("[",gs_db)
 S3method("[",gs_matrix)
 S3method("[",gs_result)
 S3method(dplyr::dplyr_reconstruct,gs_result)
+S3method(gs_plot_heatmap,default)
+S3method(gs_plot_heatmap,gs_matrix)
+S3method(gs_plot_heatmap,gs_result)
 S3method(gs_test,character)
 S3method(gs_test,default)
 S3method(gs_test,gs_matrix)
@@ -20,10 +23,15 @@ S3method(tibble::as_tibble,gs_result)
 S3method(tibble::tbl_sum,gs_result)
 export(download_gatom_references)
 export(ensure_dir)
+export(format_pathway_name)
 export(gs_filter)
 export(gs_leading_edge)
+export(gs_plot_bar)
+export(gs_plot_dot)
+export(gs_plot_heatmap)
 export(gs_ranks)
 export(gs_read)
+export(gs_save)
 export(gs_score)
 export(gs_split)
 export(gs_stat_types)
@@ -36,8 +44,19 @@ export(gsdb_list)
 export(gsdb_load)
 export(gsdb_msigdb)
 export(gsdb_register)
+export(theme_bulki)
 import(ggplot2)
 importFrom(dplyr,dplyr_reconstruct)
+importFrom(ggrepel,geom_text_repel)
+importFrom(scales,
+  label_scientific,
+  squish
+)
+importFrom(stringr,
+  str_replace,
+  str_replace_all,
+  str_to_title
+)
 importFrom(tibble,
   as_tibble,
   tbl_sum
