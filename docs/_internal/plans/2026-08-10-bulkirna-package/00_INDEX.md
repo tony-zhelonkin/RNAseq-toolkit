@@ -148,3 +148,44 @@ git checkout dev && git branch -D feat/bulkirna-package   # nothing else was tou
 
 `scripts/` is unmodified as of Step 0, so abandoning this branch costs only the fixture and
 golden harness — both of which are worth keeping regardless.
+
+---
+
+## 7. Kickstart prompt for a fresh session
+
+```
+Resume the bulkiRNA packaging work. Read, in order:
+
+  1. docs/_internal/plans/2026-08-10-bulkirna-package/00_INDEX.md   (this repo — state + next action)
+  2. /data1/users/antonz/pipeline/sciagent-rna/docs/07_api-design.md (the API contract)
+  3. /data1/users/antonz/pipeline/sciagent-rna/docs/08_refactor-execution-plan.md §3 (Step A spec)
+
+You are on branch `feat/bulkirna-package`. Step 0 is done: 20 golden cases in
+tests/golden/, fixture in tests/fixtures/, `scripts/` untouched.
+
+Task: execute **Step A** — the skeleton and shared contracts. DESCRIPTION,
+inst/extdata/, R/gs-result.R, R/gs-matrix.R, R/utils.R, CONVENTIONS.md,
+tests/testthat/ scaffold, .Rbuildignore. Do NOT start B1–B5 and do NOT
+modify anything under `scripts/` yet.
+
+Hard constraints:
+- No R on this host. Everything runs in a throwaway container:
+    docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache \
+      -v /data1/users/antonz/pipeline/.msigdb-cache:/cache \
+      -v "$PWD":/pkg -w /pkg scdock-r-dev:v0.5.11 <cmd>
+  Both --user and HOME are mandatory (saveRDS permissions; msigdbr's runtime cache).
+- NAMESPACE is roxygen-generated, never hand-edited.
+- The 24-export list in 02_api-inventory.md §5 is FROZEN: no renames, no argument
+  changes, until Step 1b.
+- `Rscript tests/golden/verify_golden.R` must exit 0 before you hand back. Confirm it
+  still passes at the start too, so a later failure is attributable.
+- Commit on the branch; push to `hub` and `origin` (origin needs an ssh-agent with a
+  passphrase key — ask rather than working around it).
+
+Report: what you created, the R/utils.R and DESCRIPTION contents, golden-verify result,
+and anything in the plan you found wrong.
+```
+
+To resume the **SciAgent** track instead, point a session at
+`scbio-docker/toolkits/SciAgent-toolkit/docs/_internal/plans/2026-08-07-demolish-role-layer/00_INDEX.md`
+(branch `refactor/demolish-role-layer`) and read §1 then §3.
