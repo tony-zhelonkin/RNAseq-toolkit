@@ -29,6 +29,7 @@ export(gs_leading_edge)
 export(gs_plot_bar)
 export(gs_plot_dot)
 export(gs_plot_heatmap)
+export(gs_plot_running)
 export(gs_ranks)
 export(gs_read)
 export(gs_save)
@@ -47,7 +48,9 @@ export(gsdb_register)
 export(theme_bulki)
 import(ggplot2)
 importFrom(dplyr,dplyr_reconstruct)
+importFrom(fgsea,plotEnrichmentData)
 importFrom(ggrepel,geom_text_repel)
+importFrom(rlang,.data)
 importFrom(scales,
   label_scientific,
   squish
