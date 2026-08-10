@@ -1,9 +1,14 @@
 # RNAseq-toolkit → `bulkiRNA` package — working plan and state
 
-**Branch:** `feat/bulkirna-package` (off `dev`)
+**Repo path:** `/data1/users/antonz/pipeline/bulkiRNA` (renamed from `RNAseq-toolkit`
+during the 2026-08-10 session — a Phase 6 item, done early. The `hub` remote still points at
+`/data1/users/antonz/git/RNAseq-toolkit.git`; `origin` is `git@github.com:tony-zhelonkin/bulkiRNA.git`.)
+**Branch:** `feat/bulkirna-package` (off `dev`) · **tip `633dddc`**
 **Fork point / revert target:** `752481f` (`dev` tip at fork)
 **Baseline at fork:** 9 legacy suites in `tests/`; 20 golden cases captured, 0 errors
-**Current:** Steps 0 and A complete. Nothing in `scripts/` modified yet. Next: dispatch B1–B5.
+**Current:** Steps 0, A, B1, B2 complete and merged. `scripts/` still untouched and still
+working. **Next: dispatch B3, B4, B5** (see §3).
+**Nothing is pushed.** 10 commits queued on the branch; the user pushes at the end.
 
 Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
 
@@ -83,9 +88,67 @@ Constructors are **internal** (`@keywords internal`, no `@export`): `07` §7 lis
 downgrade to a plain tibble when a verb drops a core column, so a broken object cannot
 survive a `select()`.
 
-### Steps B1–B5, C — ⬜ not started
+### Step B1 — databases (`gsdb_*`) ✅ done, merged
 
-`scripts/` is untouched.
+Commits `bfe34e9` → `3f8eb8d` → `17481af` → `ce82974`, merged to base. **7 exports:**
+`gsdb_list`, `gsdb_load`, `gsdb_register`, `gsdb_from_file`, `gsdb_msigdb`, `gsdb_info`,
+`download_gatom_references`. Files: `R/gs-db.R`, `R/gsdb-load.R`, `R/gsdb-file.R`,
+`R/gsdb-msigdb.R`, `R/gsdb-rebuild.R`, `R/gsdb-gatom.R`. 143 tests.
+
+`.resolve_toolkit_dir()` and every `toolkit_dir`/`helper_root` argument are gone; paths
+resolve via `system.file("extdata", ...)`. `build_reference_databases.R`'s source-time
+executable body became the internal `.gsdb_rebuild()`, which errors "source checkout
+required". `gsdb_from_file()` sniffs GMT vs GMX. Deleted with evidence: `parse_geneset_file`,
+`convert_geneset_ids` (both verified absent from the frozen 24).
+
+### Step B2 — compute (`gs_*`) ✅ done, merged
+
+Commit `28dc231`, merged to base. **9 exports:** `gs_ranks`, `gs_test`, `gs_score`,
+`gs_leading_edge`, `gs_filter`, `gs_top`, `gs_split`, `gs_write`, `gs_read`. Files:
+`R/gs-test.R`, `R/gs-score.R`, `R/gs-ranks.R`, `R/gs-ops.R`, `R/gs-io.R`. 101 tests.
+`gs_test()` is S3-dispatched on `numeric`/`integer`/`character`/`gs_matrix`/`default`.
+**clusterProfiler and enrichplot appear nowhere in the package.**
+
+**B2 never delivered a handback report** — it went idle three times. Its gates were verified
+by the integrator instead, so treat its *reasoning* as unrecorded: what it deleted and why
+is not written down anywhere. See §2 finding 8.
+
+### ✅ THE EQUIVALENCE RESULT — the one that justifies the whole migration
+
+`docs/_internal/plans/2026-08-10-bulkirna-package/B2-fgsea-equivalence.R`, run on the
+real-symbol fixture, old `run_gsea()` (clusterProfiler) vs new `gs_test()` (direct fgsea):
+
+```
+OLD run_gsea(): 50 pathways    NEW gs_test(): 50 pathways
+Pathways only in OLD: 0        Pathways only in NEW: 0
+max |dNES|  = 0.000e+00
+max |dp|    = 0.000e+00
+max |dpadj| = 0.000e+00
+```
+
+**Bit-identical**, down to `p = 6.220419e-131`. Re-run it after any change to `.gs_fgsea()`.
+It is a diagnostic, not a package test; it sources `scripts/`, so it dies with `scripts/` in
+Step C — capture its output in the Step C commit message before deleting it.
+
+### Cross-module integration — verified live by the integrator
+
+B1 and B2 never saw each other's code. Confirmed working on the merged branch:
+`gsdb_load("mitopathways")` → `gs_test()` = 39 rows, `database = "mitopathways"`,
+`stat_type = "NES"`; `gs_test(ranks, list(hallmark=, mito=))` = 89 rows over two databases;
+`rbind()` pooling preserves class; character-vector input → ORA with
+`stat_type = "log2_fold_enrichment"`; both `gs_filter(res, padj = 0.05)` and
+`dplyr::filter(res, padj < 0.05)` work and keep the class. Zero-row `gs_result` constructs
+(12 cols) and `rbind`s — so `empty_gsea_tibble()` is shimmable.
+
+### Gate on the merged branch (`633dddc`)
+
+**311 tests, 0 failures** · **golden 20/20, exit 0** · `R CMD check --no-manual`
+**0 errors, 0 warnings, 1 NOTE** (unused Imports `ggrepel`, `rlang`, `scales`, `stringr`,
+`tidyr` — all claimed by B3/B5) · **18 exports** so far.
+
+### Steps B3, B4, B5, C — ⬜ not started
+
+`scripts/` is untouched, which is why golden still passes.
 
 ---
 
@@ -111,24 +174,133 @@ survive a `select()`.
    Suggests, including `org.*.eg.db`, `FactoMineR`, `factoextra`, `homologene`. The pending
    fleet action is a `provc` bump from `v0.5.10` → `v0.5.11`, not a rebuild.
 
+### Discovered during Step A / B1 / B2 (2026-08-10)
+
+8. **Two design docs gave contradictory orders, and every B brief cited only one.**
+   `02_api-inventory.md` §5 freezes 24 exports; `07_api-design.md` §7 lists the ~30 new
+   ones; they are different sets. B1 read §7 plus "deletion is the job" and deleted
+   `download_gatom_references()`, a frozen export. **Ruling, now in `CONVENTIONS.md` §12 and
+   `08` §5.1:** a frozen name may be renamed or internalised (Step C shims it) but never
+   deleted without leaving a body the shim can call. The test is not "does anything call it"
+   but "can Step C still make the old call work". **B3–B5 face the identical trap.**
+9. **`data/used-functions.tsv` is not in this repo.** It is at
+   `/data1/users/antonz/pipeline/sciagent-rna/docs/data/used-functions.tsv`. Earlier drafts
+   pointed agents at a path that does not exist; that caused finding 8.
+10. **`08` §4's `{t2g, t2n}` provider sentence was stale** — the clusterProfiler input
+    format. Corrected in `21e0655` (sciagent-rna). `CONVENTIONS.md` §11a governs.
+11. **`gs_result$database` is the stable snake_case registry key**, not a display label —
+    it is a join and filter key. `database_label` carries the display string.
+    **B3 must read `database_label` for facets and legends**, never `database`.
+12. **Process defect (integrator's).** `CONVENTIONS.md` and `DESCRIPTION` were edited on the
+    base branch *after* the worktrees existed, so both agents worked from a stale contract
+    and B1 needed a merge mid-flight. **For B3–B5: freeze the shared contract for the batch,
+    or message all agents simultaneously with a merge instruction.**
+13. **Never measure a live worktree.** Test counts and three "failures" observed mid-edit
+    were artifacts of sampling a worktree while its agent was still writing. Verify only
+    after the agent commits and reports idle.
+14. **`parse_transportdb()` had a dead `org_db` argument** and `METADATA.yaml` disagrees with
+    the parser about the TransportDB raw format (METADATA: headerless 7-column CSV needing
+    AnnotationDbi; parser: `read.csv(header = TRUE)` hunting `Symbol`/`Family`). The shipped
+    RDS contains mouse symbols, so it was not built by this path. **Pre-existing latent
+    rebuild bug on a path with no golden baseline.** Recorded, not chased.
+15. **Rebuild size-filter ordering changed**: the old code filtered 5–500 inside `parse_gmx()`
+    *before* human→mouse conversion and again after; `.gsdb_rebuild()` filters only after.
+    Shipped RDS untouched so golden is unaffected, but a future rebuild could differ.
+16. **`mito_unified`'s RDS carries an unused `merge_map`** element. Dropped, no contract slot.
+    Recoverable: `readRDS(system.file("extdata",
+    "mitochondria_unified/processed/Mus_musculus/unified_mito_pathways.rds",
+    package = "bulkiRNA"))$merge_map`.
+17. **`readxl`, `org.Mm.eg.db`, `org.Hs.eg.db` are in `Suggests` but used by nothing** so far.
+    If B5 does not claim them, remove them in Step C.
+18. **`msigdbr` prints a once-per-session ortholog notice** that is not suppressible via its
+    API. Documented exception to `CONVENTIONS.md` §5. **Do not write a test asserting
+    MSigDB providers are silent.**
+
 ---
 
-## 3. Next action — dispatch B1–B5 in worktrees
+## 3. Next action — dispatch B3, B4, B5
 
-Briefs are `08_refactor-execution-plan.md` §4; the rules every agent follows are §5, now
-also written down in-repo as **`CONVENTIONS.md`** (read that first — it is the contract).
+Briefs are `08_refactor-execution-plan.md` §4; the rules are §5 + **§5.1 (the freeze rule)**,
+and the in-repo contract is **`CONVENTIONS.md`** — agents read that first.
 
-Ownership rule: `DESCRIPTION`, `NAMESPACE`, `R/utils.R`, `R/gs-result.R`, `R/gs-matrix.R`,
-`R/bulkiRNA-package.R` belong to Step A and the integrator; B agents **report** needed
-changes rather than making them. `tests/golden/` and `tests/fixtures/` are off limits.
+### Setup
 
-Two Step-A facts the briefs did not anticipate:
+```bash
+cd /data1/users/antonz/pipeline/bulkiRNA
+git worktree add -b wt/b3-renderers ../.bulkirna-wt/b3 feat/bulkirna-package
+git worktree add -b wt/b4-running   ../.bulkirna-wt/b4 feat/bulkirna-package
+git worktree add -b wt/b5-de-io     ../.bulkirna-wt/b5 feat/bulkirna-package
+```
 
-- The `@import ggplot2` lives in `R/bulkiRNA-package.R`, so B3/B4/B5 need **no** `ggplot2::`
-  prefixes and must not add a second `@import ggplot2`.
-- `@export` on an S3 method whose generic is owned by another package emits
-  `export()`, not `S3method()`. Use `@exportS3Method pkg::generic` (e.g.
-  `@exportS3Method tibble::as_tibble`). Verify `NAMESPACE` after `document()`.
+`../.bulkirna-wt/b1` and `b2` still exist and are fully merged — remove them with
+`git worktree remove` once you are confident, or leave them as reference.
+
+**Freeze `CONVENTIONS.md` and `DESCRIPTION` for the duration of the batch** (finding 12). If
+one genuinely must change, message all three agents simultaneously with a merge instruction.
+
+### What each agent must be told beyond its §4 brief
+
+All three:
+- **The freeze rule (§5.1 / `CONVENTIONS.md` §12).** State it explicitly — B1 got it wrong.
+  Give each agent the frozen names *in its own module* and require a per-name statement of
+  how Step C reaches it.
+- `@import ggplot2` already lives in `R/bulkiRNA-package.R`. **Do not add a second one**, and
+  no `ggplot2::` prefixes are needed.
+- `@export` on an S3 method whose generic belongs to another package emits `export()`, not
+  `S3method()`. Use `@exportS3Method pkg::generic`. **Check `NAMESPACE` after `document()`.**
+- ggplot2 is **4.0.3**: `colour = "transparent"`, never `colour = NA`.
+- Never edit `DESCRIPTION`, `NAMESPACE`, `CONVENTIONS.md`, `R/utils.R`, `R/gs-result.R`,
+  `R/gs-matrix.R`, `R/bulkiRNA-package.R`, `R/gs-db.R`, or anything B1/B2 own. Report instead.
+- **Do not modify `scripts/`.** Step C deletes it; golden depends on it.
+- Deliver a handback report. B2 did not, and its reasoning is lost.
+
+**B3 (renderers + theme)** — frozen names: `gsea_dotplot`, `gsea_dotplot_facet`,
+`gsea_barplot`, `format_pathway_name`, `custom_minimal_theme_with_grid`, `save_gsea_log`,
+`plot_all_gsea_results`. Exports `gs_plot_dot`, `gs_plot_bar`, `gs_plot_heatmap`, `gs_save`,
+`theme_bulki`, `format_pathway_name`. **Read `database_label`, not `database`** (finding 11).
+Axis labels come from `gs_stat_label(res)` — never a literal `"NES"`. Claims `ggrepel`,
+`scales`, `stringr` from the unused-Imports NOTE.
+
+**B4 (running-sum rewrite)** — frozen name: `gsea_running_sum_plot`. Exports
+`gs_plot_running`. **`gs_leading_edge()` and `gs_ranks()` now exist for real** — build on
+them rather than the contract. `fgsea::plotEnrichmentData()` returns `curve`/`ticks`/`stats`,
+the exact three panels; **do not hand-roll the cumulative sum.** Colours keyed by pathway id
+via explicit `scale_colour_manual(values = named_vector)`, never positional. Read the old
+file's `@note` block (`scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R:95-101`) — it
+documents the trap not to reproduce. This is the one deliberate golden change.
+
+**B5 (DE + IO)** — frozen names: `create_standard_volcano`, `create_MD_plot`, `build_dge`,
+`ensure_dir` (already exported by Step A — do not redefine). Exports `de_volcano`,
+`de_md_plot`, `de_bfc_plot`, `de_pca`, `de_pca_3d`, `de_volcano_grid`, `build_dge`,
+`annotate_genes`, `read_counts_matrix`, `read_metadata`, `write_session_provenance`.
+**Preserve decision-by-FDR volcano semantics exactly** — dashed line at the p-value
+corresponding to the FDR boundary, plus `fixed_p_boundary`. Golden-tested, load-bearing.
+Delete the byte-identical duplicate `aggregate_duplicate_ids` (`io_helpers.R:231` vs `:177`),
+`source_if_present()` and the `here` dependency; rename `save_plot` → internal
+`famd_save_plot`. Claims `tidyr`; guard `plotly`, `FactoMineR`, `factoextra`.
+**`FactoMineR`/`factoextra` are not in DESCRIPTION** — request them if FAMD stays.
+
+### Then Step C
+
+1. Merge b3/b4/b5. **`NAMESPACE` will conflict — resolve by regenerating**, never by hand
+   (this worked cleanly for b1+b2).
+2. Apply collected `DESCRIPTION`/`R/utils.R` requests.
+3. `devtools::document()`; confirm exports match `07` §7 (~30; currently 18).
+4. **`R/deprecated.R`** — the 24 frozen names → new names with `.Deprecated()`. Each B
+   agent's handback states how its names are reached. Known shim details:
+   - `list_reference_dbs()`: `gsdb_list()` then `x$species[!x$bundled] <- "(not bundled)"` and
+     reorder to `database, name, bundled, description, species`. Accept and ignore
+     `toolkit_dir`.
+   - `load_reference_db()`: `gsdb_load()` → `.gsdb_as_t2g()`, plus re-add the old `source` and
+     `created` list elements.
+   - `filter_by_size(result, min_size = 5, max_size = 500)`: `.gsdb_from_t2g()` → internal
+     `filter_by_size()` → `.gsdb_as_t2g()`. **The 5/500 defaults live in the shim**; the
+     internal version defaults to `NULL`/`NULL`.
+   - `empty_gsea_tibble()`: a zero-row `gs_result` — verified constructible.
+5. `R CMD check --as-cran`.
+6. **`verify_golden.R` — the real gate.** Then migrate the golden harness off `scripts/` onto
+   the new API, and only then delete `scripts/` (the user's explicit sequencing).
+7. Capture the equivalence-script output in the commit message before deleting it.
 
 ---
 
@@ -192,30 +364,38 @@ test does not override the freeze. Restored.
 ## 6. Revert
 
 ```bash
-git checkout dev && git branch -D feat/bulkirna-package   # nothing else was touched
+git checkout dev && git branch -D feat/bulkirna-package
+git worktree remove ../.bulkirna-wt/b1 && git branch -D wt/b1-databases
+git worktree remove ../.bulkirna-wt/b2 && git branch -D wt/b2-compute
 ```
 
-`scripts/` is unmodified as of Step 0, so abandoning this branch costs only the fixture and
-golden harness — both of which are worth keeping regardless.
+`scripts/` is still unmodified, so abandoning this branch costs the package skeleton, the
+`gsdb_*`/`gs_*` layers, the fixture and the golden harness — the last two are worth keeping
+regardless. **Nothing has been pushed**, so revert is purely local.
 
 ---
 
 ## 7. Kickstart prompt for a fresh session
 
 ```
-Resume the bulkiRNA packaging work. Read, in order:
+Resume the bulkiRNA packaging work. cd /data1/users/antonz/pipeline/bulkiRNA
 
-  1. docs/_internal/plans/2026-08-10-bulkirna-package/00_INDEX.md   (this repo — state + next action)
-  2. /data1/users/antonz/pipeline/sciagent-rna/docs/07_api-design.md (the API contract)
-  3. /data1/users/antonz/pipeline/sciagent-rna/docs/08_refactor-execution-plan.md §3 (Step A spec)
+Read, in order:
+  1. docs/_internal/plans/2026-08-10-bulkirna-package/00_INDEX.md   (state + next action)
+  2. CONVENTIONS.md                                                (the in-repo contract)
+  3. /data1/users/antonz/pipeline/sciagent-rna/docs/07_api-design.md §7 (export list)
+  4. /data1/users/antonz/pipeline/sciagent-rna/docs/08_refactor-execution-plan.md §4 (B3/B4/B5
+     briefs), §5 and §5.1 (rules + the freeze rule)
 
-You are on branch `feat/bulkirna-package`. Step 0 is done: 20 golden cases in
-tests/golden/, fixture in tests/fixtures/, `scripts/` untouched.
+State: branch `feat/bulkirna-package` at `633dddc`. Steps 0, A, B1 and B2 are done and
+merged — 18 exports, 311 tests passing, golden 20/20, R CMD check 0E/0W/1 NOTE.
+`scripts/` is UNTOUCHED and still working, which is why golden passes. Nothing is
+pushed; the user pushes at the end.
 
-Task: execute **Step A** — the skeleton and shared contracts. DESCRIPTION,
-inst/extdata/, R/gs-result.R, R/gs-matrix.R, R/utils.R, CONVENTIONS.md,
-tests/testthat/ scaffold, .Rbuildignore. Do NOT start B1–B5 and do NOT
-modify anything under `scripts/` yet.
+Task: dispatch B3 (renderers + theme), B4 (running-sum rewrite), B5 (DE + IO) as three
+parallel agents in git worktrees, then integrate as Step C. §3 of 00_INDEX.md has the
+worktree commands and exactly what each agent must be told beyond its §4 brief — read
+it rather than re-deriving.
 
 Hard constraints:
 - No R on this host. Everything runs in a throwaway container:
@@ -223,16 +403,21 @@ Hard constraints:
       -v /data1/users/antonz/pipeline/.msigdb-cache:/cache \
       -v "$PWD":/pkg -w /pkg scdock-r-dev:v0.5.11 <cmd>
   Both --user and HOME are mandatory (saveRDS permissions; msigdbr's runtime cache).
-- NAMESPACE is roxygen-generated, never hand-edited.
-- The 24-export list in 02_api-inventory.md §5 is FROZEN: no renames, no argument
-  changes, until Step 1b.
-- `Rscript tests/golden/verify_golden.R` must exit 0 before you hand back. Confirm it
-  still passes at the start too, so a later failure is attributable.
-- Commit on the branch; push to `hub` and `origin` (origin needs an ssh-agent with a
-  passphrase key — ask rather than working around it).
+- NAMESPACE is roxygen-generated, never hand-edited. On merge conflict, REGENERATE.
+- The freeze rule (CONVENTIONS.md §12): a name on the frozen 24 may be renamed or made
+  internal, but never deleted without leaving a body Step C's shim can call. B1 got
+  this wrong once; tell every agent explicitly.
+- FREEZE CONVENTIONS.md and DESCRIPTION while agents are running. Editing the base
+  branch under a live worktree cost real time this session.
+- Never measure a live worktree — verify only after the agent commits AND reports idle.
+- `Rscript tests/golden/verify_golden.R` must exit 0. Confirm at the start too, so a
+  later failure is attributable.
+- Do NOT delete `scripts/` until the golden harness is migrated onto the new API.
+- Push to `hub` and `origin` only when the user says so (origin needs an ssh-agent with
+  a passphrase key — ask rather than working around it).
 
-Report: what you created, the R/utils.R and DESCRIPTION contents, golden-verify result,
-and anything in the plan you found wrong.
+Verify agents' claims yourself; do not take a handback at face value. B2 never reported
+at all and its gates had to be checked independently.
 ```
 
 To resume the **SciAgent** track instead, point a session at
