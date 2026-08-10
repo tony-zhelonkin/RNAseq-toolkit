@@ -201,13 +201,61 @@ returning `list(T2G = data.frame(gs_name, gene_symbol), T2N = data.frame(gs_name
 description))` **solely** so Step C's `R/deprecated.R` can keep
 `load_reference_db()` returning its old shape. Nothing new calls it.
 
+`database` is the **stable snake_case registry key** — `mitopathways`,
+`transportdb`, `mito_unified`, `msigdb_H`, `msigdb_C2_CP_KEGG` — never a
+human-readable label. It lands in `gs_result$database`, which is a **join and
+filter key**: `gs_filter(res, database == "mitopathways")` and `rbind()` across
+databases both need it machine-typeable and stable. Display strings drift; keys
+must not. The pretty label rides along as a `database_label` attribute, and
+renderers prettify from it — that is the render layer's job, not the data
+layer's.
+
 Multiple databases in one call are a **named list of `gs_db`** objects; the list
 name becomes `gs_result$database`. Empty sets are dropped at construction, not
 at test time. Set names are unique within a `gs_db`; providers prefix
 (`MITOPATHWAYS_`, `TRANSPORTDB_`) as they do today.
 
-## 12. Deletion is the job
+## 12. Deletion is the job — but the freeze outranks it
 
 The surface goes from 123 definitions to ~30 exports. If a function has no
-consumer in `data/used-functions.tsv` and no internal caller, **delete it** — do
-not port it. Report what you deleted.
+consumer and no internal caller, **delete it** rather than porting it. Report
+what you deleted.
+
+**Consumer evidence** lives at
+`/data1/users/antonz/pipeline/sciagent-rna/docs/data/used-functions.tsv` — outside
+this repo. There is no `data/used-functions.tsv` here; earlier drafts said there
+was.
+
+### The rule when §12 and the freeze collide
+
+`02_api-inventory.md` §5 freezes **24 exported names** as of `752481f`.
+`07_api-design.md` §7 lists the **~30 new exports**. The two lists are not the
+same set, and a name can be on the frozen list while having no place in the new
+surface. When that happens:
+
+> A name on the frozen 24 may be **renamed** — Step C's `R/deprecated.R` shims
+> it. It may **not be deleted without leaving a body the shim can call.**
+> §12 governs the ~102 internal functions, not the frozen 24.
+
+The test is **not** "does anything call it" but **"can Step C still make the old
+call work"**. Renaming `list_reference_dbs()` → `gsdb_list()` passes: the shim
+calls the new name. Keeping `parse_gmx()` as an internal `.gsdb_parse_gmx()`
+passes. Deleting a frozen export outright **fails**, because there is then
+nothing for the shim to delegate to and 64 call sites in 10 projects break with
+"function not found".
+
+Consequence for the deprecation-shim contract: when you rename or internalise a
+frozen export, its **old signature must remain reproducible** — same formals, in
+order, with the same defaults. You may change the new function freely; the shim
+absorbs the difference. Say in your handback which frozen names your module
+covers and how the shim reaches them.
+
+If you believe a frozen export genuinely should die, that is a **scope decision
+for the user, not a refactor decision.** Report it; do not act on it.
+
+### Documented exceptions
+
+- `msigdbr` prints a once-per-session notice when it maps human sets to mouse
+  orthologs. It is correctness-relevant and not suppressible through its API, so
+  it stays visible despite §5's "no progress output unless `verbose`". Do not
+  write a test asserting that MSigDB providers are silent.

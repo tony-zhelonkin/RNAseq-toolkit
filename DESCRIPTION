@@ -25,12 +25,14 @@ Imports:
     stats,
     stringr,
     tibble,
-    tidyr
+    tidyr,
+    utils
 Suggests:
     AnnotationDbi,
     biomaRt,
     edgeR,
     GSVA,
+    homologene,
     limma,
     org.Hs.eg.db,
     org.Mm.eg.db,
