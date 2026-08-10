@@ -3,12 +3,16 @@
 **Repo path:** `/data1/users/antonz/pipeline/bulkiRNA` (renamed from `RNAseq-toolkit`
 during the 2026-08-10 session — a Phase 6 item, done early. The `hub` remote still points at
 `/data1/users/antonz/git/RNAseq-toolkit.git`; `origin` is `git@github.com:tony-zhelonkin/bulkiRNA.git`.)
-**Branch:** `feat/bulkirna-package` (off `dev`) · **tip `633dddc`**
+**Branch:** `feat/bulkirna-package` (off `dev`)
 **Fork point / revert target:** `752481f` (`dev` tip at fork)
 **Baseline at fork:** 9 legacy suites in `tests/`; 20 golden cases captured, 0 errors
-**Current:** Steps 0, A, B1, B2 complete and merged. `scripts/` still untouched and still
-working. **Next: dispatch B3, B4, B5, B6** (see §3; B6 = the `gatom_*` module, §5a).
-**Nothing is pushed.** 10 commits queued on the branch; the user pushes at the end.
+**Current:** Steps 0, A, **B1–B6 all complete and merged.** 41 exports.
+`R CMD check --as-cran`: **0 errors, 0 warnings, 0 notes.** 609 tests (dev image) /
+635 (gatom image), 0 failures. Golden **20/20, exit 0**. `scripts/` still untouched.
+**Next: the rest of Step C** — `R/deprecated.R` for the 24 frozen names, migrate the
+golden harness onto the new API, then delete `scripts/`. See `STEP-C-REQUIREMENTS.md`,
+which carries every shim recipe and doc correction the B agents handed back.
+**Nothing is pushed.** The user pushes at the end.
 
 Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
 
