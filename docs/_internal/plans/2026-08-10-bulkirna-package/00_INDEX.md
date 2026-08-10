@@ -3,7 +3,7 @@
 **Branch:** `feat/bulkirna-package` (off `dev`)
 **Fork point / revert target:** `752481f` (`dev` tip at fork)
 **Baseline at fork:** 9 legacy suites in `tests/`; 20 golden cases captured, 0 errors
-**Current:** Step 0 complete. Nothing in `scripts/` modified yet.
+**Current:** Steps 0 and A complete. Nothing in `scripts/` modified yet. Next: dispatch B1–B5.
 
 Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
 
@@ -55,9 +55,37 @@ wrapper and exits non-zero on drift. Plots are stored as `ggplot_build(p)$data`,
 propagation into `normalize_gsea_results$pathway_name`. Clean exits 0, perturbed exits 1.
 A gate nobody has watched fail is not a gate.
 
-### Steps A, B1–B5, C — ⬜ not started
+### Step A — skeleton and shared contracts ✅ done
 
-`scripts/` is untouched. No `DESCRIPTION`, no `R/`, no `NAMESPACE`.
+`DESCRIPTION` (`bulkiRNA` 0.3.0, the `07` §8 ledger + `stats`), `LICENSE`,
+`.Rbuildignore`, `NAMESPACE` (roxygen), `man/` (28 topics), `CONVENTIONS.md`.
+
+- `R/bulkiRNA-package.R` — package doc; **the one `@import ggplot2`**.
+- `R/utils.R` — `ensure_dir()` (directory semantics, exported), `ensure_parent_dir()`
+  (file semantics, internal — the `02` §3.2 collision resolved by splitting, not renaming
+  in place), `%||%`. Nothing else, ever, without a handback request.
+- `R/gs-result.R` — `gs_result()` constructor / `new_gs_result()` / `validate_gs_result()`,
+  the 12 core columns of `07` §4 with enforced types, `gs_stat_types()` (the only export
+  besides `ensure_dir`), `gs_direction()`, `gs_stat_label()`, and S3 `print` (via
+  `tbl_sum`), `summary`, `as_tibble`, `rbind`, `[`, `dplyr_reconstruct`.
+- `R/gs-matrix.R` — `gs_matrix()` + validator, five metadata attributes, accessors, and
+  S3 `print`, `summary`, `[`, `as_tibble` (long form joined to `sample_data`).
+- `inst/extdata/` — the 152 KB processed tree + `METADATA.yaml` + three `CITATIONS.bib`.
+- `tests/testthat/` — 67 tests across `test-gs-result.R`, `test-gs-matrix.R`,
+  `test-utils.R`, plus `helper-gs.R` builders. All pass.
+
+`R CMD check --no-manual`: **0 errors, 0 warnings, 1 NOTE** — unused `Imports` (`fgsea`,
+`msigdbr`, `ggrepel`, `scales`, `stringr`, `tidyr`, `rlang`), which B1–B5 consume. Golden
+verify still 20/20.
+
+Constructors are **internal** (`@keywords internal`, no `@export`): `07` §7 lists no
+`gs_result()` in the ~30, and B agents reach them package-internally. Both result classes
+downgrade to a plain tibble when a verb drops a core column, so a broken object cannot
+survive a `select()`.
+
+### Steps B1–B5, C — ⬜ not started
+
+`scripts/` is untouched.
 
 ---
 
@@ -85,27 +113,22 @@ A gate nobody has watched fail is not a gate.
 
 ---
 
-## 3. Next action — Step A (serial, blocks all five B agents)
+## 3. Next action — dispatch B1–B5 in worktrees
 
-Create the skeleton and the shared contracts. Per `08_refactor-execution-plan.md` §3:
+Briefs are `08_refactor-execution-plan.md` §4; the rules every agent follows are §5, now
+also written down in-repo as **`CONVENTIONS.md`** (read that first — it is the contract).
 
-- `DESCRIPTION` — `Package: bulkiRNA`, `Version: 0.3.0`, the Imports/Suggests ledger from
-  `07_api-design.md` §8 verbatim.
-- Layout: `R/`, `inst/extdata/` (the 128 KB `data/references/*/processed/` tree +
-  `METADATA.yaml`), `tests/testthat/`, `.Rbuildignore` excluding `data/references/*/raw/`.
-- `R/gs-result.R` — constructor, validator, S3 `print`/`summary`/`as_tibble`/`rbind`.
-  Core columns exactly as `07` §4.
-- `R/gs-matrix.R` — constructor + methods.
-- `R/utils.R` — the **single** surviving `ensure_dir()` (directory semantics, per `02` §3.2),
-  `%||%`, nothing else. The one place shared helpers live.
-- `CONVENTIONS.md` (repo-internal) — roxygen style, `@keywords internal` for non-exports,
-  `@import ggplot2` in exactly one file, the `stat_type` vocabulary.
-- NAMESPACE is **roxygen-generated, never hand-edited** — this is what stops five agents
-  conflicting on one file.
+Ownership rule: `DESCRIPTION`, `NAMESPACE`, `R/utils.R`, `R/gs-result.R`, `R/gs-matrix.R`,
+`R/bulkiRNA-package.R` belong to Step A and the integrator; B agents **report** needed
+changes rather than making them. `tests/golden/` and `tests/fixtures/` are off limits.
 
-Then dispatch B1–B5 in worktrees. Ownership rule: `DESCRIPTION`, `NAMESPACE`,
-`R/gs-result.R`, `R/gs-matrix.R`, `R/utils.R` belong to Step A and the integrator; B agents
-**report** needed changes rather than making them.
+Two Step-A facts the briefs did not anticipate:
+
+- The `@import ggplot2` lives in `R/bulkiRNA-package.R`, so B3/B4/B5 need **no** `ggplot2::`
+  prefixes and must not add a second `@import ggplot2`.
+- `@export` on an S3 method whose generic is owned by another package emits
+  `export()`, not `S3method()`. Use `@exportS3Method pkg::generic` (e.g.
+  `@exportS3Method tibble::as_tibble`). Verify `NAMESPACE` after `document()`.
 
 ---
 
