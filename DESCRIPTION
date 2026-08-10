@@ -19,12 +19,14 @@ Imports:
     fgsea,
     ggplot2,
     ggrepel,
+    grDevices,
     msigdbr,
     rlang,
     scales,
     stats,
     stringr,
     tibble,
+    tools,
     utils
 Suggests:
     AnnotationDbi,
