@@ -12,11 +12,11 @@
 \item{sets}{Named list of character vectors.}
 
 \item{universe}{Character vector of background genes. Defaults to the union
-of \code{genes} and every gene in \code{sets} — state it explicitly whenever the
+of \code{genes} and every gene in \code{sets} -- state it explicitly whenever the
 real background is the set of detected genes, which it usually is.}
 
 \item{min_size, max_size}{Integer set-size bounds, applied after intersecting
-with the data. Defaults \code{10} and \code{500} — the values
+with the data. Defaults \code{10} and \code{500} -- the values
 \code{clusterProfiler::GSEA()} forwarded to fgsea, kept so results are
 unchanged.}
 }

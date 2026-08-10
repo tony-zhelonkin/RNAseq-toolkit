@@ -18,8 +18,8 @@ A named list, one entry per panel, each \code{list(lo =, hi =, h =)}.
 \code{facet_grid(space = "free_y")} sizes a panel in proportion to its y range,
 and the natural ranges of an ES curve, a tick lane and a ranked metric have
 nothing to do with the proportions a reader wants. So each panel's data is
-mapped onto its own window \verb{[0, panel_heights[k]]} — a linear, invertible
-rescaling that clips nothing — and the panel heights then come out exactly in
+mapped onto its own window \verb{[0, panel_heights[k]]} -- a linear, invertible
+rescaling that clips nothing -- and the panel heights then come out exactly in
 the requested ratio. The axis still reads in original units, because
 \code{\link[=.grs_break_fun]{.grs_break_fun()}} inverts the map and returns \emph{named} breaks, which ggplot2
 uses as the labels.

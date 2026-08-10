@@ -32,7 +32,7 @@ all.}
 or \code{NULL}.}
 
 \item{keep_ids}{Character vector of \code{pathway_id}s. When supplied, rows are
-restricted to these ids and \code{top} selection is skipped — this is how
+restricted to these ids and \code{top} selection is skipped -- this is how
 \verb{compare =} keeps every panel of a comparison grid on the same pathways.}
 
 \item{highlight}{Numeric FDR threshold for the \code{significant} flag, or

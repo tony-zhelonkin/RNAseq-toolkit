@@ -14,7 +14,7 @@ A function suitable for \code{scale_y_continuous(breaks = )}.
 }
 \description{
 With \code{scales = "free_y"} every panel resolves its own breaks and a break
-function gets no panel context — but each panel's limits are exactly
+function gets no panel context -- but each panel's limits are exactly
 \code{c(0, h)} (pinned by \code{geom_blank()} with zero expansion, heights made
 distinct in \code{\link[=.grs_windows]{.grs_windows()}}), so the panel is identifiable from its limits
 alone. Breaks are chosen in original units, mapped into window space, and

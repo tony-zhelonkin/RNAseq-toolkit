@@ -15,7 +15,7 @@
 A ggplot object.
 }
 \description{
-Returned instead of erroring when a selection leaves nothing to draw — a
+Returned instead of erroring when a selection leaves nothing to draw -- a
 zero-row \code{gs_result} is a valid answer, so a zero-row plot must be too.
 }
 \keyword{internal}

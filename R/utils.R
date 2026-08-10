@@ -1,7 +1,7 @@
 #' Ensure a directory exists
 #'
 #' Creates each directory in `path` if it is missing, including parents.
-#' Idempotent. `path` is a **directory** path, never a file path — if you have a
+#' Idempotent. `path` is a **directory** path, never a file path -- if you have a
 #' file path, pass `dirname(path)` (or use the internal [ensure_parent_dir()]).
 #'
 #' @param path Character vector of directory paths.

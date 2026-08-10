@@ -45,7 +45,7 @@ A \link{gs_matrix}.
 \description{
 Turns an expression matrix into a pathway x sample \link{gs_matrix} with GSVA.
 Feed the result to \code{\link[=gs_test]{gs_test()}} to get a \link{gs_result} with
-\code{stat_type = "t"} — that pair is the GSVA -> limma pipeline, written once.
+\code{stat_type = "t"} -- that pair is the GSVA -> limma pipeline, written once.
 }
 \details{
 GSVA is a \code{Suggests}; the call is guarded.

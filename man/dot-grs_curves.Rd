@@ -18,7 +18,7 @@ A named list of \code{plotEnrichmentData()} outputs.
 }
 \description{
 Delegates to \code{\link[fgsea:plotEnrichmentData]{fgsea::plotEnrichmentData()}}, which returns \code{curve}, \code{ticks}
-and \code{stats} — exactly the three panels. The cumulative sum is never
+and \code{stats} -- exactly the three panels. The cumulative sum is never
 recomputed here.
 }
 \keyword{internal}

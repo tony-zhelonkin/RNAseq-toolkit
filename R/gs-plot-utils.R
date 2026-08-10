@@ -112,7 +112,7 @@
 #' @param group_by Character vector of columns defining the selection groups,
 #'   or `NULL`.
 #' @param keep_ids Character vector of `pathway_id`s. When supplied, rows are
-#'   restricted to these ids and `top` selection is skipped — this is how
+#'   restricted to these ids and `top` selection is skipped -- this is how
 #'   `compare =` keeps every panel of a comparison grid on the same pathways.
 #' @param highlight Numeric FDR threshold for the `significant` flag, or
 #'   `NULL`.
@@ -257,7 +257,7 @@
 
 #' An empty placeholder plot
 #'
-#' Returned instead of erroring when a selection leaves nothing to draw — a
+#' Returned instead of erroring when a selection leaves nothing to draw -- a
 #' zero-row `gs_result` is a valid answer, so a zero-row plot must be too.
 #'
 #' @param title Plot title.

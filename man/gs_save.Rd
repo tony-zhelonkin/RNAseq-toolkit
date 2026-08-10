@@ -46,8 +46,8 @@ writes, at the same stem:
 \if{html}{\out{<div class="sourceCode">}}\preformatted{<stem>.pdf   <stem>.png   <stem>.tsv
 }\if{html}{\out{</div>}}
 
-The table is the frame the plot was drawn from — the \code{gs_source} attribute
-every \verb{gs_plot_*} renderer attaches — or whatever you pass as \code{data}. List
+The table is the frame the plot was drawn from -- the \code{gs_source} attribute
+every \verb{gs_plot_*} renderer attaches -- or whatever you pass as \code{data}. List
 columns are collapsed with \code{/}, matching \code{\link[=gs_write]{gs_write()}}.
 }
 \examples{

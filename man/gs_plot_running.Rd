@@ -30,7 +30,7 @@ display names and the \code{stat} used to pick the default pathways; it does
 \strong{not} carry gene-set membership, so \code{db} is required with it.}
 
 \item{ranks}{Named numeric vector of gene-level statistics, decreasing, as
-returned by \code{\link[=gs_ranks]{gs_ranks()}}. If \code{NULL}, \code{attr(x, "ranks")} is used — the hook
+returned by \code{\link[=gs_ranks]{gs_ranks()}}. If \code{NULL}, \code{attr(x, "ranks")} is used -- the hook
 a deprecation shim can fill in.}
 
 \item{db}{A \code{gs_db} or named list of character vectors giving set
@@ -45,7 +45,7 @@ the order colours and legend keys are assigned in.}
 \item{top}{Integer. How many pathways to pick when \code{pathways} is \code{NULL}.}
 
 \item{labels}{Optional character vector of legend labels, named by pathway
-id (a partial map degrades gracefully — unnamed ids keep their
+id (a partial map degrades gracefully -- unnamed ids keep their
 \code{pathway_name}), or unnamed and zipped to \code{pathways} in the given order.}
 
 \item{palette}{Optional colours, named by pathway id or unnamed and zipped
@@ -98,7 +98,7 @@ The old \code{gsea_running_sum_plot()} built three separate ggplots and glued
 them with \code{patchwork}, then spent 16 helpers and three \verb{@note} blocks
 defending the alignment and colour invariants that composition kept
 breaking. Here the three panels are \strong{rows of a single
-\code{\link[ggplot2:facet_grid]{ggplot2::facet_grid()}}}, so they share one x scale \emph{by construction} —
+\code{\link[ggplot2:facet_grid]{ggplot2::facet_grid()}}}, so they share one x scale \emph{by construction} --
 alignment is not something a composer has to preserve, and there is no
 \code{patchwork} dependency. The return value is a plain \code{ggplot}, which is what
 every other \verb{gs_plot_*} renderer returns and what \code{gs_save()} expects.
@@ -109,10 +109,10 @@ The colour aesthetic is mapped to \strong{\code{pathway_id}}, never to a display
 label, and the scale is an explicit
 \verb{scale_colour_manual(values = <named vector>, breaks = names(values))} keyed
 by that same id. Legend \emph{text} is applied through the scale's \code{labels}, so
-renaming a pathway can never move its colour. The old failure mode — an
+renaming a pathway can never move its colour. The old failure mode -- an
 unnamed palette handed to \code{enrichplot::gseaplot2(color = )}, which assigns
 positionally while ggplot orders levels alphabetically, silently swapping
-two colours while the name-keyed legend text stayed correct — is
+two colours while the name-keyed legend text stayed correct -- is
 structurally impossible here.
 }
 

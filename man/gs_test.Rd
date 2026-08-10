@@ -57,7 +57,7 @@ score matrix, \code{stat_type = "t"}.}
 }
 
 Every branch returns the same \link{gs_result}. Pooling across contrasts is
-\code{rbind()} on those results, because \code{contrast} is a column — there is no
+\code{rbind()} on those results, because \code{contrast} is a column -- there is no
 separate pooled code path.
 }
 \examples{

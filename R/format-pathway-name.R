@@ -5,7 +5,7 @@
 #' preserving biological abbreviations, roman numerals and chemical
 #' nomenclature.
 #'
-#' Underscores **and** dots become spaces — dots are hierarchy separators in
+#' Underscores **and** dots become spaces -- dots are hierarchy separators in
 #' some custom databases (MitoPathways
 #' `Metabolism.Lipid_metabolism.Fatty_acid_oxidation`), so each segment reads
 #' cleanly.

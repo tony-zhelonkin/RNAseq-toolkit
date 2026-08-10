@@ -25,7 +25,7 @@ preserving biological abbreviations, roman numerals and chemical
 nomenclature.
 }
 \details{
-Underscores \strong{and} dots become spaces — dots are hierarchy separators in
+Underscores \strong{and} dots become spaces -- dots are hierarchy separators in
 some custom databases (MitoPathways
 \code{Metabolism.Lipid_metabolism.Fatty_acid_oxidation}), so each segment reads
 cleanly.

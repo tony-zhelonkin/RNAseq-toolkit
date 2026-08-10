@@ -38,8 +38,8 @@ column).}
 
 \item{direction}{Restrict to \code{"both"} (default), \code{"up"} or \code{"down"}.}
 
-\item{facet}{Row facets: \code{"none"} (default), \code{"direction"} — the old
-\code{gsea_dotplot_facet()} — \code{"database"} or \code{"contrast"}. \code{top} applies
+\item{facet}{Row facets: \code{"none"} (default), \code{"direction"} -- the old
+\code{gsea_dotplot_facet()} -- \code{"database"} or \code{"contrast"}. \code{top} applies
 within each facet.}
 
 \item{compare}{Column facets for side-by-side comparison: \code{NULL} (default),
@@ -57,7 +57,7 @@ for no outline.}
 \item{limits}{Length-2 numeric fill limits. \code{NULL} (default) uses symmetric
 limits from the data; values outside are squished, not dropped.}
 
-\item{colours}{Length-3 character vector — low, mid, high fill colours.}
+\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 

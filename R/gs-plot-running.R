@@ -13,7 +13,7 @@
 #' them with `patchwork`, then spent 16 helpers and three `@note` blocks
 #' defending the alignment and colour invariants that composition kept
 #' breaking. Here the three panels are **rows of a single
-#' [ggplot2::facet_grid()]**, so they share one x scale *by construction* —
+#' [ggplot2::facet_grid()]**, so they share one x scale *by construction* --
 #' alignment is not something a composer has to preserve, and there is no
 #' `patchwork` dependency. The return value is a plain `ggplot`, which is what
 #' every other `gs_plot_*` renderer returns and what `gs_save()` expects.
@@ -24,10 +24,10 @@
 #' label, and the scale is an explicit
 #' `scale_colour_manual(values = <named vector>, breaks = names(values))` keyed
 #' by that same id. Legend *text* is applied through the scale's `labels`, so
-#' renaming a pathway can never move its colour. The old failure mode — an
+#' renaming a pathway can never move its colour. The old failure mode -- an
 #' unnamed palette handed to `enrichplot::gseaplot2(color = )`, which assigns
 #' positionally while ggplot orders levels alphabetically, silently swapping
-#' two colours while the name-keyed legend text stayed correct — is
+#' two colours while the name-keyed legend text stayed correct -- is
 #' structurally impossible here.
 #'
 #' # Panel heights
@@ -43,7 +43,7 @@
 #'   display names and the `stat` used to pick the default pathways; it does
 #'   **not** carry gene-set membership, so `db` is required with it.
 #' @param ranks Named numeric vector of gene-level statistics, decreasing, as
-#'   returned by [gs_ranks()]. If `NULL`, `attr(x, "ranks")` is used — the hook
+#'   returned by [gs_ranks()]. If `NULL`, `attr(x, "ranks")` is used -- the hook
 #'   a deprecation shim can fill in.
 #' @param db A `gs_db` or named list of character vectors giving set
 #'   membership. If `NULL`, `attr(x, "gene_sets")` is used, or `x` itself when
@@ -54,7 +54,7 @@
 #'   the order colours and legend keys are assigned in.
 #' @param top Integer. How many pathways to pick when `pathways` is `NULL`.
 #' @param labels Optional character vector of legend labels, named by pathway
-#'   id (a partial map degrades gracefully — unnamed ids keep their
+#'   id (a partial map degrades gracefully -- unnamed ids keep their
 #'   `pathway_name`), or unnamed and zipped to `pathways` in the given order.
 #' @param palette Optional colours, named by pathway id or unnamed and zipped
 #'   to `pathways` in the given order (recycled). `NULL` uses a nine-colour
@@ -399,7 +399,7 @@ gs_plot_running <- function(x,
 #' Running-curve data for each pathway
 #'
 #' Delegates to [fgsea::plotEnrichmentData()], which returns `curve`, `ticks`
-#' and `stats` — exactly the three panels. The cumulative sum is never
+#' and `stats` -- exactly the three panels. The cumulative sum is never
 #' recomputed here.
 #'
 #' @param sets Named list of gene sets to draw.
@@ -425,8 +425,8 @@ gs_plot_running <- function(x,
 #' `facet_grid(space = "free_y")` sizes a panel in proportion to its y range,
 #' and the natural ranges of an ES curve, a tick lane and a ranked metric have
 #' nothing to do with the proportions a reader wants. So each panel's data is
-#' mapped onto its own window `[0, panel_heights[k]]` — a linear, invertible
-#' rescaling that clips nothing — and the panel heights then come out exactly in
+#' mapped onto its own window `[0, panel_heights[k]]` -- a linear, invertible
+#' rescaling that clips nothing -- and the panel heights then come out exactly in
 #' the requested ratio. The axis still reads in original units, because
 #' [.grs_break_fun()] inverts the map and returns *named* breaks, which ggplot2
 #' uses as the labels.
@@ -472,7 +472,7 @@ gs_plot_running <- function(x,
 #' Break function that restores original units panel by panel
 #'
 #' With `scales = "free_y"` every panel resolves its own breaks and a break
-#' function gets no panel context — but each panel's limits are exactly
+#' function gets no panel context -- but each panel's limits are exactly
 #' `c(0, h)` (pinned by `geom_blank()` with zero expansion, heights made
 #' distinct in [.grs_windows()]), so the panel is identifiable from its limits
 #' alone. Breaks are chosen in original units, mapped into window space, and

@@ -31,7 +31,7 @@ columns by, or \code{NULL}.}
 
 \item{limits}{Length-2 numeric fill limits; \code{NULL} uses symmetric limits.}
 
-\item{colours}{Length-3 character vector — low, mid, high fill colours.}
+\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 

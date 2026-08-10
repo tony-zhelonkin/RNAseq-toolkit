@@ -39,15 +39,15 @@ vectors mapping set id to gene symbols, which is exactly the shape
 \details{
 Attributes carried alongside the list:
 \itemize{
-\item \code{pathway_names} — named character, id -> human-readable label, with
+\item \code{pathway_names} -- named character, id -> human-readable label, with
 \code{names()} identical to \code{names(sets)}.
-\item \code{database} — the \strong{machine-typeable registry key} (\code{"mitopathways"},
+\item \code{database} -- the \strong{machine-typeable registry key} (\code{"mitopathways"},
 \code{"msigdb_H"}); lands in \code{gs_result$database}, where it is a join and
 filter key, so it must be stable rather than pretty.
-\item \code{database_label} — the display string (\code{"MitoPathways 3.0"}). Renderers
+\item \code{database_label} -- the display string (\code{"MitoPathways 3.0"}). Renderers
 prettify from here; the data layer never depends on it.
-\item \code{species} — \code{"Mus musculus"} or \code{"Homo sapiens"}.
-\item \code{gene_id_type} — \code{"symbol"} (the only value today).
+\item \code{species} -- \code{"Mus musculus"} or \code{"Homo sapiens"}.
+\item \code{gene_id_type} -- \code{"symbol"} (the only value today).
 }
 
 Empty sets are dropped at construction, genes are de-duplicated within a

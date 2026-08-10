@@ -34,8 +34,8 @@ bounds.}
 \item{verbose}{Logical(1); message what was loaded.}
 }
 \value{
-A \code{\link[=gs_db]{gs_db()}} whose \code{database} key is derived from the collection —
-\code{"msigdb_H"}, \code{"msigdb_C2_CP_KEGG"} — with \code{"MSigDB H"} kept as the
+A \code{\link[=gs_db]{gs_db()}} whose \code{database} key is derived from the collection --
+\code{"msigdb_H"}, \code{"msigdb_C2_CP_KEGG"} -- with \code{"MSigDB H"} kept as the
 \code{database_label} attribute for display.
 }
 \description{

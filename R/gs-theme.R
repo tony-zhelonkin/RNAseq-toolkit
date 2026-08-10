@@ -1,7 +1,7 @@
 #' The bulkiRNA plot theme
 #'
 #' A clean, publication-oriented theme: white background, visible axis lines
-#' and ticks, no panel border, and — by default — no grid. Every `gs_plot_*`
+#' and ticks, no panel border, and -- by default -- no grid. Every `gs_plot_*`
 #' and `de_*` renderer ends with it, so figure styling is one function rather
 #' than a `theme()` call an agent might forget.
 #'

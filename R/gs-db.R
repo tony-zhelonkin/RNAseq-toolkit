@@ -6,15 +6,15 @@
 #'
 #' Attributes carried alongside the list:
 #'
-#' - `pathway_names` — named character, id -> human-readable label, with
+#' - `pathway_names` -- named character, id -> human-readable label, with
 #'   `names()` identical to `names(sets)`.
-#' - `database` — the **machine-typeable registry key** (`"mitopathways"`,
+#' - `database` -- the **machine-typeable registry key** (`"mitopathways"`,
 #'   `"msigdb_H"`); lands in `gs_result$database`, where it is a join and
 #'   filter key, so it must be stable rather than pretty.
-#' - `database_label` — the display string (`"MitoPathways 3.0"`). Renderers
+#' - `database_label` -- the display string (`"MitoPathways 3.0"`). Renderers
 #'   prettify from here; the data layer never depends on it.
-#' - `species` — `"Mus musculus"` or `"Homo sapiens"`.
-#' - `gene_id_type` — `"symbol"` (the only value today).
+#' - `species` -- `"Mus musculus"` or `"Homo sapiens"`.
+#' - `gene_id_type` -- `"symbol"` (the only value today).
 #'
 #' Empty sets are dropped at construction, genes are de-duplicated within a
 #' set, and set ids must be unique.

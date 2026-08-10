@@ -20,7 +20,7 @@
 #' @param padj_max Optional hard FDR filter applied before selection.
 #' @param highlight FDR threshold for the black bar outline, or `NULL`.
 #' @param limits Length-2 numeric fill limits; `NULL` uses symmetric limits.
-#' @param colours Length-3 character vector — low, mid, high fill colours.
+#' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.

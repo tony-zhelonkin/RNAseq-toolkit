@@ -2,7 +2,7 @@
 #'
 #' One reader for both MSigDB text formats; the layout is sniffed rather than
 #' declared. A `.gmt`/`.gmx` extension decides it outright; otherwise the file
-#' is inspected — GMX has a fixed column count in its first two rows (row 1
+#' is inspected -- GMX has a fixed column count in its first two rows (row 1
 #' descriptions, row 2 set names, rows 3+ one gene per set per row), while GMT
 #' rows are independent sets of the form
 #' `name<TAB>description<TAB>gene1<TAB>...`.

@@ -8,8 +8,8 @@
 #' <stem>.pdf   <stem>.png   <stem>.tsv
 #' ```
 #'
-#' The table is the frame the plot was drawn from — the `gs_source` attribute
-#' every `gs_plot_*` renderer attaches — or whatever you pass as `data`. List
+#' The table is the frame the plot was drawn from -- the `gs_source` attribute
+#' every `gs_plot_*` renderer attaches -- or whatever you pass as `data`. List
 #' columns are collapsed with `/`, matching [gs_write()].
 #'
 #' @param plot A ggplot object.

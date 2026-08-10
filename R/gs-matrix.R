@@ -13,7 +13,7 @@
 #'   \item{`pathway_names`}{named character vector mapping `rownames()` to
 #'     human-readable labels. Renderers use it for axis text.}
 #'   \item{`sample_data`}{data frame of sample metadata, one row per column of
-#'     the matrix, in column order — this is what `gs_test()` builds a design
+#'     the matrix, in column order -- this is what `gs_test()` builds a design
 #'     from.}
 #' }
 #'

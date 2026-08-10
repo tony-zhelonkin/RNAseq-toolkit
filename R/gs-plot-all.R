@@ -6,7 +6,7 @@
 #' `<out_dir>/<database>/`. Every figure goes through [gs_save()], so each one
 #' arrives with its source table beside it.
 #'
-#' Internal on purpose — the new golden path is to call the renderer you want
+#' Internal on purpose -- the new golden path is to call the renderer you want
 #' and save it. This exists so the deprecation shim has something to delegate
 #' to.
 #'

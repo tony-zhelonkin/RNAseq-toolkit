@@ -4,7 +4,7 @@
 #'
 #' \preformatted{
 #'   gsdb_*        gs_test() / gs_score()     gs_result / gs_matrix     gs_plot_*
-#'   providers ──► compute               ──►  data objects         ──►  renderers
+#'   providers --> compute               -->  data objects         -->  renderers
 #' }
 #'
 #' Compute functions return objects and never plot or write; `gs_write()` /

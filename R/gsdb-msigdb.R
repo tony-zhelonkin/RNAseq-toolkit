@@ -16,8 +16,8 @@
 #' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
 #'   bounds.
 #' @param verbose Logical(1); message what was loaded.
-#' @return A [gs_db()] whose `database` key is derived from the collection —
-#'   `"msigdb_H"`, `"msigdb_C2_CP_KEGG"` — with `"MSigDB H"` kept as the
+#' @return A [gs_db()] whose `database` key is derived from the collection --
+#'   `"msigdb_H"`, `"msigdb_C2_CP_KEGG"` -- with `"MSigDB H"` kept as the
 #'   `database_label` attribute for display.
 #' @examplesIf requireNamespace("msigdbr", quietly = TRUE) && interactive()
 #' db <- gsdb_msigdb("Mus musculus", collection = "H")

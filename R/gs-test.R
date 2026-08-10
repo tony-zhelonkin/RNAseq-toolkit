@@ -13,7 +13,7 @@
 #' }
 #'
 #' Every branch returns the same [gs_result]. Pooling across contrasts is
-#' `rbind()` on those results, because `contrast` is a column — there is no
+#' `rbind()` on those results, because `contrast` is a column -- there is no
 #' separate pooled code path.
 #'
 #' @param x A named numeric vector, a character vector of gene identifiers, or
@@ -190,7 +190,7 @@ gs_test.gs_matrix <- function(x, db, method = NULL, contrast = "contrast", ...,
 #' Shared fgsea / ORA parameters
 #'
 #' @param min_size,max_size Integer set-size bounds, applied after intersecting
-#'   with the data. Defaults `10` and `500` — the values
+#'   with the data. Defaults `10` and `500` -- the values
 #'   `clusterProfiler::GSEA()` forwarded to fgsea, kept so results are
 #'   unchanged.
 #' @param eps Numeric. fgsea's p-value accuracy floor; `0` means "no floor",
@@ -242,7 +242,7 @@ NULL
 #' @param genes Character vector of query genes.
 #' @param sets Named list of character vectors.
 #' @param universe Character vector of background genes. Defaults to the union
-#'   of `genes` and every gene in `sets` — state it explicitly whenever the
+#'   of `genes` and every gene in `sets` -- state it explicitly whenever the
 #'   real background is the set of detected genes, which it usually is.
 #' @inheritParams gs_test_fgsea_params
 #' @return A data frame of core [gs_result] columns.

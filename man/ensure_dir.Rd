@@ -14,7 +14,7 @@ ensure_dir(path)
 }
 \description{
 Creates each directory in \code{path} if it is missing, including parents.
-Idempotent. \code{path} is a \strong{directory} path, never a file path — if you have a
+Idempotent. \code{path} is a \strong{directory} path, never a file path -- if you have a
 file path, pass \code{dirname(path)} (or use the internal \code{\link[=ensure_parent_dir]{ensure_parent_dir()}}).
 }
 \examples{

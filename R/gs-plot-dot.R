@@ -23,8 +23,8 @@
 #' @param sort_by Selection metric: `"padj"` (default), `"p_value"`, `"stat"`
 #'   (largest absolute value) or `"stat_signed"` (most positive).
 #' @param direction Restrict to `"both"` (default), `"up"` or `"down"`.
-#' @param facet Row facets: `"none"` (default), `"direction"` — the old
-#'   `gsea_dotplot_facet()` — `"database"` or `"contrast"`. `top` applies
+#' @param facet Row facets: `"none"` (default), `"direction"` -- the old
+#'   `gsea_dotplot_facet()` -- `"database"` or `"contrast"`. `top` applies
 #'   within each facet.
 #' @param compare Column facets for side-by-side comparison: `NULL` (default),
 #'   `"contrast"` or `"database"`. Pathways are selected once over the whole
@@ -36,7 +36,7 @@
 #' @param size_range Length-2 numeric, the dot size range.
 #' @param limits Length-2 numeric fill limits. `NULL` (default) uses symmetric
 #'   limits from the data; values outside are squished, not dropped.
-#' @param colours Length-3 character vector — low, mid, high fill colours.
+#' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.

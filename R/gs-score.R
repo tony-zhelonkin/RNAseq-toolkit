@@ -2,7 +2,7 @@
 #'
 #' Turns an expression matrix into a pathway x sample [gs_matrix] with GSVA.
 #' Feed the result to [gs_test()] to get a [gs_result] with
-#' `stat_type = "t"` — that pair is the GSVA -> limma pipeline, written once.
+#' `stat_type = "t"` -- that pair is the GSVA -> limma pipeline, written once.
 #'
 #' GSVA is a `Suggests`; the call is guarded.
 #'
