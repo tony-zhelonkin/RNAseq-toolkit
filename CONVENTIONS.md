@@ -176,6 +176,36 @@ Raw source files stay in `data/references/` in the git checkout and are
 `.Rbuildignore`d. Anything requiring them (`rebuild = TRUE`) must fail with an
 explicit "source checkout required" message rather than a missing-file error.
 
+## 11a. The `gs_db` provider contract
+
+**Frozen. B1 implements it; B2, B3 and B4 consume it.** Every `gsdb_*` provider
+returns the same object, whatever its source — MSigDB, a bundled RDS, a GMT, a
+user-registered list:
+
+```r
+structure(
+  sets,                      # named list of character vectors: id -> gene symbols
+  pathway_names = <named chr>,   # id -> human-readable label, names() == names(sets)
+  database      = <chr(1)>,      # provider label, lands in gs_result$database
+  species       = <chr(1)>,      # "Mus musculus" / "Homo sapiens"
+  gene_id_type  = <chr(1)>,      # "symbol" (only value today)
+  class = "gs_db"
+)
+```
+
+A **named list of character vectors** is the contract because it is exactly what
+`fgsea::fgseaMultilevel()`, `fgsea::fora()` and `GSVA::gsvaParam()` all take.
+The old `list(T2G =, T2N =)` pair was a `clusterProfiler::GSEA()` input format
+and dies with clusterProfiler. B1 provides an internal `.gsdb_as_t2g(db)`
+returning `list(T2G = data.frame(gs_name, gene_symbol), T2N = data.frame(gs_name,
+description))` **solely** so Step C's `R/deprecated.R` can keep
+`load_reference_db()` returning its old shape. Nothing new calls it.
+
+Multiple databases in one call are a **named list of `gs_db`** objects; the list
+name becomes `gs_result$database`. Empty sets are dropped at construction, not
+at test time. Set names are unique within a `gs_db`; providers prefix
+(`MITOPATHWAYS_`, `TRANSPORTDB_`) as they do today.
+
 ## 12. Deletion is the job
 
 The surface goes from 123 definitions to ~30 exports. If a function has no
