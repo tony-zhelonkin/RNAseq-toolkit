@@ -417,22 +417,13 @@ Constraints for B6:
   "run download_gatom_references(species = \"Mus_musculus\")" message, not a missing-file error.
 - Do **not** touch `R/gsdb-gatom.R`'s frozen `download_gatom_references()` formals.
 
-Today: `SciAgent-toolkit/skills/gatom-metabolomic-predictions/SKILL.md` is **prose only** —
-no code — re-teaching GATOM's raw API, while this repo vendors only the reference-file
-downloader. The skill carries four traps in prose that a function signature should enforce:
-raw p-values not `padj`; `baseMean` on **linear** scale; genes on graph **edges**, not
-vertices; `met.db` required even when `met.de = NULL`.
+**Superseded text removed 2026-08-10.** This section previously ended with a "Why not now"
+paragraph and an earlier four-function sketch (`gatom_graph()`, `gatom_plot()`). Both are
+dead: the surface is the five functions in the table above, and the deferral reasoning was
+withdrawn (the `Suggests`-ledger objection was resolved pre-dispatch; the no-golden-baseline
+point survives only as the constraint already listed above). Ignore any older copy.
 
-Target: a `gatom_*` layer here — `gatom_refs()` (absorbing `download_gatom_references()` and
-its cache), `gatom_graph()` (validating the `gene.de` contract instead of documenting it),
-`gatom_module()`, `gatom_plot()` — with `SKILL.md` reduced to a pointer at bulkiRNA.
-
-Why not now: `07_api-design.md` scopes this package to fgsea + GSVA + ORA, so this is a **new
-feature module, not a refactor**; there is no golden baseline for GATOM behaviour, making it
-the one part of the pass without a safety net; and `gatom` is a new heavy Bioconductor
-`Suggests`, i.e. a ledger change mid-flight.
-
-Meanwhile `download_gatom_references()` stays **exported with its exact current name and
+`download_gatom_references()` stays **exported with its exact current name and
 formals** — it is on the frozen 24-export list, and `02_api-inventory.md` §5 says to export
 it regardless of having no in-repo caller. B1 deleted it on a "no consumer" reading; that
 test does not override the freeze. Restored.
