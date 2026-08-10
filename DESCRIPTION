@@ -25,7 +25,6 @@ Imports:
     stats,
     stringr,
     tibble,
-    tidyr,
     utils
 Suggests:
     AnnotationDbi,
@@ -39,6 +38,7 @@ Suggests:
     mwcsr,
     org.Hs.eg.db,
     org.Mm.eg.db,
+    patchwork,
     pheatmap,
     plotly,
     readxl,
