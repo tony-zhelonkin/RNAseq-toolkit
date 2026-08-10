@@ -376,10 +376,14 @@ de_volcano_grid <- function(plots,
   first_cap <- ggplot_build(plots[[1]])$layout$plot$labels$caption
   if (is.null(first_cap) || !nzchar(first_cap)) first_cap <- NULL
 
+  # Each panel already carries its own coord from de_volcano(). Adding a second
+  # one would work but makes ggplot2 announce the replacement on every panel,
+  # so the shared coord is swapped in place instead — same result, silent.
+  shared_coord <- coord_cartesian(xlim = c(0, global_x),
+                                  ylim = c(-global_y, global_y), clip = "off")
   for (i in seq_along(plots)) {
+    plots[[i]]$coordinates <- shared_coord
     plots[[i]] <- plots[[i]] +
-      coord_cartesian(xlim = c(0, global_x),
-                      ylim = c(-global_y, global_y), clip = "off") +
       ggtitle(labels[i]) +
       labs(caption = if (keep_first_caption && i == 1) first_cap else NULL)
   }

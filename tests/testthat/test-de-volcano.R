@@ -96,3 +96,16 @@ test_that("de_volcano_grid combines panels on shared limits", {
   expect_s3_class(g, "patchwork")
   expect_error(de_volcano_grid(list()), "non-empty list")
 })
+
+test_that("de_volcano_grid applies shared limits without ggplot2 chatter", {
+  skip_if_not_installed("patchwork")
+  de <- fake_de_table()
+  p  <- de_volcano(de, fc_cutoff = 1, orientation = "vertical")
+
+  expect_silent(g <- de_volcano_grid(list(A = p, B = p)))
+  # the shared coord really did replace the panel's own, and only one exists
+  global_y <- max(abs(ggplot2::layer_scales(p)$y$range$range))
+  panel <- ggplot2::ggplot_build(g[[1]])$layout$panel_params[[1]]
+  # c(-global_y, global_y) plus ggplot2's default 5%-of-span expansion
+  expect_equal(panel$y.range, c(-global_y, global_y) * 1.1, tolerance = 1e-8)
+})
