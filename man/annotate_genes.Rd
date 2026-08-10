@@ -35,7 +35,7 @@ A tibble with one row per element of \code{ens_ids} and columns \code{Symbol},
 }
 \description{
 Maps version-stripped Ensembl gene IDs through the species \code{org.*.eg.db}
-package, then — when \code{use_biomart = TRUE} and the network is reachable —
+package, then -- when \code{use_biomart = TRUE} and the network is reachable --
 refines the symbol and adds \code{gene_biotype} from Ensembl via biomaRt. The
 biomaRt step is best effort: a failure leaves the org.db result intact
 rather than aborting the annotation.

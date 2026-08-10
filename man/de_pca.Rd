@@ -44,7 +44,7 @@ A \code{ggplot} object.
 }
 \description{
 PCA on logCPM, plotted on a fixed 1:1 aspect ratio so distances read
-correctly. Grouping is by metadata column name — nothing about organs,
+correctly. Grouping is by metadata column name -- nothing about organs,
 tissues or study design is hard-coded.
 }
 \examples{

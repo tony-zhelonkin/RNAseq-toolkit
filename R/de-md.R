@@ -125,12 +125,12 @@ de_md_plot <- function(
                linetype = 3) +
     scale_colour_manual(values = color_palette, name = "Significance",
       breaks = c("Up", "Down"),
-      labels = c(sprintf("Up  (FDR ≤ %.2g)", fdr_cutoff),
-                 sprintf("Down (FDR ≤ %.2g)", fdr_cutoff))) +
+      labels = c(sprintf("Up  (FDR \u2264 %.2g)", fdr_cutoff),
+                 sprintf("Down (FDR \u2264 %.2g)", fdr_cutoff))) +
     coord_cartesian(xlim = range(df$AveExpr) + c(-x_pad, x_pad),
                     ylim = range(df$logFC)  + c(-y_pad, y_pad)) +
     labs(x = "Average Expression", y = "log2 Fold Change", title = title,
-         caption = sprintf("Dashed: |logFC| ≥ %.1f", fc_cutoff)) +
+         caption = sprintf("Dashed: |logFC| \u2265 %.1f", fc_cutoff)) +
     .de_theme()
 
   if (!show_grid) {

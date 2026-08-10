@@ -41,14 +41,14 @@ test_that("the caption reports the realised p, not the FDR cutoff", {
   de <- fake_de_table(n = 20, n_sig = 5)
   p  <- de_volcano(de, decision_by = "fdr", p_cutoff = 0.05, fc_cutoff = 1)
   boundary <- signif(max(de$P.Value[de$adj.P.Val <= 0.05]), 2)
-  expect_match(p$labels$caption, sprintf("p ≤ %.2g", boundary), fixed = TRUE)
+  expect_match(p$labels$caption, sprintf("p \u2264 %.2g", boundary), fixed = TRUE)
 })
 
 test_that("annotate_counts appends counts to the populated legend entry", {
   de <- fake_de_table(n = 20, n_sig = 5)
   p  <- de_volcano(de, fc_cutoff = 1, annotate_counts = TRUE)
   labs <- ggplot2::ggplot_build(p)$plot$scales$get_scales("colour")$labels
-  expect_true(any(grepl("↑", labs)))
+  expect_true(any(grepl("\u2191", labs)))
 })
 
 test_that(".volcano_sig_counts walks the priority order", {

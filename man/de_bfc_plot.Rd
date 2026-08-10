@@ -57,7 +57,7 @@ limma's \code{B} is the log-odds that a gene is differentially expressed, so
 \code{B > 0} means "more likely DE than not". Plotting it against fold change
 gives an evidence-versus-effect view that does not depend on a p-value
 threshold. The y limits always leave room around \code{B_cutoff}, so the
-threshold line stays visible even when no gene crosses it — in that case an
+threshold line stays visible even when no gene crosses it -- in that case an
 italic annotation names the line explicitly.
 }
 \examples{

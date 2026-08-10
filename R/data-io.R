@@ -27,11 +27,11 @@
 #'
 #' Accepts the four shapes a bulk RNA-seq counts file actually arrives in:
 #'
-#' * featureCounts, post-processed — `Geneid` plus sample columns.
-#' * featureCounts, raw — `Geneid, Chr, Start, End, Strand, Length` then
+#' * featureCounts, post-processed -- `Geneid` plus sample columns.
+#' * featureCounts, raw -- `Geneid, Chr, Start, End, Strand, Length` then
 #'   samples from column 7 on.
-#' * Salmon gene level — `gene_id`, `gene_name`, then samples.
-#' * generic — `gene_id` plus sample columns.
+#' * Salmon gene level -- `gene_id`, `gene_name`, then samples.
+#' * generic -- `gene_id` plus sample columns.
 #'
 #' Sample column names are stripped of directory paths and of the
 #' `.bam`/`.sam`/`.sorted`/`.markdup`/`.txt` suffixes aligners leave behind.
@@ -147,7 +147,7 @@ read_metadata <- function(path,
 #' Collapse duplicate row IDs by summing
 #'
 #' Rows sharing an ID are collapsed with `colSums`. Output rownames come out in
-#' `split()` order — `sort(unique(ids))`, **not** input order — so callers that
+#' `split()` order -- `sort(unique(ids))`, **not** input order -- so callers that
 #' carry a parallel annotation table must re-match to `rownames()` afterwards.
 #'
 #' The `input_gene_name` attribute survives: for each group the first non-`NA`
@@ -192,7 +192,7 @@ read_metadata <- function(path,
 #'
 #' Writes the genome build, the requested Ensembl release, the **resolved**
 #' biomaRt archive release, and the full `sessionInfo()`. The resolved archive
-#' matters because `sessionInfo()` records only the biomaRt *package* version —
+#' matters because `sessionInfo()` records only the biomaRt *package* version --
 #' not which remote Ensembl release the annotation actually came from, which is
 #' the thing that changes an analysis underneath you.
 #'
@@ -225,7 +225,7 @@ write_session_provenance <- function(path, genome_build = NULL,
                         archives$current_release %in% c(TRUE, "1", "true"), ]
       if (nrow(cur) > 0) paste0(cur$version[1], " (", cur$date[1], ")")
       else paste0(archives$version[1], " (", archives$date[1], ")")
-    }, error = function(e) paste0("unavailable — ", conditionMessage(e)))
+    }, error = function(e) paste0("unavailable \u2014 ", conditionMessage(e)))
     lines <- c(lines, paste0("Ensembl archive release (resolved): ", arch))
   }
 

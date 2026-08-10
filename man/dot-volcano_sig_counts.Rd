@@ -19,9 +19,9 @@ belong to the strongest claim the legend actually makes:
 }
 \details{
 \enumerate{
-\item \code{"both"} — combined FDR & \verb{|log2FC|} (\code{sig_dec & sig_fc}).
-\item \code{"fdr"} — FDR only (\code{sig_dec}), used when priority 1 is empty.
-\item \code{"none"} — nothing crosses FDR; counts are \code{0 / 0}.
+\item \code{"both"} -- combined FDR & \verb{|log2FC|} (\code{sig_dec & sig_fc}).
+\item \code{"fdr"} -- FDR only (\code{sig_dec}), used when priority 1 is empty.
+\item \code{"none"} -- nothing crosses FDR; counts are \code{0 / 0}.
 }
 
 \code{legend_key} names the colour category whose legend label should receive the

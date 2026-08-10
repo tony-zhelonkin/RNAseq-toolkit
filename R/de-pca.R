@@ -41,7 +41,7 @@
 #' Two-dimensional PCA of a DGEList
 #'
 #' PCA on logCPM, plotted on a fixed 1:1 aspect ratio so distances read
-#' correctly. Grouping is by metadata column name — nothing about organs,
+#' correctly. Grouping is by metadata column name -- nothing about organs,
 #' tissues or study design is hard-coded.
 #'
 #' @param dge A `DGEList`, e.g. from [build_dge()].

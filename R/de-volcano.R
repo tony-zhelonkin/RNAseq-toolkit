@@ -4,9 +4,9 @@
 #' of the **first** one that has any members, so the rendered counts always
 #' belong to the strongest claim the legend actually makes:
 #'
-#' 1. `"both"` — combined FDR & `|log2FC|` (`sig_dec & sig_fc`).
-#' 2. `"fdr"` — FDR only (`sig_dec`), used when priority 1 is empty.
-#' 3. `"none"` — nothing crosses FDR; counts are `0 / 0`.
+#' 1. `"both"` -- combined FDR & `|log2FC|` (`sig_dec & sig_fc`).
+#' 2. `"fdr"` -- FDR only (`sig_dec`), used when priority 1 is empty.
+#' 3. `"none"` -- nothing crosses FDR; counts are `0 / 0`.
 #'
 #' `legend_key` names the colour category whose legend label should receive the
 #' appended count line. Up counts `logFC > 0`, down counts `logFC < 0`.
@@ -43,8 +43,8 @@
 #' without the staircase.
 #'
 #' The dashed horizontal line is therefore **not** at `-log10(p_cutoff)` in FDR
-#' mode. It sits at the raw *p* value that realises the FDR boundary — the
-#' largest raw *p* among the genes that pass `adj.P.Val <= p_cutoff` — so the
+#' mode. It sits at the raw *p* value that realises the FDR boundary -- the
+#' largest raw *p* among the genes that pass `adj.P.Val <= p_cutoff` -- so the
 #' line always coincides with the colour boundary. When no gene passes, no line
 #' is drawn and an italic annotation says so instead.
 #'
@@ -85,7 +85,7 @@
 #'   counts under the highest-priority populated significance category.
 #' @param ... Absorbs deprecated arguments such as `use_fdr`.
 #' @param orientation `"horizontal"` (default; fold change on *x*) or
-#'   `"vertical"` (fold change on *y*). Vertical panels stack into a row well —
+#'   `"vertical"` (fold change on *y*). Vertical panels stack into a row well --
 #'   see [de_volcano_grid()]. Must be supplied by name.
 #'
 #' @return A `ggplot` object.
@@ -158,13 +158,13 @@ de_volcano <- function(
         draw_line <- FALSE
       }
     }
-    legend_sig <- sprintf("FDR ≤ %.2g", p_cutoff)
+    legend_sig <- sprintf("FDR \u2264 %.2g", p_cutoff)
   } else {
     sig_stat   <- de_results$P.Value
     sig_logic  <- sig_stat <= p_cutoff
     sig_line   <- -log10(p_cutoff)
     draw_line  <- TRUE
-    legend_sig <- sprintf("p ≤ %.2g", p_cutoff)
+    legend_sig <- sprintf("p \u2264 %.2g", p_cutoff)
   }
 
   df <- dplyr::mutate(
@@ -212,8 +212,8 @@ de_volcano <- function(
   dark_pal <- .de_shade(color_palette)
 
   legend_labels <- c(
-    "p-value & Log2FC" = sprintf("%s & |log2FC| ≥ %.1f", legend_sig, fc_cutoff),
-    "Log2FC"           = sprintf("|log2FC| ≥ %.1f", fc_cutoff),
+    "p-value & Log2FC" = sprintf("%s & |log2FC| \u2265 %.1f", legend_sig, fc_cutoff),
+    "Log2FC"           = sprintf("|log2FC| \u2265 %.1f", fc_cutoff),
     "p-value"          = legend_sig,
     "NS"               = "NS"
   )
@@ -222,7 +222,7 @@ de_volcano <- function(
     key <- if (is.na(sc$legend_key)) "p-value & Log2FC" else sc$legend_key
     legend_labels[key] <- paste0(
       legend_labels[key],
-      sprintf("\n↑ %d   ↓ %d", sc$n_up, sc$n_down)
+      sprintf("\n\u2191 %d   \u2193 %d", sc$n_up, sc$n_down)
     )
   }
 
@@ -230,26 +230,26 @@ de_volcano <- function(
     if (draw_line) {
       sprintf(
         if (orientation == "horizontal") {
-          "Dashed lines: horiz. – FDR ≤ %.2g (p ≤ %.2g); vert. – |log2FC| ≥ %.1f"
+          "Dashed lines: horiz. \u2013 FDR \u2264 %.2g (p \u2264 %.2g); vert. \u2013 |log2FC| \u2265 %.1f"
         } else {
-          "Dashed lines: vert. – FDR ≤ %.2g (p ≤ %.2g); horiz. – |log2FC| ≥ %.1f"
+          "Dashed lines: vert. \u2013 FDR \u2264 %.2g (p \u2264 %.2g); horiz. \u2013 |log2FC| \u2265 %.1f"
         },
         p_cutoff, signif(10^(-sig_line), 2), fc_cutoff)
     } else {
       sprintf(
         if (orientation == "horizontal") {
-          "No genes pass FDR ≤ %.2g. Dashed lines: vert. – |log2FC| ≥ %.1f"
+          "No genes pass FDR \u2264 %.2g. Dashed lines: vert. \u2013 |log2FC| \u2265 %.1f"
         } else {
-          "No genes pass FDR ≤ %.2g. Dashed lines: horiz. – |log2FC| ≥ %.1f"
+          "No genes pass FDR \u2264 %.2g. Dashed lines: horiz. \u2013 |log2FC| \u2265 %.1f"
         },
         p_cutoff, fc_cutoff)
     }
   } else {
     sprintf(
       if (orientation == "horizontal") {
-        "Dashed lines: horiz. – p ≤ %.2g; vert. – |log2FC| ≥ %.1f"
+        "Dashed lines: horiz. \u2013 p \u2264 %.2g; vert. \u2013 |log2FC| \u2265 %.1f"
       } else {
-        "Dashed lines: vert. – p ≤ %.2g; horiz. – |log2FC| ≥ %.1f"
+        "Dashed lines: vert. \u2013 p \u2264 %.2g; horiz. \u2013 |log2FC| \u2265 %.1f"
       },
       p_cutoff, fc_cutoff)
   }
@@ -294,7 +294,7 @@ de_volcano <- function(
       "text",
       x = if (orientation == "horizontal") fc_tick * 0.5 else p_tick * 0.5,
       y = if (orientation == "horizontal") p_max * 0.95 else 0,
-      label = sprintf("No genes pass FDR ≤ %.2g", p_cutoff),
+      label = sprintf("No genes pass FDR \u2264 %.2g", p_cutoff),
       size = 4, colour = "darkred", fontface = "italic")
   }
 
@@ -378,7 +378,7 @@ de_volcano_grid <- function(plots,
 
   # Each panel already carries its own coord from de_volcano(). Adding a second
   # one would work but makes ggplot2 announce the replacement on every panel,
-  # so the shared coord is swapped in place instead — same result, silent.
+  # so the shared coord is swapped in place instead -- same result, silent.
   shared_coord <- coord_cartesian(xlim = c(0, global_x),
                                   ylim = c(-global_y, global_y), clip = "off")
   for (i in seq_along(plots)) {
