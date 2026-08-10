@@ -386,6 +386,10 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
          "(symbols for org.*.eg.gatom.anno).", call. = FALSE)
   }
 
+  # Seed twice: BioNet's BUM fit inside scoreGraph() uses random starts, so
+  # seeding only the solver leaves the *scores* irreproducible (observed:
+  # 40- vs 53-node modules from one seed at realistic scale).
+  set.seed(seed)
   gs <- gatom::scoreGraph(g, k.gene = k_gene, k.met = k_met)
   set.seed(seed)
   m <- mwcsr::solve_mwcsp(solver_obj, gs)$graph

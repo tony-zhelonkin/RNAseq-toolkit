@@ -300,6 +300,74 @@ test_that("the full GATOM pipeline runs and is seed-stable", {
   expect_identical(gatom_genes(m2), mg)
 })
 
+test_that("a realistic p-value distribution gives a non-degenerate BUM fit", {
+  # The test above deliberately feeds an all-significant toy list: it proves
+  # the plumbing and seed stability, but BUM cannot fit a mixture with no
+  # null component (threshold 1.0, "parameters on the limit"). This test
+  # feeds what the real pipeline feeds: the whole enzyme universe, mostly
+  # null, with a planted kynurenine-pathway signal. Runs in ~17 s.
+  skip_if_not(gatom_stack_ready(), "gatom stack or staged references absent")
+
+  refs <- gatom_refs("Homo sapiens", dir = "/opt/gatom-refs")
+  anno <- refs$org_anno
+  enz <- unique(anno$genes$symbol[anno$genes$gene %in%
+                                    unique(anno$gene2enzyme$gene)])
+  enz <- enz[!is.na(enz) & nzchar(enz)]
+  skip_if(length(enz) < 5000, "annotation has too few enzyme symbols")
+
+  set.seed(20260810)
+  planted <- intersect(
+    c("IDO1", "KMO", "KYNU", "HAAO", "QPRT", "TDO2", "AFMID", "ACMSD",
+      "NADSYN1", "NMNAT1", "KYAT1", "KYAT3", "NAMPT", "NAPRT"), enz)
+  nulls <- setdiff(enz, planted)
+  tt <- data.frame(
+    symbol  = c(planted, nulls),
+    P.Value = c(10^-runif(length(planted), 6, 9),
+                rbeta(length(nulls), 0.7, 1)),   # null bulk, graded
+    logFC   = c(rnorm(length(planted), 2, 0.3),
+                rnorm(length(nulls), 0, 0.5)),
+    AveExpr = runif(length(planted) + length(nulls), 4, 12),
+    stringsAsFactors = FALSE
+  )
+  de <- gatom_de(tt, id = symbol, pval = P.Value, log2FC = logFC,
+                 baseMean = 2^AveExpr)
+
+  warnings_seen <- character()
+  msgs <- testthat::capture_messages(
+    m <- withCallingHandlers(
+      gatom_module(de, refs, k_gene = 50, seed = 42),
+      warning = function(w) {
+        warnings_seen <<- c(warnings_seen, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+  )
+
+  # BUM actually fitted: no boundary warning, no zeroed edge scores
+  expect_false(any(grepl("limit of the defined parameter space",
+                         warnings_seen)))
+  expect_false(any(grepl("inappropriate p-value distribution",
+                         warnings_seen)))
+  # ... and the reported gene p-value threshold is well below 1
+  thr_line <- grep("Gene p-value threshold", msgs, value = TRUE)
+  if (length(thr_line)) {
+    thr <- as.numeric(sub(".*threshold:\\s*", "", thr_line[[1]]))
+    expect_lt(thr, 0.5)
+  }
+
+  # a real selection, not everything and not nothing
+  expect_gt(igraph::vcount(m), 10)
+  expect_lt(igraph::vcount(m), attr(m, "graph_nodes"))
+  genes <- gatom_genes(m)
+  expect_gt(length(genes), 5)
+  expect_true(any(planted %in% genes))   # the planted signal is recovered
+
+  # still seed-stable at realistic scale
+  m2 <- gatom_module(de, refs, k_gene = 50, seed = 42)
+  expect_identical(igraph::vcount(m2), igraph::vcount(m))
+  expect_identical(gatom_genes(m2), genes)
+})
+
 test_that("gatom_save_html() writes a self-contained file and makes its dir", {
   skip_if_not(gatom_stack_ready(), "gatom stack or staged references absent")
   refs <- gatom_refs("Homo sapiens", dir = "/opt/gatom-refs")
