@@ -22,6 +22,7 @@ export(download_gatom_references)
 export(ensure_dir)
 export(gs_filter)
 export(gs_leading_edge)
+export(gs_plot_running)
 export(gs_ranks)
 export(gs_read)
 export(gs_score)
@@ -38,6 +39,8 @@ export(gsdb_msigdb)
 export(gsdb_register)
 import(ggplot2)
 importFrom(dplyr,dplyr_reconstruct)
+importFrom(fgsea,plotEnrichmentData)
+importFrom(rlang,.data)
 importFrom(tibble,
   as_tibble,
   tbl_sum
