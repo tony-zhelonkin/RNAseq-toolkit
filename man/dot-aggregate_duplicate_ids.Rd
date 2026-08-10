@@ -17,7 +17,7 @@ A numeric matrix with unique rownames.
 }
 \description{
 Rows sharing an ID are collapsed with \code{colSums}. Output rownames come out in
-\code{split()} order — \code{sort(unique(ids))}, \strong{not} input order — so callers that
+\code{split()} order -- \code{sort(unique(ids))}, \strong{not} input order -- so callers that
 carry a parallel annotation table must re-match to \code{rownames()} afterwards.
 }
 \details{

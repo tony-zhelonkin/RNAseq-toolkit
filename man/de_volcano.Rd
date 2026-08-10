@@ -72,7 +72,7 @@ counts under the highest-priority populated significance category.}
 \item{...}{Absorbs deprecated arguments such as \code{use_fdr}.}
 
 \item{orientation}{\code{"horizontal"} (default; fold change on \emph{x}) or
-\code{"vertical"} (fold change on \emph{y}). Vertical panels stack into a row well —
+\code{"vertical"} (fold change on \emph{y}). Vertical panels stack into a row well --
 see \code{\link[=de_volcano_grid]{de_volcano_grid()}}. Must be supplied by name.}
 }
 \value{
@@ -88,8 +88,8 @@ without the staircase.
 }
 \details{
 The dashed horizontal line is therefore \strong{not} at \code{-log10(p_cutoff)} in FDR
-mode. It sits at the raw \emph{p} value that realises the FDR boundary — the
-largest raw \emph{p} among the genes that pass \code{adj.P.Val <= p_cutoff} — so the
+mode. It sits at the raw \emph{p} value that realises the FDR boundary -- the
+largest raw \emph{p} among the genes that pass \code{adj.P.Val <= p_cutoff} -- so the
 line always coincides with the colour boundary. When no gene passes, no line
 is drawn and an italic annotation says so instead.\tabular{lll}{
    \code{decision_by} \tab Colour decision uses \tab Dashed line at \cr

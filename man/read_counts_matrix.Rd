@@ -19,11 +19,11 @@ Accepts the four shapes a bulk RNA-seq counts file actually arrives in:
 }
 \details{
 \itemize{
-\item featureCounts, post-processed — \code{Geneid} plus sample columns.
-\item featureCounts, raw — \verb{Geneid, Chr, Start, End, Strand, Length} then
+\item featureCounts, post-processed -- \code{Geneid} plus sample columns.
+\item featureCounts, raw -- \verb{Geneid, Chr, Start, End, Strand, Length} then
 samples from column 7 on.
-\item Salmon gene level — \code{gene_id}, \code{gene_name}, then samples.
-\item generic — \code{gene_id} plus sample columns.
+\item Salmon gene level -- \code{gene_id}, \code{gene_name}, then samples.
+\item generic -- \code{gene_id} plus sample columns.
 }
 
 Sample column names are stripped of directory paths and of the

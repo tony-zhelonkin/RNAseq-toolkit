@@ -58,7 +58,7 @@ build_dge <- function(count_mat, samples_df, genes_df,
 #' Annotate Ensembl gene IDs with symbols, Entrez IDs and biotype
 #'
 #' Maps version-stripped Ensembl gene IDs through the species `org.*.eg.db`
-#' package, then — when `use_biomart = TRUE` and the network is reachable —
+#' package, then -- when `use_biomart = TRUE` and the network is reachable --
 #' refines the symbol and adds `gene_biotype` from Ensembl via biomaRt. The
 #' biomaRt step is best effort: a failure leaves the org.db result intact
 #' rather than aborting the annotation.

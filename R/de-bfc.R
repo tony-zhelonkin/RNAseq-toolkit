@@ -4,7 +4,7 @@
 #' `B > 0` means "more likely DE than not". Plotting it against fold change
 #' gives an evidence-versus-effect view that does not depend on a p-value
 #' threshold. The y limits always leave room around `B_cutoff`, so the
-#' threshold line stays visible even when no gene crosses it — in that case an
+#' threshold line stays visible even when no gene crosses it -- in that case an
 #' italic annotation names the line explicitly.
 #'
 #' @param de_results Data frame whose rownames are gene IDs, carrying `logFC`
@@ -104,9 +104,9 @@ de_bfc_plot <- function(
     scale_colour_manual(
       name = NULL, values = color_palette, breaks = names(color_palette),
       labels = c(
-        "B-statistic & Log2FC" = sprintf("B > %.1f & |log2FC| ≥ %.1f",
+        "B-statistic & Log2FC" = sprintf("B > %.1f & |log2FC| \u2265 %.1f",
                                          B_cutoff, fc_cutoff),
-        "Log2FC"               = sprintf("|log2FC| ≥ %.1f", fc_cutoff),
+        "Log2FC"               = sprintf("|log2FC| \u2265 %.1f", fc_cutoff),
         "B-statistic"          = sprintf("B > %.1f", B_cutoff),
         "NS"                   = "NS")) +
     scale_x_continuous(breaks = seq(-xmax, xmax, by = x_breaks),
@@ -114,7 +114,7 @@ de_bfc_plot <- function(
     coord_cartesian(ylim = c(ymin, ymax)) +
     labs(x = "log2(FC)", y = "B statistic (log-odds of DE)", title = title,
          caption = sprintf(
-           "Dashed lines: horiz. – B > %.1f; vert. – |log2FC| ≥ %.1f",
+           "Dashed lines: horiz. \u2013 B > %.1f; vert. \u2013 |log2FC| \u2265 %.1f",
            B_cutoff, fc_cutoff))
 
   if (none_above) {
