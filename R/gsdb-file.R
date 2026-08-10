@@ -1,0 +1,185 @@
+#' Read gene sets from a GMT or GMX file
+#'
+#' One reader for both MSigDB text formats; the layout is sniffed rather than
+#' declared. A `.gmt`/`.gmx` extension decides it outright; otherwise the file
+#' is inspected — GMX has a fixed column count in its first two rows (row 1
+#' descriptions, row 2 set names, rows 3+ one gene per set per row), while GMT
+#' rows are independent sets of the form
+#' `name<TAB>description<TAB>gene1<TAB>...`.
+#'
+#' @param path Character(1) path to a GMT or GMX file.
+#' @param database Character(1) provider label; defaults to the file's base
+#'   name.
+#' @param species Character(1) species the file's symbols belong to.
+#' @param prefix Character(1) or `NULL`; prepended to every set id as
+#'   `paste0(prefix, "_", id)`.
+#' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
+#'   bounds.
+#' @param verbose Logical(1); message what was parsed.
+#' @return A [gs_db()].
+#' @examples
+#' gmt <- tempfile(fileext = ".gmt")
+#' writeLines(c("SET_A\tfirst set\tGene1\tGene2",
+#'              "SET_B\tsecond set\tGene2\tGene3"), gmt)
+#' gsdb_from_file(gmt, species = "Mus musculus")
+#' @export
+gsdb_from_file <- function(path,
+                           database = NULL,
+                           species = "Mus musculus",
+                           prefix = NULL,
+                           min_size = NULL,
+                           max_size = NULL,
+                           verbose = FALSE) {
+  if (!is.character(path) || length(path) != 1L || is.na(path)) {
+    stop("`path` must be a single file path.", call. = FALSE)
+  }
+  if (!file.exists(path)) {
+    stop("`path` does not exist: ", path, call. = FALSE)
+  }
+  lines <- readLines(path, warn = FALSE)
+  lines <- lines[nzchar(trimws(lines))]
+  if (!length(lines)) {
+    stop("`path` is empty: ", path, call. = FALSE)
+  }
+
+  format <- .gsdb_sniff_format(path, lines)
+  parsed <- switch(
+    format,
+    gmt = .gsdb_parse_gmt(lines),
+    gmx = .gsdb_parse_gmx(lines)
+  )
+
+  ids <- names(parsed$sets)
+  if (!is.null(prefix)) {
+    ids <- paste0(prefix, "_", ids)
+    names(parsed$sets) <- ids
+    names(parsed$labels) <- ids
+  }
+
+  db <- gs_db(
+    parsed$sets,
+    database = database %||% basename(path),
+    species = species,
+    pathway_names = parsed$labels
+  )
+  db <- filter_by_size(db, min_size, max_size, verbose = verbose)
+  if (verbose) {
+    message(sprintf("Parsed %d sets from %s (%s).", length(db),
+                    basename(path), format))
+  }
+  db
+}
+
+#' Sniff GMT versus GMX
+#'
+#' @param path Character(1) file path (used for its extension).
+#' @param lines Character vector of non-blank file lines.
+#' @return `"gmt"` or `"gmx"`.
+#' @keywords internal
+.gsdb_sniff_format <- function(path, lines) {
+  ext <- tolower(tools::file_ext(path))
+  if (ext %in% c("gmt", "gmx")) {
+    return(ext)
+  }
+  widths <- vapply(utils::head(lines, 6L),
+                   function(l) length(strsplit(l, "\t", fixed = TRUE)[[1]]),
+                   integer(1L), USE.NAMES = FALSE)
+  if (length(widths) >= 3L && widths[1] == widths[2] && widths[1] >= 2L &&
+        all(widths[-c(1, 2)] <= widths[1])) {
+    return("gmx")
+  }
+  "gmt"
+}
+
+#' Parse GMT lines
+#'
+#' @param lines Character vector of non-blank GMT lines.
+#' @return `list(sets = <named list>, labels = <named chr>)`.
+#' @keywords internal
+.gsdb_parse_gmt <- function(lines) {
+  fields <- strsplit(lines, "\t", fixed = TRUE)
+  fields <- fields[vapply(fields, length, integer(1L)) >= 3L]
+  if (!length(fields)) {
+    stop("No GMT records found: every line has fewer than three ",
+         "tab-separated fields.", call. = FALSE)
+  }
+  ids <- trimws(vapply(fields, `[[`, character(1L), 1L))
+  desc <- trimws(vapply(fields, `[[`, character(1L), 2L))
+  sets <- lapply(fields, function(f) trimws(f[-c(1, 2)]))
+  names(sets) <- ids
+  desc[is.na(desc) | !nzchar(desc) | tolower(desc) %in% c("na", "null")] <-
+    ids[is.na(desc) | !nzchar(desc) | tolower(desc) %in% c("na", "null")]
+  list(sets = sets, labels = stats::setNames(desc, ids))
+}
+
+#' Parse GMX lines
+#'
+#' @param lines Character vector of non-blank GMX lines.
+#' @return `list(sets = <named list>, labels = <named chr>)`.
+#' @keywords internal
+.gsdb_parse_gmx <- function(lines) {
+  if (length(lines) < 3L) {
+    stop("A GMX file needs at least three rows (descriptions, set names, ",
+         "genes); got ", length(lines), ".", call. = FALSE)
+  }
+  desc <- strsplit(lines[1], "\t", fixed = TRUE)[[1]]
+  ids <- trimws(strsplit(lines[2], "\t", fixed = TRUE)[[1]])
+  rows <- strsplit(lines[-c(1, 2)], "\t", fixed = TRUE)
+
+  keep <- !is.na(ids) & nzchar(ids)
+  sets <- lapply(which(keep), function(i) {
+    genes <- vapply(rows, function(r) if (i <= length(r)) r[i] else NA_character_,
+                    character(1L))
+    trimws(genes[!is.na(genes)])
+  })
+  names(sets) <- ids[keep]
+  labels <- vapply(which(keep), function(i) {
+    d <- if (i <= length(desc)) trimws(desc[i]) else NA_character_
+    if (is.na(d) || !nzchar(d)) ids[i] else d
+  }, character(1L))
+  list(sets = sets, labels = stats::setNames(labels, ids[keep]))
+}
+
+#' Register a user-supplied list of gene sets as a database
+#'
+#' Turns a plain named list of gene symbols into a first-class [gs_db()], so
+#' ad-hoc signatures go through `gs_test()` / `gs_score()` exactly like the
+#' bundled databases.
+#'
+#' @param sets Named list of character vectors: set id -> gene symbols.
+#' @param database Character(1) provider label; lands in
+#'   `gs_result$database`.
+#' @param species Character(1) species the symbols belong to.
+#' @param pathway_names Named character of human-readable labels, or `NULL`
+#'   to use the ids.
+#' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
+#'   bounds.
+#' @return A `gs_db`.
+#' @examples
+#' gsdb_register(
+#'   list(MY_SET = c("Actb", "Gapdh"), OTHER = c("Sdha", "Ndufa1")),
+#'   database = "my signatures",
+#'   species = "Mus musculus"
+#' )
+#' @export
+gsdb_register <- function(sets,
+                          database,
+                          species = "Mus musculus",
+                          pathway_names = NULL,
+                          min_size = NULL,
+                          max_size = NULL) {
+  if (!is.list(sets)) {
+    stop("`sets` must be a named list of character vectors, one per gene ",
+         "set.", call. = FALSE)
+  }
+  bad <- !vapply(sets, function(g) is.character(g) || is.factor(g),
+                 logical(1L))
+  if (any(bad)) {
+    stop("`sets` must contain character vectors; element ",
+         which(bad)[1], " is ", class(sets[[which(bad)[1]]])[1], ".",
+         call. = FALSE)
+  }
+  db <- gs_db(sets, database = database, species = species,
+              pathway_names = pathway_names)
+  filter_by_size(db, min_size, max_size)
+}

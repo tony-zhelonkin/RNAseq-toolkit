@@ -1,0 +1,76 @@
+#' Load an MSigDB collection
+#'
+#' Thin provider over [msigdbr::msigdbr()]. MSigDB is downloaded at first use
+#' and cached under `$HOME/.cache/R/msigdbr`, so a cold cache needs network
+#' access.
+#'
+#' @param species Character(1) target species, e.g. `"Mus musculus"` or
+#'   `"Homo sapiens"`. Human sets are mapped to orthologs when `db_species`
+#'   is `"HS"`.
+#' @param collection Character(1) MSigDB collection, e.g. `"H"` for the
+#'   hallmarks or `"C2"`. See [msigdbr::msigdbr_collections()].
+#' @param subcollection Character(1) sub-collection such as `"CP:REACTOME"`,
+#'   or `NULL` for the whole collection.
+#' @param db_species Character(1) source database, `"HS"` (human MSigDB, the
+#'   default, with ortholog mapping) or `"MM"` (mouse-native sets).
+#' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
+#'   bounds.
+#' @param verbose Logical(1); message what was loaded.
+#' @return A [gs_db()] whose `database` label is the collection, e.g.
+#'   `"MSigDB H"`.
+#' @examplesIf requireNamespace("msigdbr", quietly = TRUE) && interactive()
+#' db <- gsdb_msigdb("Mus musculus", collection = "H")
+#' summary(db)[1:3, ]
+#' @export
+gsdb_msigdb <- function(species = "Mus musculus",
+                        collection = "H",
+                        subcollection = NULL,
+                        db_species = c("HS", "MM"),
+                        min_size = NULL,
+                        max_size = NULL,
+                        verbose = FALSE) {
+  if (!requireNamespace("msigdbr", quietly = TRUE)) {
+    stop("`gsdb_msigdb()` requires the msigdbr package. Install it with ",
+         "install.packages(\"msigdbr\").", call. = FALSE)
+  }
+  species <- .gsdb_species_label(species)
+  if (!is.character(collection) || length(collection) != 1L ||
+        is.na(collection) || !nzchar(collection)) {
+    stop("`collection` must be a single MSigDB collection name such as ",
+         "\"H\" or \"C2\"; see `msigdbr::msigdbr_collections()`.",
+         call. = FALSE)
+  }
+  db_species <- match.arg(db_species)
+
+  args <- list(db_species = db_species, species = species,
+               collection = collection)
+  if (!is.null(subcollection)) {
+    args$subcollection <- subcollection
+  }
+  tbl <- do.call(msigdbr::msigdbr, args)
+
+  if (!nrow(tbl)) {
+    stop("MSigDB returned no gene sets for `collection = \"", collection,
+         "\"`", if (is.null(subcollection)) "" else
+           paste0(", `subcollection = \"", subcollection, "\"`"),
+         " and `species = \"", species, "\"`. Check the names against ",
+         "`msigdbr::msigdbr_collections()`.", call. = FALSE)
+  }
+
+  sets <- split(as.character(tbl$gene_symbol), as.character(tbl$gs_name))
+  labels <- NULL
+  if ("gs_description" %in% names(tbl)) {
+    uniq <- tbl[!duplicated(tbl$gs_name), c("gs_name", "gs_description")]
+    labels <- stats::setNames(as.character(uniq$gs_description),
+                              as.character(uniq$gs_name))
+  }
+
+  label <- paste(c("MSigDB", collection, subcollection), collapse = " ")
+  db <- gs_db(sets, database = label, species = species,
+              pathway_names = labels)
+  db <- filter_by_size(db, min_size, max_size, verbose = verbose)
+  if (verbose) {
+    message(sprintf("Loaded %s (%s): %d sets.", label, species, length(db)))
+  }
+  db
+}
