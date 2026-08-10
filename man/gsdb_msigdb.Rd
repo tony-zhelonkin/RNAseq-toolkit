@@ -34,8 +34,9 @@ bounds.}
 \item{verbose}{Logical(1); message what was loaded.}
 }
 \value{
-A \code{\link[=gs_db]{gs_db()}} whose \code{database} label is the collection, e.g.
-\code{"MSigDB H"}.
+A \code{\link[=gs_db]{gs_db()}} whose \code{database} key is derived from the collection —
+\code{"msigdb_H"}, \code{"msigdb_C2_CP_KEGG"} — with \code{"MSigDB H"} kept as the
+\code{database_label} attribute for display.
 }
 \description{
 Thin provider over \code{\link[msigdbr:msigdbr]{msigdbr::msigdbr()}}. MSigDB is downloaded at first use

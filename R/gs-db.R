@@ -8,7 +8,11 @@
 #'
 #' - `pathway_names` — named character, id -> human-readable label, with
 #'   `names()` identical to `names(sets)`.
-#' - `database` — provider label; lands in `gs_result$database`.
+#' - `database` — the **machine-typeable registry key** (`"mitopathways"`,
+#'   `"msigdb_H"`); lands in `gs_result$database`, where it is a join and
+#'   filter key, so it must be stable rather than pretty.
+#' - `database_label` — the display string (`"MitoPathways 3.0"`). Renderers
+#'   prettify from here; the data layer never depends on it.
 #' - `species` — `"Mus musculus"` or `"Homo sapiens"`.
 #' - `gene_id_type` — `"symbol"` (the only value today).
 #'
@@ -16,10 +20,12 @@
 #' set, and set ids must be unique.
 #'
 #' @param sets Named list of character vectors: set id -> gene symbols.
-#' @param database Character(1) provider label.
+#' @param database Character(1) registry key, e.g. `"mito_unified"`.
 #' @param species Character(1) species, e.g. `"Mus musculus"`.
 #' @param pathway_names Named character of human-readable labels, or `NULL`
 #'   to derive them from the ids.
+#' @param database_label Character(1) display name, or `NULL` to reuse
+#'   `database`.
 #' @param gene_id_type Character(1); only `"symbol"` is supported.
 #' @return A `gs_db` object.
 #' @keywords internal
@@ -27,6 +33,7 @@ gs_db <- function(sets,
                   database,
                   species,
                   pathway_names = NULL,
+                  database_label = NULL,
                   gene_id_type = "symbol") {
   if (!is.list(sets) || (length(sets) > 0L && is.null(names(sets)))) {
     stop("`sets` must be a named list of character vectors.", call. = FALSE)
@@ -34,6 +41,12 @@ gs_db <- function(sets,
   if (!is.character(database) || length(database) != 1L || is.na(database) ||
         !nzchar(database)) {
     stop("`database` must be a single non-empty string.", call. = FALSE)
+  }
+  if (!is.null(database_label) &&
+        (!is.character(database_label) || length(database_label) != 1L ||
+           is.na(database_label) || !nzchar(database_label))) {
+    stop("`database_label` must be a single non-empty string or NULL.",
+         call. = FALSE)
   }
   species <- .gsdb_species_label(species)
   if (!identical(gene_id_type, "symbol")) {
@@ -64,11 +77,12 @@ gs_db <- function(sets,
 
   structure(
     sets,
-    pathway_names = pathway_names,
-    database      = database,
-    species       = species,
-    gene_id_type  = gene_id_type,
-    class         = "gs_db"
+    pathway_names  = pathway_names,
+    database       = database,
+    database_label = database_label %||% database,
+    species        = species,
+    gene_id_type   = gene_id_type,
+    class          = "gs_db"
   )
 }
 
@@ -133,7 +147,10 @@ is_gs_db <- function(x) inherits(x, "gs_db")
 #' @export
 print.gs_db <- function(x, ...) {
   sizes <- vapply(x, length, integer(1L))
-  cat(sprintf("<gs_db> %s  (%s, %s)\n", attr(x, "database"),
+  label <- attr(x, "database_label")
+  key <- attr(x, "database")
+  cat(sprintf("<gs_db> %s  (%s, %s)\n",
+              if (identical(label, key)) key else paste0(label, " [", key, "]"),
               attr(x, "species"), attr(x, "gene_id_type")))
   cat(sprintf("%d sets, %d unique genes",
               length(x), length(unique(unlist(x, use.names = FALSE)))))
@@ -179,10 +196,11 @@ summary.gs_db <- function(object, ...) {
   sets <- unclass(x)[i]
   gs_db(
     sets,
-    database      = attr(x, "database"),
-    species       = attr(x, "species"),
-    pathway_names = attr(x, "pathway_names"),
-    gene_id_type  = attr(x, "gene_id_type")
+    database       = attr(x, "database"),
+    species        = attr(x, "species"),
+    pathway_names  = attr(x, "pathway_names"),
+    database_label = attr(x, "database_label"),
+    gene_id_type   = attr(x, "gene_id_type")
   )
 }
 
@@ -259,11 +277,12 @@ filter_by_size <- function(db, min_size = NULL, max_size = NULL,
 #'
 #' @param x List with `T2G` (`gs_name`, `gene_symbol`) and optional `T2N`
 #'   (`gs_name`, `description`).
-#' @param database Character(1) provider label.
+#' @param database Character(1) registry key.
 #' @param species Character(1) species.
+#' @param database_label Character(1) display name, or `NULL`.
 #' @return A `gs_db`.
 #' @keywords internal
-.gsdb_from_t2g <- function(x, database, species) {
+.gsdb_from_t2g <- function(x, database, species, database_label = NULL) {
   if (!is.list(x) || is.null(x$T2G)) {
     stop("`x` must be a list with a `T2G` data frame.", call. = FALSE)
   }
@@ -282,5 +301,5 @@ filter_by_size <- function(db, min_size = NULL, max_size = NULL,
   }
 
   gs_db(sets, database = database, species = species,
-        pathway_names = labels)
+        pathway_names = labels, database_label = database_label)
 }

@@ -4,15 +4,17 @@
 \alias{.gsdb_from_t2g}
 \title{Build a \code{gs_db} from a legacy T2G/T2N pair}
 \usage{
-.gsdb_from_t2g(x, database, species)
+.gsdb_from_t2g(x, database, species, database_label = NULL)
 }
 \arguments{
 \item{x}{List with \code{T2G} (\code{gs_name}, \code{gene_symbol}) and optional \code{T2N}
 (\code{gs_name}, \code{description}).}
 
-\item{database}{Character(1) provider label.}
+\item{database}{Character(1) registry key.}
 
 \item{species}{Character(1) species.}
+
+\item{database_label}{Character(1) display name, or \code{NULL}.}
 }
 \value{
 A \code{gs_db}.

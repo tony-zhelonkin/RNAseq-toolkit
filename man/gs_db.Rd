@@ -4,17 +4,27 @@
 \alias{gs_db}
 \title{The \code{gs_db} gene-set database object}
 \usage{
-gs_db(sets, database, species, pathway_names = NULL, gene_id_type = "symbol")
+gs_db(
+  sets,
+  database,
+  species,
+  pathway_names = NULL,
+  database_label = NULL,
+  gene_id_type = "symbol"
+)
 }
 \arguments{
 \item{sets}{Named list of character vectors: set id -> gene symbols.}
 
-\item{database}{Character(1) provider label.}
+\item{database}{Character(1) registry key, e.g. \code{"mito_unified"}.}
 
 \item{species}{Character(1) species, e.g. \code{"Mus musculus"}.}
 
 \item{pathway_names}{Named character of human-readable labels, or \code{NULL}
 to derive them from the ids.}
+
+\item{database_label}{Character(1) display name, or \code{NULL} to reuse
+\code{database}.}
 
 \item{gene_id_type}{Character(1); only \code{"symbol"} is supported.}
 }
@@ -31,7 +41,11 @@ Attributes carried alongside the list:
 \itemize{
 \item \code{pathway_names} — named character, id -> human-readable label, with
 \code{names()} identical to \code{names(sets)}.
-\item \code{database} — provider label; lands in \code{gs_result$database}.
+\item \code{database} — the \strong{machine-typeable registry key} (\code{"mitopathways"},
+\code{"msigdb_H"}); lands in \code{gs_result$database}, where it is a join and
+filter key, so it must be stable rather than pretty.
+\item \code{database_label} — the display string (\code{"MitoPathways 3.0"}). Renderers
+prettify from here; the data layer never depends on it.
 \item \code{species} — \code{"Mus musculus"} or \code{"Homo sapiens"}.
 \item \code{gene_id_type} — \code{"symbol"} (the only value today).
 }

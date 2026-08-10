@@ -16,8 +16,9 @@
 #' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
 #'   bounds.
 #' @param verbose Logical(1); message what was loaded.
-#' @return A [gs_db()] whose `database` label is the collection, e.g.
-#'   `"MSigDB H"`.
+#' @return A [gs_db()] whose `database` key is derived from the collection —
+#'   `"msigdb_H"`, `"msigdb_C2_CP_KEGG"` — with `"MSigDB H"` kept as the
+#'   `database_label` attribute for display.
 #' @examplesIf requireNamespace("msigdbr", quietly = TRUE) && interactive()
 #' db <- gsdb_msigdb("Mus musculus", collection = "H")
 #' summary(db)[1:3, ]
@@ -66,8 +67,12 @@ gsdb_msigdb <- function(species = "Mus musculus",
   }
 
   label <- paste(c("MSigDB", collection, subcollection), collapse = " ")
-  db <- gs_db(sets, database = label, species = species,
-              pathway_names = labels)
+  key <- paste(c("msigdb", collection,
+                 if (is.null(subcollection)) NULL
+                 else strsplit(subcollection, "[:.]")[[1]]),
+               collapse = "_")
+  db <- gs_db(sets, database = key, species = species,
+              pathway_names = labels, database_label = label)
   db <- filter_by_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", label, species, length(db)))

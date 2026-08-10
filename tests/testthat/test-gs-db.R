@@ -16,6 +16,57 @@ test_that("gs_db carries the frozen contract", {
   expect_identical(names(attr(db, "pathway_names")), names(db))
 })
 
+test_that("database is the join key and database_label is display-only", {
+  db <- bulkiRNA:::gs_db(list(A = "a"), database = "mito_unified",
+                         species = "Mus musculus",
+                         database_label = "Unified Mitochondrial Pathways")
+  expect_identical(attr(db, "database"), "mito_unified")
+  expect_identical(attr(db, "database_label"),
+                   "Unified Mitochondrial Pathways")
+
+  # label defaults to the key, so the attribute is never absent
+  plain <- bulkiRNA:::gs_db(list(A = "a"), database = "k",
+                            species = "Mus musculus")
+  expect_identical(attr(plain, "database_label"), "k")
+  expect_output(print(plain), "<gs_db> k", fixed = TRUE)
+  expect_output(print(db), "[mito_unified]", fixed = TRUE)
+
+  # both survive subsetting
+  expect_identical(attr(db["A"], "database"), "mito_unified")
+  expect_identical(attr(db["A"], "database_label"),
+                   "Unified Mitochondrial Pathways")
+
+  expect_error(bulkiRNA:::gs_db(list(A = "a"), database = "k",
+                                species = "Mus musculus",
+                                database_label = c("a", "b")),
+               "`database_label` must be")
+})
+
+test_that("a filter_by_size(result, min_size, max_size) shim is writable", {
+  # Step C must be able to reproduce the old frozen signature, which took and
+  # returned the {T2G, T2N} list, via from_t2g -> filter -> as_t2g.
+  legacy <- list(
+    T2G = data.frame(
+      gs_name = c(rep("SMALL", 3), rep("OK", 6), rep("BIG", 12)),
+      gene_symbol = paste0("g", seq_len(21)),
+      stringsAsFactors = FALSE
+    ),
+    T2N = data.frame(gs_name = c("SMALL", "OK", "BIG"),
+                     description = c("s", "o", "b"),
+                     stringsAsFactors = FALSE)
+  )
+  shim <- function(result, min_size = 5, max_size = 500) {
+    db <- bulkiRNA:::.gsdb_from_t2g(result, "legacy", "Mus musculus")
+    bulkiRNA:::.gsdb_as_t2g(bulkiRNA:::filter_by_size(db, min_size, max_size))
+  }
+  out <- shim(legacy)                      # old default min_size = 5
+  expect_identical(sort(unique(out$T2G$gs_name)), c("BIG", "OK"))
+  expect_identical(sort(out$T2N$gs_name), c("BIG", "OK"))
+  expect_identical(names(out$T2G), c("gs_name", "gene_symbol"))
+  expect_identical(names(out$T2N), c("gs_name", "description"))
+  expect_identical(sort(unique(shim(legacy, 1, 5)$T2G$gs_name)), "SMALL")
+})
+
 test_that("gs_db drops empty sets and rejects bad input", {
   db <- bulkiRNA:::gs_db(list(A = "Actb", B = character(), C = c(NA, "")),
                          database = "d", species = "Mus musculus")

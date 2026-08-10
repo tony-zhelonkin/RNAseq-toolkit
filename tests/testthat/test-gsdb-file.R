@@ -23,7 +23,9 @@ test_that("gsdb_from_file reads GMT and derives labels", {
   expect_identical(labs[["SET_A"]], "first set")
   expect_identical(labs[["SET_B"]], "SET_B")  # "na" -> id
   expect_identical(labs[["SET_C"]], "SET_C")  # empty -> id
-  expect_identical(attr(db, "database"), basename(f))
+  expect_identical(attr(db, "database"), bulkiRNA:::.gsdb_key_from_path(f))
+  expect_false(grepl("[^A-Za-z0-9_]", attr(db, "database")))  # typeable
+  expect_identical(attr(db, "database_label"), basename(f))
 })
 
 test_that("gsdb_from_file reads GMX with ragged columns", {
@@ -35,6 +37,7 @@ test_that("gsdb_from_file reads GMX with ragged columns", {
   expect_identical(db$SET_B, c("Sdha", "Ndufa1"))
   expect_identical(attr(db, "pathway_names")[["SET_B"]], "second set")
   expect_identical(attr(db, "database"), "mine")
+  expect_identical(attr(db, "database_label"), "mine")
 })
 
 test_that("the format is sniffed when the extension does not say", {
@@ -74,14 +77,23 @@ test_that("gsdb_from_file errors on bad paths and empty files", {
 test_that("gsdb_register promotes a plain list to a gs_db", {
   db <- gsdb_register(
     list(MY_SET = c("Actb", "Gapdh"), OTHER = c("Sdha", "Ndufa1", "Sdhb")),
-    database = "my signatures", species = "Mus musculus",
-    pathway_names = c(MY_SET = "My favourite set")
+    database = "my_signatures", species = "Mus musculus",
+    pathway_names = c(MY_SET = "My favourite set"),
+    database_label = "My signatures"
   )
   expect_s3_class(db, "gs_db")
-  expect_identical(attr(db, "database"), "my signatures")
+  expect_identical(attr(db, "database"), "my_signatures")
+  expect_identical(attr(db, "database_label"), "My signatures")
   expect_identical(attr(db, "pathway_names")[["MY_SET"]], "My favourite set")
   expect_identical(names(gsdb_register(list(A = "a", B = c("b", "c")),
                                        "d", min_size = 2)), "B")
   expect_error(gsdb_register("not a list", "d"), "named list")
   expect_error(gsdb_register(list(A = 1:3), "d"), "character vectors")
+})
+
+test_that(".gsdb_key_from_path yields a typeable key", {
+  k <- bulkiRNA:::.gsdb_key_from_path
+  expect_identical(k("/tmp/MitoPathways3.0.gmx"), "MitoPathways3_0")
+  expect_identical(k("my sets (v2).gmt"), "my_sets_v2")
+  expect_identical(k("/tmp/---.gmt"), "genesets")
 })

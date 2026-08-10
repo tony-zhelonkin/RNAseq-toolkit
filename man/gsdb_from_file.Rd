@@ -17,8 +17,9 @@ gsdb_from_file(
 \arguments{
 \item{path}{Character(1) path to a GMT or GMX file.}
 
-\item{database}{Character(1) provider label; defaults to the file's base
-name.}
+\item{database}{Character(1) registry key for the result; defaults to the
+file's base name reduced to snake_case (the key lands in
+\code{gs_result$database}, where it is a join key).}
 
 \item{species}{Character(1) species the file's symbols belong to.}
 

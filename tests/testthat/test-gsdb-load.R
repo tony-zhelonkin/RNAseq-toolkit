@@ -17,7 +17,9 @@ test_that("gsdb_load returns a gs_db for a bundled database", {
   expect_s3_class(db, "gs_db")
   expect_gt(length(db), 100)
   expect_identical(attr(db, "species"), "Mus musculus")
-  expect_identical(attr(db, "database"), "Unified Mitochondrial Pathways")
+  expect_identical(attr(db, "database"), "mito_unified")  # join key
+  expect_identical(attr(db, "database_label"),
+                   "Unified Mitochondrial Pathways")  # display only
   expect_true(all(vapply(db, is.character, logical(1))))
   expect_true(all(vapply(db, length, integer(1)) > 0L))
   expect_identical(names(attr(db, "pathway_names")), names(db))
@@ -39,6 +41,10 @@ test_that("gsdb_load honours species, size bounds and multiple databases", {
 
   both <- gsdb_load(c("mitopathways", "transportdb"))
   expect_identical(names(both), c("mitopathways", "transportdb"))
+  # the list name and the database key agree, so rbind()/gs_filter() join
+  expect_identical(vapply(both, attr, character(1), "database"),
+                   c(mitopathways = "mitopathways",
+                     transportdb = "transportdb"))
   expect_true(all(vapply(both, inherits, logical(1), "gs_db")))
 })
 

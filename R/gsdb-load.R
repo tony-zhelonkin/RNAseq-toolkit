@@ -236,8 +236,9 @@ gsdb_load <- function(database,
          "table): ", path, ". Reinstall bulkiRNA.", call. = FALSE)
   }
 
-  db <- .gsdb_from_t2g(raw, database = entry$label,
-                       species = .gsdb_species_label(species))
+  db <- .gsdb_from_t2g(raw, database = database,
+                       species = .gsdb_species_label(species),
+                       database_label = entry$label)
   db <- filter_by_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", entry$label,

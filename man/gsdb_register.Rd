@@ -9,6 +9,7 @@ gsdb_register(
   database,
   species = "Mus musculus",
   pathway_names = NULL,
+  database_label = NULL,
   min_size = NULL,
   max_size = NULL
 )
@@ -16,13 +17,17 @@ gsdb_register(
 \arguments{
 \item{sets}{Named list of character vectors: set id -> gene symbols.}
 
-\item{database}{Character(1) provider label; lands in
-\code{gs_result$database}.}
+\item{database}{Character(1) registry key; lands in \code{gs_result$database},
+where it is a join and filter key, so prefer a stable snake_case value
+such as \code{"my_signatures"}.}
 
 \item{species}{Character(1) species the symbols belong to.}
 
 \item{pathway_names}{Named character of human-readable labels, or \code{NULL}
 to use the ids.}
+
+\item{database_label}{Character(1) display name for renderers, or \code{NULL}
+to reuse \code{database}.}
 
 \item{min_size, max_size}{Integer(1) or \code{NULL}; drop sets outside these
 bounds.}
@@ -38,7 +43,8 @@ bundled databases.
 \examples{
 gsdb_register(
   list(MY_SET = c("Actb", "Gapdh"), OTHER = c("Sdha", "Ndufa1")),
-  database = "my signatures",
-  species = "Mus musculus"
+  database = "my_signatures",
+  species = "Mus musculus",
+  database_label = "My signatures"
 )
 }

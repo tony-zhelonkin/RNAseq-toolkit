@@ -8,8 +8,9 @@
 #' `name<TAB>description<TAB>gene1<TAB>...`.
 #'
 #' @param path Character(1) path to a GMT or GMX file.
-#' @param database Character(1) provider label; defaults to the file's base
-#'   name.
+#' @param database Character(1) registry key for the result; defaults to the
+#'   file's base name reduced to snake_case (the key lands in
+#'   `gs_result$database`, where it is a join key).
 #' @param species Character(1) species the file's symbols belong to.
 #' @param prefix Character(1) or `NULL`; prepended to every set id as
 #'   `paste0(prefix, "_", id)`.
@@ -58,9 +59,10 @@ gsdb_from_file <- function(path,
 
   db <- gs_db(
     parsed$sets,
-    database = database %||% basename(path),
+    database = database %||% .gsdb_key_from_path(path),
     species = species,
-    pathway_names = parsed$labels
+    pathway_names = parsed$labels,
+    database_label = database %||% basename(path)
   )
   db <- filter_by_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
@@ -68,6 +70,22 @@ gsdb_from_file <- function(path,
                     basename(path), format))
   }
   db
+}
+
+#' Derive a machine-typeable database key from a file path
+#'
+#' `gs_result$database` is a join key, so a file-derived default has to be
+#' typeable: the base name loses its extension and every run of
+#' non-alphanumeric characters becomes a single underscore.
+#'
+#' @param path Character(1) file path.
+#' @return Character(1) snake_case key.
+#' @keywords internal
+.gsdb_key_from_path <- function(path) {
+  key <- tools::file_path_sans_ext(basename(path))
+  key <- gsub("[^A-Za-z0-9]+", "_", key)
+  key <- gsub("(^_+)|(_+$)", "", key)
+  if (!nzchar(key)) "genesets" else key
 }
 
 #' Sniff GMT versus GMX
@@ -147,25 +165,30 @@ gsdb_from_file <- function(path,
 #' bundled databases.
 #'
 #' @param sets Named list of character vectors: set id -> gene symbols.
-#' @param database Character(1) provider label; lands in
-#'   `gs_result$database`.
+#' @param database Character(1) registry key; lands in `gs_result$database`,
+#'   where it is a join and filter key, so prefer a stable snake_case value
+#'   such as `"my_signatures"`.
 #' @param species Character(1) species the symbols belong to.
 #' @param pathway_names Named character of human-readable labels, or `NULL`
 #'   to use the ids.
+#' @param database_label Character(1) display name for renderers, or `NULL`
+#'   to reuse `database`.
 #' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
 #'   bounds.
 #' @return A `gs_db`.
 #' @examples
 #' gsdb_register(
 #'   list(MY_SET = c("Actb", "Gapdh"), OTHER = c("Sdha", "Ndufa1")),
-#'   database = "my signatures",
-#'   species = "Mus musculus"
+#'   database = "my_signatures",
+#'   species = "Mus musculus",
+#'   database_label = "My signatures"
 #' )
 #' @export
 gsdb_register <- function(sets,
                           database,
                           species = "Mus musculus",
                           pathway_names = NULL,
+                          database_label = NULL,
                           min_size = NULL,
                           max_size = NULL) {
   if (!is.list(sets)) {
@@ -180,6 +203,7 @@ gsdb_register <- function(sets,
          call. = FALSE)
   }
   db <- gs_db(sets, database = database, species = species,
-              pathway_names = pathway_names)
+              pathway_names = pathway_names,
+              database_label = database_label)
   filter_by_size(db, min_size, max_size)
 }

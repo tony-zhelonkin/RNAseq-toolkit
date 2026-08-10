@@ -46,8 +46,9 @@
 
   gmx <- file.path(refs_dir, "mitocarta3.0", "raw", "MitoPathways3.0.gmx")
   if (file.exists(gmx)) {
-    db <- gsdb_from_file(gmx, database = "MitoPathways 3.0",
+    db <- gsdb_from_file(gmx, database = "mitopathways",
                          species = species, prefix = "MITOPATHWAYS")
+    attr(db, "database_label") <- "MitoPathways 3.0"
     if (grepl("musculus", species, ignore.case = TRUE)) {
       db <- .gsdb_human_to_mouse(db)
     }
@@ -66,9 +67,10 @@
     labels <- c(attr(out$mitopathways, "pathway_names"),
                 attr(out$mitoxplorer, "pathway_names"))
     unified <- gs_db(merged[!duplicated(names(merged))],
-                     database = "Unified Mitochondrial Pathways",
+                     database = "mito_unified",
                      species = species,
-                     pathway_names = labels)
+                     pathway_names = labels,
+                     database_label = "Unified Mitochondrial Pathways")
     out$mito_unified <- .gsdb_dedup_sets(unified, threshold = 0.99)
   }
 
@@ -91,7 +93,7 @@
       path <- file.path(refs_dir, tgt[1], "processed", sp_dir, tgt[2])
       ensure_parent_dir(path)
       legacy <- .gsdb_as_t2g(out[[key]])
-      legacy$source <- attr(out[[key]], "database")
+      legacy$source <- attr(out[[key]], "database_label")
       legacy$created <- Sys.time()
       saveRDS(legacy, path)
       message(sprintf("Wrote %s (%d sets).", path, length(out[[key]])))
@@ -131,8 +133,9 @@
   ids <- paste0(prefix, "_", toupper(gsub("[^A-Za-z0-9]", "_",
                                           names(by_proc))))
   gs_db(stats::setNames(by_proc, ids),
-        database = "mitoXplorer 3.0", species = species,
-        pathway_names = stats::setNames(names(by_proc), ids))
+        database = "mitoxplorer", species = species,
+        pathway_names = stats::setNames(names(by_proc), ids),
+        database_label = "mitoXplorer 3.0")
 }
 
 #' Parse the TransportDB CSV
@@ -179,8 +182,9 @@
   }, character(1L), USE.NAMES = FALSE)
 
   gs_db(stats::setNames(sets, ids),
-        database = "TransportDB 2.0", species = species,
-        pathway_names = stats::setNames(labels, ids))
+        database = "transportdb", species = species,
+        pathway_names = stats::setNames(labels, ids),
+        database_label = "TransportDB 2.0")
 }
 
 #' Drop near-duplicate gene sets by Jaccard similarity
@@ -248,5 +252,6 @@
     m[!is.na(m)]
   })
   gs_db(sets, database = attr(db, "database"), species = "Mus musculus",
-        pathway_names = attr(db, "pathway_names"))
+        pathway_names = attr(db, "pathway_names"),
+        database_label = attr(db, "database_label"))
 }

@@ -11,7 +11,8 @@ test_that("gsdb_msigdb returns a gs_db for the hallmarks", {
     error = function(e) skip(paste("MSigDB unavailable:", conditionMessage(e)))
   )
   expect_s3_class(db, "gs_db")
-  expect_identical(attr(db, "database"), "MSigDB H")
+  expect_identical(attr(db, "database"), "msigdb_H")  # join key
+  expect_identical(attr(db, "database_label"), "MSigDB H")
   expect_identical(attr(db, "species"), "Mus musculus")
   expect_identical(attr(db, "gene_id_type"), "symbol")
   expect_equal(length(db), 50)
