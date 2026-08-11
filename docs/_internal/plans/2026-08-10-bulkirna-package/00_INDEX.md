@@ -785,3 +785,76 @@ present on the real result, so `gs_plot_running()`'s fallback path is intact.
 Nothing in `14839-DM-cGAS` was modified: its working tree was already dirty from
 unrelated devcontainer edits, the project was mounted read-only, and every output went to
 `/tmp`.
+
+## 12. The 677-vs-1050 Reactome gap: an upstream msigdbr bug (2026-08-11)
+
+Phase 4's migration of `05_gsea_msigdb_run.R` reproduced the published Hallmark rows
+exactly but appeared to test 1050 Reactome pathways where the published table has 677.
+That gap is now explained, and it is **not** in this refactor.
+
+### Cause
+
+`msigdbr::msigdbr()` (confirmed 26.1.0) builds its ortholog table from *the collection
+currently being queried*:
+
+```r
+species_genes <- babelgene::orthologs(genes = unique(mdb$db_ensembl_gene), species = species)
+pkg_env[[paste0("orthologs", species_id)]] <- species_genes
+```
+
+The cache key names only the taxon, not the collection. The next call for a *different*
+collection finds the key, reuses the previous collection's ortholog table, and
+`inner_join`s against it -- dropping every gene absent from the first collection. It only
+triggers when ortholog mapping is active (`db_species = "HS"` with a non-human `species`),
+which is exactly this project's configuration.
+
+Measured, `species = "Mus musculus"`, `db_species = "HS"`, deterministic and reproduced on
+a pristine cache with live network (so it is not a cache artifact):
+
+| call order | Reactome rows | sets | unique symbols |
+|---|---|---|---|
+| Reactome alone | 105806 | 1839 | 10762 |
+| Hallmark, then Reactome | 44635 | 1817 | **3688** |
+
+GO:BP is worse: 604644 rows / 15988 symbols alone, 248104 / 4313 after Hallmark.
+
+### What this means for the published tables
+
+`05_gsea_msigdb_run.R` loops the collections with Hallmark first, so **every collection
+after Hallmark was tested against Hallmark's ~4.4k-gene space instead of the full ~10.8k**.
+Consequences for `master_gsea_table.csv`: under-tested gene sets (677 of 1050 in-bounds
+Reactome sets, all sizes agreeing exactly for the 677 that survived), truncated set
+memberships, and -- because the BH family is the tested family -- wrong `padj` for every
+non-Hallmark collection. Hallmark itself is correct; it was first.
+
+Confirmation that the extras were never tested rather than merely filtered: across *all*
+contrasts the published table contains exactly the same 677 Reactome ids, and 0 of the 387
+extras appear under any contrast. Per-contrast size filtering could not produce that.
+
+This is a data-correctness problem in already-published results, and it is a scientific
+call for the user, not a refactor decision. Nothing in `14839-DM-cGAS` was regenerated.
+
+### Fix in this package
+
+`.msigdbr_drop_ortholog_cache()` (`R/gsdb-msigdb.R`, internal, `@noRd`) clears the
+`^orthologs` keys from msigdbr's `pkg_env` before every `gsdb_msigdb()` query, so each call
+is independent -- which is what `gsdb_msigdb()`'s docs already promise. It reaches into
+another package's internals, so every step is guarded and failure is silent: if upstream
+changes its caching the workaround degrades to a no-op, never to an error in a provider
+call. Cost is one `babelgene` ortholog recompute per call, seconds against a warm cache.
+
+Two false starts are recorded because both *passed* and neither tested anything:
+
+1. First diagnostic compared `run_one_db()` against a bare `gs_test()` in **separate
+   sessions** and got 1050 both times -- which is why the earlier "677 matched,
+   max|dpadj| 0.0381" number could not be reproduced and was retracted. The variable was
+   call order within a session, not the code path.
+2. First regression test called `gsdb_msigdb()` for both arms. Earlier tests in the file
+   had already poisoned the cache, so both arms were equally truncated and the test passed
+   with the fix disabled. It now poisons through `msigdbr` directly, and takes its baseline
+   from a cleared cache. Poisoning also only bites from a *cleared* cache -- msigdbr keeps
+   whatever table is already there, so a small collection must go first.
+
+The test skips (rather than fails) if upstream ever stops leaking, and a negative control
+confirms it fails with the workaround disabled. Gates after the change: **806 pass / 0
+fail** (was 802; 4 new assertions), golden **20/20**, `verify_golden.R` exit 0.

@@ -41,6 +41,63 @@ test_that("pathway_descriptions is attached and survives subsetting", {
   expect_identical(attr(sub, "pathway_descriptions"), desc[one])
 })
 
+test_that("a collection is independent of what was queried before it", {
+  # Regression test for an upstream msigdbr bug (confirmed 26.1.0): the
+  # ortholog table is built from the current collection's genes but cached
+  # under a collection-independent key, so without the workaround in
+  # `.msigdbr_drop_ortholog_cache()` a Hallmark query first shrinks Reactome
+  # from 1839 sets / 10762 symbols to 1817 / 3688. It is not an error -- just
+  # quietly under-tested sets and a wrong BH family -- so only a test that
+  # compares the two call orders can catch it.
+  skip_if_not_installed("msigdbr")
+  skip_if_not_installed("babelgene")
+  # `gsdb_msigdb()` now clears the cache on every call, so poisoning has to go
+  # through msigdbr directly -- and the baseline has to be taken from a cleared
+  # cache, because any earlier test in this file may already have poisoned it.
+  # (An earlier version of this test called `gsdb_msigdb()` for both arms and
+  # was vacuous: both were equally truncated, so it passed with the fix
+  # disabled.)
+  raw <- function(coll, sub = NULL) {
+    a <- list(db_species = "HS", species = "Mus musculus", collection = coll)
+    if (!is.null(sub)) a$subcollection <- sub
+    tryCatch(do.call(msigdbr::msigdbr, a),
+             error = function(e) skip(paste("MSigDB unavailable:",
+                                            conditionMessage(e))))
+  }
+  symbols <- function(x) sort(unique(as.character(x)))
+
+  .msigdbr_drop_ortholog_cache()
+  truth <- symbols(raw("C2", "CP:REACTOME")$gene_symbol)
+
+  # Poisoning only bites from a *cleared* cache: msigdbr keeps whatever table is
+  # already cached, so a Hallmark call on top of Reactome's (superset) table
+  # reuses it and changes nothing. The small collection has to go first.
+  poison <- function() {
+    .msigdbr_drop_ortholog_cache()
+    invisible(raw("H"))
+  }
+
+  poison()                                  # bypasses the workaround
+  poisoned <- symbols(raw("C2", "CP:REACTOME")$gene_symbol)
+  # If upstream ever fixes this, the workaround becomes a harmless no-op and
+  # there is nothing left to regress against -- skip rather than fail.
+  skip_if(identical(poisoned, truth),
+          "msigdbr no longer leaks its ortholog cache across collections")
+
+  poison()                                  # poison again, then go through us
+  db <- gsdb_msigdb("Mus musculus", collection = "C2",
+                    subcollection = "CP:REACTOME", db_species = "HS")
+  expect_identical(symbols(unlist(db, use.names = FALSE)), truth)
+  expect_gt(length(truth), length(poisoned))
+})
+
+test_that("dropping the ortholog cache is safe when there is nothing to drop", {
+  skip_if_not_installed("msigdbr")
+  # Idempotent, and never an error even on a cold cache or a changed upstream.
+  expect_type(bulkiRNA:::.msigdbr_drop_ortholog_cache(), "logical")
+  expect_false(bulkiRNA:::.msigdbr_drop_ortholog_cache())
+})
+
 test_that("an unknown collection errors with guidance", {
   skip_if_not_installed("msigdbr")
   err <- tryCatch(gsdb_msigdb(collection = "ZZZ"), error = conditionMessage)

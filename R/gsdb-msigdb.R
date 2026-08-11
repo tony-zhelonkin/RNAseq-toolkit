@@ -1,3 +1,60 @@
+#' Drop msigdbr's cross-collection ortholog cache
+#'
+#' Works around a correctness bug in msigdbr (confirmed 26.1.0) that silently
+#' truncates every collection queried after the first one in a session, but
+#' only when ortholog mapping is active (`db_species = "HS"` with a non-human
+#' `species`).
+#'
+#' `msigdbr()` builds its ortholog table from *the genes of the collection
+#' currently being queried* --
+#' `babelgene::orthologs(genes = unique(mdb$db_ensembl_gene), ...)` -- and then
+#' caches it in the package environment under `paste0("orthologs", taxon_id)`.
+#' That key does not mention the collection. The next call for a *different*
+#' collection finds the key, reuses the previous collection's ortholog table,
+#' and `inner_join`s against it -- dropping every gene absent from the first
+#' collection. Measured for `species = "Mus musculus"`, `db_species = "HS"`:
+#'
+#' | call order            | Reactome rows | unique symbols |
+#' | --------------------- | ------------- | -------------- |
+#' | Reactome alone        | 105806        | 10762          |
+#' | Hallmark, do Reactome |  44635        |  3688          |
+#'
+#' GO:BP is hit harder still (4313 of 15988 symbols survive). The result is not
+#' an error but quietly under-tested gene sets, truncated set memberships, and
+#' a correspondingly wrong Benjamini-Hochberg family -- so it corrupts `padj`
+#' for every collection after the first.
+#'
+#' Clearing the key before each query makes each call independent, which is the
+#' documented contract of `gsdb_msigdb()`. The cost is that `babelgene`
+#' recomputes the ortholog mapping per call; that is a few seconds against a
+#' warm cache, and it buys correctness. Priming the cache with the union of all
+#' collections' genes would avoid the recompute but requires loading the whole
+#' database, which is far more expensive than the mapping it saves.
+#'
+#' This reaches into another package's internals, so every step is guarded and
+#' failure is silent: if msigdbr changes its caching, the worst case is that
+#' this becomes a no-op and we are back to upstream behaviour, never a hard
+#' error in a provider call. `tests/testthat/test-gsdb-msigdb.R` carries the
+#' regression test that would catch that regression.
+#'
+#' @return `TRUE` if a cache entry was dropped, otherwise `FALSE`, invisibly.
+#' @keywords internal
+#' @noRd
+.msigdbr_drop_ortholog_cache <- function() {
+  dropped <- tryCatch({
+    ns <- asNamespace("msigdbr")
+    if (!exists("pkg_env", envir = ns, inherits = FALSE)) return(invisible(FALSE))
+    pe <- get("pkg_env", envir = ns, inherits = FALSE)
+    if (!is.environment(pe)) return(invisible(FALSE))
+    keys <- grep("^orthologs", ls(pe, all.names = TRUE), value = TRUE)
+    if (!length(keys)) return(invisible(FALSE))
+    rm(list = keys, envir = pe)
+    TRUE
+  }, error = function(e) FALSE)
+  invisible(isTRUE(dropped))
+}
+
+
 #' Load an MSigDB collection
 #'
 #' Thin provider over [msigdbr::msigdbr()]. MSigDB is downloaded at first use
@@ -49,6 +106,7 @@ gsdb_msigdb <- function(species = "Mus musculus",
   if (!is.null(subcollection)) {
     args$subcollection <- subcollection
   }
+  .msigdbr_drop_ortholog_cache()
   tbl <- do.call(msigdbr::msigdbr, args)
 
   if (!nrow(tbl)) {
