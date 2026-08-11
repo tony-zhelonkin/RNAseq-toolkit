@@ -34,8 +34,11 @@
 #' @param label Logical. Annotate each dot with its FDR, placed with
 #'   \pkg{ggrepel}.
 #' @param size_range Length-2 numeric, the dot size range.
-#' @param limits Length-2 numeric fill limits. `NULL` (default) uses symmetric
-#'   limits from the data; values outside are squished, not dropped.
+#' @param limits Length-2 numeric fill limits. `NULL` (default) derives
+#'   symmetric limits **from this figure's own data**, so the same statistic can
+#'   take a different colour in two figures; pass an explicit `limits` when
+#'   panels are meant to be compared. The old renderer used a fixed
+#'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
 #' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].

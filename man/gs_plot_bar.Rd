@@ -37,7 +37,11 @@ gs_plot_bar(
 
 \item{highlight}{FDR threshold for the black bar outline, or \code{NULL}.}
 
-\item{limits}{Length-2 numeric fill limits; \code{NULL} uses symmetric limits.}
+\item{limits}{Length-2 numeric fill limits. \code{NULL} (default) derives
+symmetric limits \strong{from this figure's own data}, so the same statistic can
+take a different colour in two figures; pass an explicit \code{limits} when
+panels are meant to be compared. The old renderer used a fixed
+\code{c(-3.5, 3.5)}. Values outside are squished, not dropped.}
 
 \item{colours}{Length-3 character vector -- low, mid, high fill colours.}
 

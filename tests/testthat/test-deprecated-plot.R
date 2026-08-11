@@ -249,3 +249,31 @@ test_that("gsea_barplot survives a result where nothing is significant", {
   expect_s3_class(p, "ggplot")
   expect_equal(nrow(p$data), 0L)
 })
+
+# --- regressions from the architecture review --------------------------------
+
+# Every shim test chose a cutoff that keeps rows (padj_cutoff = 1, or 0.6), so
+# the default-cutoff / nothing-significant path was untested for all four plot
+# shims -- which is why gsea_barplot() shipped erroring on it. The new renderers
+# had that case covered (test-gs-plot-bar.R), the shims did not: each side
+# tested its own half of the seam.
+
+test_that("the plot shims return a figure when nothing is significant", {
+  g <- fake_gsea_result(n = 6L)   # padj runs 1e-4 .. 0.6
+
+  shims <- list(
+    gsea_dotplot       = function() gsea_dotplot(g, padj_cutoff = 1e-12),
+    gsea_dotplot_facet = function() gsea_dotplot_facet(g, padj_cutoff = 1e-12),
+    gsea_barplot       = function() gsea_barplot(g, padj_cutoff = 1e-12)
+  )
+  for (nm in names(shims)) {
+    p <- suppressWarnings(shims[[nm]]())
+    expect_s3_class(p, "ggplot")
+  }
+})
+
+test_that("gsea_barplot on an empty result is a figure, not an error", {
+  empty <- suppressWarnings(empty_gsea_tibble())
+  p <- suppressWarnings(gsea_barplot(empty))
+  expect_s3_class(p, "ggplot")
+})

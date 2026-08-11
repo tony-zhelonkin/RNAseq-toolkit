@@ -49,6 +49,10 @@ that touch disk. The layout under \code{dir} is the project convention:
 \code{dir} is normally \verb{03_results/<stage>/tables}. List columns
 (\code{leading_edge}) are collapsed to \code{"/"}-separated strings on the way out and
 split again by \code{\link[=gs_read]{gs_read()}}, so the round trip is lossless.
+
+This layout is for \code{gs_result} only. A \link{gs_matrix} of per-sample scores has
+no table format here -- persist it with \code{\link[=saveRDS]{saveRDS()}}, which keeps its
+\code{sample_data} and score-type attributes as they are.
 }
 \examples{
 db <- structure(

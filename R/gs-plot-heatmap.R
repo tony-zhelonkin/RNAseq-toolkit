@@ -40,7 +40,11 @@ gs_plot_heatmap.default <- function(x, ...) {
 #' @param by What the x axis carries: `"contrast"` (default) or `"database"`.
 #' @param highlight FDR threshold below which a tile is marked with `*`, or
 #'   `NULL` for no marks.
-#' @param limits Length-2 numeric fill limits; `NULL` uses symmetric limits.
+#' @param limits Length-2 numeric fill limits. `NULL` (default) derives
+#'   symmetric limits **from this figure's own data**, so the same statistic can
+#'   take a different colour in two figures; pass an explicit `limits` when
+#'   panels are meant to be compared. The old renderer used a fixed
+#'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
 #' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
@@ -120,7 +124,11 @@ gs_plot_heatmap.gs_result <- function(x,
 #'   `NULL` for the matrix order.
 #' @param group Name of a column in the matrix's `sample_data` to facet the
 #'   columns by, or `NULL`.
-#' @param limits Length-2 numeric fill limits; `NULL` uses symmetric limits.
+#' @param limits Length-2 numeric fill limits. `NULL` (default) derives
+#'   symmetric limits **from this figure's own data**, so the same statistic can
+#'   take a different colour in two figures; pass an explicit `limits` when
+#'   panels are meant to be compared. The old renderer used a fixed
+#'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
 #' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].

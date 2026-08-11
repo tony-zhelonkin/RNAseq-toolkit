@@ -30,6 +30,12 @@
   ensure_dir(out_dir)
   written <- character(0)
 
+  # One fill scale for the whole set. Each renderer otherwise rescales to its
+  # own maximum, so a pathway at NES 1.5 comes out pale in the Hallmark panel
+  # and saturated in the GO panel of the same figure -- and a reader compares
+  # the colours. The old fixed +/-3.5 scale had this property by construction.
+  shared_limits <- .gs_symmetric_limits(x[["stat"]])
+
   for (db in unique(x[["database"]])) {
     part <- x[x[["database"]] == db, , drop = FALSE]
     if (nrow(part) == 0L) next
@@ -45,7 +51,8 @@
         suffix = "_up_dot",
         plot = function() {
           gs_plot_dot(part, top = top, direction = "up",
-                      highlight = padj_cutoff, title = paste0(db, ": up"))
+                      highlight = padj_cutoff, limits = shared_limits,
+                      title = paste0(db, ": up"))
         },
         height = height
       ),
@@ -53,7 +60,8 @@
         suffix = "_down_dot",
         plot = function() {
           gs_plot_dot(part, top = top, direction = "down",
-                      highlight = padj_cutoff, title = paste0(db, ": down"))
+                      highlight = padj_cutoff, limits = shared_limits,
+                      title = paste0(db, ": down"))
         },
         height = height
       ),
@@ -61,14 +69,16 @@
         suffix = "_facet_dot",
         plot = function() {
           gs_plot_dot(part, top = top, facet = "direction",
-                      highlight = padj_cutoff, title = db)
+                      highlight = padj_cutoff, limits = shared_limits,
+                      title = db)
         },
         height = height * 1.4
       ),
       list(
         suffix = "_bar",
         plot = function() {
-          gs_plot_bar(part, top = top, highlight = padj_cutoff, title = db)
+          gs_plot_bar(part, top = top, highlight = padj_cutoff,
+                      limits = shared_limits, title = db)
         },
         height = height
       )

@@ -80,3 +80,60 @@ test_that("every exported name is actually defined in R/", {
   # data objects are registered by other directives, so only export() counts.
   expect_identical(setdiff(exported, defined), character(0L))
 })
+
+# The two checks below widen the guard beyond the exact shape of the bug that
+# prompted this file. The duplicate-definition scan only sees
+# `name <- function(...)` at top level, and the deprecation scan only sees the
+# one phrasing that was found, so a deprecation target that simply does not
+# exist, or an S3 method registered for a generic nothing provides, both passed
+# silently.
+
+test_that("every identifier a deprecation message names is reachable", {
+  dir <- pkg_r_dir()
+  skip_if(is.null(dir), "package R/ sources not reachable from the test dir")
+  files <- list.files(dir, "^deprecated-.*[.]R$", full.names = TRUE)
+  skip_if(!length(files), "no deprecation shim files")
+
+  txt <- paste(unlist(lapply(files, readLines, warn = FALSE)), collapse = "\n")
+  # Function-call shapes inside a .Deprecated() message: `foo()`, `pkg::foo()`,
+  # `foo(x = )`. Anything without parentheses is prose, not a target.
+  msgs <- regmatches(txt, gregexpr("\\.Deprecated\\((?:[^()]|\\([^()]*\\))*\\)", txt))[[1L]]
+  named <- unique(unlist(lapply(msgs, function(m) {
+    hits <- regmatches(m, gregexpr("[a-zA-Z._][a-zA-Z0-9._]*(?=\\()", m, perl = TRUE))[[1L]]
+    setdiff(hits, c(".Deprecated", "sprintf", "paste", "paste0", "c"))
+  })))
+
+  defined <- names(top_level_functions(dir))
+  # A target may legitimately live in another package (BiocManager::install).
+  unreachable <- setdiff(named, c(defined, ls(asNamespace("bulkiRNA"))))
+  expect_identical(unreachable, character(0L))
+})
+
+test_that("every S3 method registered in NAMESPACE has a reachable generic", {
+  dir <- pkg_r_dir()
+  skip_if(is.null(dir), "package R/ sources not reachable from the test dir")
+  ns_file <- file.path(dirname(dir), "NAMESPACE")
+  skip_if_not(file.exists(ns_file), "NAMESPACE not reachable")
+
+  ns <- readLines(ns_file, warn = FALSE)
+  entries <- sub("^S3method\\((.*)\\)$", "\\1",
+                 grep("^S3method\\(", ns, value = TRUE))
+  skip_if(!length(entries), "no S3 methods registered")
+
+  generics <- trimws(vapply(strsplit(entries, ","), `[`, character(1L), 1L))
+  generics <- gsub('"', "", generics, fixed = TRUE)
+  # A generic may come from this package, from base, or from an import.
+  reachable <- vapply(unique(generics), function(g) {
+    parts <- strsplit(g, "::", fixed = TRUE)[[1L]]
+    if (length(parts) == 2L) {
+      # A generic the package re-exports (tibble::tbl_sum comes from pillar)
+      # lives in that namespace's imports, not its own frame, so the lookup
+      # must not be `inherits = FALSE`.
+      requireNamespace(parts[1L], quietly = TRUE) &&
+        exists(parts[2L], envir = asNamespace(parts[1L]))
+    } else {
+      exists(g, envir = asNamespace("bulkiRNA"))
+    }
+  }, logical(1L))
+  expect_identical(names(reachable)[!reachable], character(0L))
+})

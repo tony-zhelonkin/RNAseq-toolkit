@@ -19,7 +19,11 @@
 #'   `"contrast"`.
 #' @param padj_max Optional hard FDR filter applied before selection.
 #' @param highlight FDR threshold for the black bar outline, or `NULL`.
-#' @param limits Length-2 numeric fill limits; `NULL` uses symmetric limits.
+#' @param limits Length-2 numeric fill limits. `NULL` (default) derives
+#'   symmetric limits **from this figure's own data**, so the same statistic can
+#'   take a different colour in two figures; pass an explicit `limits` when
+#'   panels are meant to be compared. The old renderer used a fixed
+#'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
 #' @param colours Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].

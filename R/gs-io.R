@@ -14,6 +14,10 @@
 #' (`leading_edge`) are collapsed to `"/"`-separated strings on the way out and
 #' split again by [gs_read()], so the round trip is lossless.
 #'
+#' This layout is for `gs_result` only. A [gs_matrix] of per-sample scores has
+#' no table format here -- persist it with [saveRDS()], which keeps its
+#' `sample_data` and score-type attributes as they are.
+#'
 #' @param x A [gs_result].
 #' @param dir Directory to write into; created if missing.
 #' @param name Character stem for the file names. Default `"gsea"`.
