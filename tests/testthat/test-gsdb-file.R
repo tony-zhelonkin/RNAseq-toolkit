@@ -37,7 +37,17 @@ test_that("gsdb_from_file reads GMX with ragged columns", {
   expect_identical(db$SET_B, c("Sdha", "Ndufa1"))
   expect_identical(attr(db, "pathway_names")[["SET_B"]], "second set")
   expect_identical(attr(db, "database"), "mine")
-  expect_identical(attr(db, "database_label"), "mine")
+  # `database_label` must not silently become the machine key: it defaults
+  # to the file's base name, independent of `database` (see gs-db.R:9-19).
+  expect_identical(attr(db, "database_label"), basename(f))
+})
+
+test_that("gsdb_from_file's database_label is independent of database", {
+  f <- tempfile(fileext = ".gmt")
+  writeLines(gmt_lines, f)
+  db <- gsdb_from_file(f, database = "mine", database_label = "My Sets")
+  expect_identical(attr(db, "database"), "mine")
+  expect_identical(attr(db, "database_label"), "My Sets")
 })
 
 test_that("the format is sniffed when the extension does not say", {
@@ -50,6 +60,18 @@ test_that("the format is sniffed when the extension does not say", {
   writeLines(gmx_lines, gmx)
   expect_identical(bulkiRNA:::.gsdb_sniff_format(gmx, gmx_lines), "gmx")
   expect_identical(names(gsdb_from_file(gmx)), c("SET_A", "SET_B"))
+})
+
+test_that("a uniform-width GMT is not mistaken for GMX just by extension-less sniffing", {
+  # Every "row" here has the same number of tab fields (name, desc, gene,
+  # gene), which used to satisfy the GMX width heuristic on its own and get
+  # parsed as GMX -- turning ids into gene symbols and the shared "desc"
+  # description into a bogus 4th set.
+  uniform <- c("S1\tdesc\tg1\tg2", "S2\tdesc\tg3\tg4", "S3\tdesc\tg5\tg6")
+  f <- tempfile(fileext = ".txt")
+  writeLines(uniform, f)
+  expect_identical(bulkiRNA:::.gsdb_sniff_format(f, uniform), "gmt")
+  expect_identical(names(gsdb_from_file(f)), c("S1", "S2", "S3"))
 })
 
 test_that("gsdb_from_file applies prefix and size bounds", {

@@ -104,6 +104,32 @@ test_that("subsetting and summary keep the contract", {
   expect_output(print(db), "<gs_db>")
 })
 
+test_that("pathway_descriptions survives subsetting instead of vanishing", {
+  db <- bulkiRNA:::gs_db(
+    list(A = "a", B = c("b", "c")),
+    database = "d", species = "Mus musculus",
+    pathway_descriptions = c(A = "desc A", B = "desc B")
+  )
+  expect_identical(attr(db, "pathway_descriptions"), c(A = "desc A", B = "desc B"))
+
+  sub <- db["A"]
+  expect_identical(attr(sub, "pathway_descriptions"), c(A = "desc A"))
+
+  # ids no longer present are dropped, not left dangling
+  expect_null(attr(bulkiRNA:::gs_db(list(A = "a"), database = "d",
+                                    species = "Mus musculus",
+                                    pathway_descriptions = c(Z = "unused")),
+                   "pathway_descriptions"))
+})
+
+test_that("subsetting a gs_db by an unknown name errors about the index, not `sets`", {
+  db <- bulkiRNA:::gs_db(list(A = "a"), database = "d", species = "Mus musculus")
+  expect_error(db["nope"], "not in this database")
+  expect_error(db["nope"], "nope")
+  expect_error(db[c("A", "nope")], "nope")
+  expect_identical(names(db["A"]), "A")  # valid names still work
+})
+
 test_that(".gs_filter_size honours open bounds", {
   db <- bulkiRNA:::gs_db(
     list(A = "a", B = c("b", "c"), C = c("d", "e", "f")),

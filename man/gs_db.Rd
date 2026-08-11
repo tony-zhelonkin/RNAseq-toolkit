@@ -10,7 +10,8 @@ gs_db(
   species,
   pathway_names = NULL,
   database_label = NULL,
-  gene_id_type = "symbol"
+  gene_id_type = "symbol",
+  pathway_descriptions = NULL
 )
 }
 \arguments{
@@ -27,6 +28,9 @@ to derive them from the ids.}
 \code{database}.}
 
 \item{gene_id_type}{Character(1); only \code{"symbol"} is supported.}
+
+\item{pathway_descriptions}{Named character of longer descriptions, or
+\code{NULL} when the provider has none. Not required to cover every id.}
 }
 \value{
 A \code{gs_db} object.
@@ -48,6 +52,10 @@ filter key, so it must be stable rather than pretty.
 prettify from here; the data layer never depends on it.
 \item \code{species} -- \code{"Mus musculus"} or \code{"Homo sapiens"}.
 \item \code{gene_id_type} -- \code{"symbol"} (the only value today).
+\item \code{pathway_descriptions} -- optional named character, id -> full-sentence
+description (e.g. MSigDB's \code{gs_description}), or \code{NULL} when a provider
+has none. Unlike \code{pathway_names} this is not guaranteed to cover every
+id. Carried through \verb{[.gs_db} like every other attribute.
 }
 
 Empty sets are dropped at construction, genes are de-duplicated within a

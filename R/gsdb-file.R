@@ -16,6 +16,9 @@
 #'   `paste0(prefix, "_", id)`.
 #' @param min_size,max_size Integer(1) or `NULL`; drop sets outside these
 #'   bounds.
+#' @param database_label Character(1) display name for renderers, or `NULL`
+#'   to default to the file's base name (independent of `database`, which is
+#'   the machine-typeable key -- see the `gs_db()` contract).
 #' @param verbose Logical(1); message what was parsed.
 #' @return A [gs_db()].
 #' @examples
@@ -30,7 +33,8 @@ gsdb_from_file <- function(path,
                            prefix = NULL,
                            min_size = NULL,
                            max_size = NULL,
-                           verbose = FALSE) {
+                           verbose = FALSE,
+                           database_label = NULL) {
   if (!is.character(path) || length(path) != 1L || is.na(path)) {
     stop("`path` must be a single file path.", call. = FALSE)
   }
@@ -62,7 +66,7 @@ gsdb_from_file <- function(path,
     database = database %||% .gsdb_key_from_path(path),
     species = species,
     pathway_names = parsed$labels,
-    database_label = database %||% basename(path)
+    database_label = database_label %||% basename(path)
   )
   db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
@@ -99,14 +103,30 @@ gsdb_from_file <- function(path,
   if (ext %in% c("gmt", "gmx")) {
     return(ext)
   }
-  widths <- vapply(utils::head(lines, 6L),
-                   function(l) length(strsplit(l, "\t", fixed = TRUE)[[1]]),
-                   integer(1L), USE.NAMES = FALSE)
-  if (length(widths) >= 3L && widths[1] == widths[2] && widths[1] >= 2L &&
-        all(widths[-c(1, 2)] <= widths[1])) {
-    return("gmx")
+  sample <- utils::head(lines, 6L)
+  fields <- strsplit(sample, "\t", fixed = TRUE)
+  widths <- vapply(fields, length, integer(1L))
+  is_gmx <- length(widths) >= 3L && widths[1] == widths[2] && widths[1] >= 2L &&
+    all(widths[-c(1, 2)] <= widths[1])
+  if (is_gmx) {
+    # GMX's row 1 holds per-set descriptions and rows 3+ hold genes; a
+    # description that also shows up as a gene/id in the data rows means the
+    # uniform-width heuristic above is matching a GMT by coincidence (every
+    # set happening to have the same number of tab fields), not a real GMX
+    # layout. Fall back to GMT rather than silently mis-parsing it.
+    row1 <- trimws(fields[[1]])
+    data_vals <- trimws(unlist(fields[-c(1, 2)]))
+    if (any(nzchar(row1) & row1 %in% data_vals)) {
+      is_gmx <- FALSE
+    }
   }
-  "gmt"
+  fmt <- if (is_gmx) "gmx" else "gmt"
+  if (!nzchar(ext)) {
+    message(sprintf(
+      "`%s` has no .gmt/.gmx extension; inferred %s format from its contents.",
+      basename(path), toupper(fmt)))
+  }
+  fmt
 }
 
 #' Parse GMT lines

@@ -79,14 +79,15 @@ gsdb_list <- function() {
   if (!requireNamespace("yaml", quietly = TRUE)) {
     out <- data.frame(
       database    = names(reg),
-      name        = vapply(reg, `[[`, character(1L), "label"),
+      name        = unname(vapply(reg, `[[`, character(1L), "label")),
       bundled     = TRUE,
       description = "",
       row.names   = NULL,
       stringsAsFactors = FALSE
     )
-    out$species <- vapply(names(reg), .gsdb_species_available, character(1L))
-    return(out)
+    out$species <- unname(vapply(names(reg), .gsdb_species_available,
+                                 character(1L)))
+    return(out[c("database", "name", "bundled", "species", "description")])
   }
 
   meta <- .gsdb_metadata()

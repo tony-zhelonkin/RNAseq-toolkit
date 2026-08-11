@@ -11,7 +11,8 @@ gsdb_from_file(
   prefix = NULL,
   min_size = NULL,
   max_size = NULL,
-  verbose = FALSE
+  verbose = FALSE,
+  database_label = NULL
 )
 }
 \arguments{
@@ -30,6 +31,10 @@ file's base name reduced to snake_case (the key lands in
 bounds.}
 
 \item{verbose}{Logical(1); message what was parsed.}
+
+\item{database_label}{Character(1) display name for renderers, or \code{NULL}
+to default to the file's base name (independent of \code{database}, which is
+the machine-typeable key -- see the \code{gs_db()} contract).}
 }
 \value{
 A \code{\link[=gs_db]{gs_db()}}.
