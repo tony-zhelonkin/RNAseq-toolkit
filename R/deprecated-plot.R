@@ -94,9 +94,14 @@
 #' @param ... Unused; absorbs no old formals but kept for forward safety.
 #'
 #' @return A ggplot object, as returned by [gs_plot_dot()].
-#' @note `sortBy` has no counterpart in `gs_plot_dot()` -- the new renderer
-#'   always orders the y axis by `stat` magnitude within the selection -- so
-#'   it is accepted and ignored.
+#' @note The x axis carries the leading-edge **gene ratio**, via
+#'   `gs_plot_dot(aes_x = "gene_ratio")`, because that is what the old dotplot
+#'   plotted (`GeneRatio <- count / setSize`); NES is the fill gradient. Leaving
+#'   the new renderer's `aes_x = "stat"` default in place silently changed what
+#'   the x axis meant.
+#' @note `sortBy` (the old *secondary* display sort) has no counterpart in
+#'   `gs_plot_dot()`, which orders the y axis by the chosen `sort_by` within the
+#'   selection. Accepted and ignored.
 #' @note `use_gradient = FALSE` (the old "binary colour" mode) has no
 #'   counterpart: `gs_plot_dot()` always uses the continuous diverging
 #'   gradient. Accepted and ignored; the plot always renders with a gradient.
@@ -144,6 +149,7 @@ gsea_dotplot <- function(
   gs_plot_dot(
     x,
     top = showCategory,
+    aes_x = "gene_ratio",
     sort_by = sort_by,
     direction = direction,
     highlight = highlight,
@@ -210,6 +216,7 @@ gsea_dotplot_facet <- function(
   gs_plot_dot(
     x,
     top = showCategory,
+    aes_x = "gene_ratio",
     sort_by = "padj",
     direction = "both",
     facet = "direction",

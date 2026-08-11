@@ -72,9 +72,15 @@ Deprecated: use \code{\link[=gs_plot_dot]{gs_plot_dot()}} instead. This shim rep
 formals of \code{gsea_dotplot()} verbatim and forwards to \code{gs_plot_dot()}.
 }
 \note{
-\code{sortBy} has no counterpart in \code{gs_plot_dot()} -- the new renderer
-always orders the y axis by \code{stat} magnitude within the selection -- so
-it is accepted and ignored.
+The x axis carries the leading-edge \strong{gene ratio}, via
+\code{gs_plot_dot(aes_x = "gene_ratio")}, because that is what the old dotplot
+plotted (\code{GeneRatio <- count / setSize}); NES is the fill gradient. Leaving
+the new renderer's \code{aes_x = "stat"} default in place silently changed what
+the x axis meant.
+
+\code{sortBy} (the old \emph{secondary} display sort) has no counterpart in
+\code{gs_plot_dot()}, which orders the y axis by the chosen \code{sort_by} within the
+selection. Accepted and ignored.
 
 \code{use_gradient = FALSE} (the old "binary colour" mode) has no
 counterpart: \code{gs_plot_dot()} always uses the continuous diverging
