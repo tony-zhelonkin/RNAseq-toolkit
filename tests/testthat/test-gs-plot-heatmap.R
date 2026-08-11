@@ -61,3 +61,17 @@ test_that("an empty result gives an empty plot", {
     "No pathways to plot"
   )
 })
+
+# --- regression: the literal "contrast" placeholder ----------------------------
+# gs_test()'s `contrast` formal defaults to the string "contrast", so a
+# single-contrast result printed an axis tick reading the word "contrast".
+test_that("the contrast axis blanks gs_test()'s placeholder but keeps real names", {
+  r <- fake_plot_result(n = 3L)
+  r$contrast <- "contrast"
+  p <- gs_plot_heatmap(r)
+  expect_true(all(as.character(p$data$column) == ""))
+
+  r2 <- fake_plot_result(n = 3L, contrasts = "KO-WT")
+  p2 <- gs_plot_heatmap(r2)
+  expect_true(all(as.character(p2$data$column) == "KO-WT"))
+})

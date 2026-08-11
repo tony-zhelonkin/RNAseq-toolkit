@@ -335,6 +335,22 @@ gs_plot_running <- function(x,
       base[] <- labels
     }
   }
+  # Every other gs_plot_* renderer routes labels through format_pathway_name()
+  # before a reader sees them; this one did not, so a db carrying no
+  # `pathway_names` (or a `gs_result` whose `pathway_name` is still the id) put
+  # raw snake_case MSigDB ids straight into the legend.
+  #
+  # Formatted selectively, not unconditionally: format_pathway_name() implements
+  # smart capitalisation for ALL_CAPS_SNAKE ids and is *not* idempotent on text
+  # that is already prose -- it turns "Beta response" into "beta Response". So a
+  # label an explicit `labels =` or a provider's `pathway_names` already made
+  # human-readable is left exactly as given, and only labels still equal to
+  # their raw id are formatted. Fixing the raw-id leak must not introduce
+  # mangled capitalisation in its place.
+  raw <- !is.na(base) & base == names(base)
+  if (any(raw)) {
+    base[raw] <- format_pathway_name(base[raw])
+  }
   vapply(base, .grs_wrap, character(1L), width = max_name_length,
          USE.NAMES = TRUE)
 }

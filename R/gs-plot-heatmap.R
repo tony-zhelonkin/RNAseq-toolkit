@@ -83,6 +83,14 @@ gs_plot_heatmap.gs_result <- function(x,
     strip_prefix = strip_prefix, database_labels = database_labels
   )
   df$column <- if (by == "database") df$database_label else df[[by]]
+  if (by == "contrast") {
+    # `gs_test()`'s `contrast` formal defaults to the literal placeholder string
+    # "contrast", so the common single-contrast case -- including this
+    # function's own roxygen example -- printed an axis tick reading the word
+    # "contrast". Blank only the placeholder and missing values; a caller who
+    # supplied a real contrast name keeps it.
+    df$column[is.na(df$column) | df$column == "contrast"] <- ""
+  }
   if (is.null(limits)) limits <- .gs_symmetric_limits(df$stat)
   df <- .gs_order_labels(df, by = "stat", decreasing = TRUE)
 

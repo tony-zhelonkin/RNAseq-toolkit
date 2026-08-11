@@ -199,3 +199,36 @@ test_that("long labels are wrapped, never truncated", {
   expect_true(grepl("\n", lab))
   expect_equal(gsub("\n", " ", lab), long)
 })
+
+# --- regression: raw MSigDB ids in the legend -----------------------------------
+# Every other gs_plot_* renderer formats labels before display; this one did not,
+# so a db with no `pathway_names` put snake_case ids straight into the legend.
+test_that("legend labels are formatted, not raw MSigDB ids", {
+  sets <- list(HALLMARK_P53_PATHWAY = paste0("G", 1:8),
+               KEGG_APOPTOSIS       = paste0("G", 50:58))
+  db <- structure(
+    sets,
+    pathway_names = stats::setNames(names(sets), names(sets)),
+    database = "testdb", species = "Homo sapiens", gene_id_type = "symbol",
+    class = "gs_db"
+  )
+  p <- gs_plot_running(db, ranks = rs_ranks(),
+                       pathways = c("HALLMARK_P53_PATHWAY", "KEGG_APOPTOSIS"))
+  gd <- ggplot2::get_guide_data(p, "colour")
+  expect_false(any(grepl("_", gd$.label)))
+  expect_false(any(grepl("HALLMARK|KEGG", gd$.label)))
+})
+
+# The formatting must be selective. format_pathway_name() is built for
+# ALL_CAPS_SNAKE ids and is NOT idempotent on prose -- it turns "Beta response"
+# into "beta Response" -- so applying it unconditionally would swap the raw-id
+# bug for mangled capitalisation. A label the caller already made readable must
+# survive untouched.
+test_that("a caller-supplied label is never re-formatted", {
+  p <- gs_plot_running(rs_db(), ranks = rs_ranks(),
+                       pathways = c("SET_A", "SET_B"),
+                       labels = c(SET_A = "Beta response", SET_B = "zzz"))
+  gd <- ggplot2::get_guide_data(p, "colour")
+  expect_true("Beta response" %in% gd$.label)
+  expect_false("beta Response" %in% gd$.label)
+})
