@@ -7,7 +7,8 @@
 save_gsea_log(gsea_obj, filename, padj_cutoff = 0.05, dir = NULL)
 }
 \arguments{
-\item{gsea_obj}{GSEA result object.}
+\item{gsea_obj}{GSEA result object: a \code{gseaResult}, or a \code{gs_result}
+(e.g. from the \code{run_gsea()} shim).}
 
 \item{filename}{Output filename (with or without path).}
 

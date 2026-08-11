@@ -22,7 +22,9 @@ gsea_running_sum_plot(
 )
 }
 \arguments{
-\item{gsea_obj}{A \code{gseaResult} object from clusterProfiler/fgsea.}
+\item{gsea_obj}{A \code{gseaResult} object from clusterProfiler/fgsea, or a
+\code{gs_result} (e.g. from the \code{run_gsea()} shim) -- passed through
+untouched, so its own \code{ranks}/\code{gene_sets} attributes drive the curve.}
 
 \item{gene_set_ids}{Integer vector (row indices) or character vector
 (pathway IDs). \code{NULL} (default) picks the new renderer's default top 5

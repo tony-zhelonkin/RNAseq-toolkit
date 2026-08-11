@@ -17,7 +17,8 @@ plot_all_gsea_results(
 )
 }
 \arguments{
-\item{gsea_list}{List of GSEA results.}
+\item{gsea_list}{List of GSEA results: \code{gseaResult} objects, \code{gs_result}
+objects (e.g. from the \code{run_gsea()} shim), or a mix of both.}
 
 \item{analysis_name}{Name of the analysis.}
 
