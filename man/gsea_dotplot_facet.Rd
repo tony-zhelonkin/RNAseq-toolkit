@@ -22,7 +22,8 @@ gsea_dotplot_facet(
 )
 }
 \arguments{
-\item{gsea_obj}{GSEA result object.}
+\item{gsea_obj}{GSEA result object: a \code{gseaResult}, or a \code{gs_result}
+(e.g. from the \code{run_gsea()} shim).}
 
 \item{showCategory}{Number of pathways to show per direction.}
 

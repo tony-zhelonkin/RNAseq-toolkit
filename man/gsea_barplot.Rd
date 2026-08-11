@@ -17,7 +17,8 @@ gsea_barplot(
 )
 }
 \arguments{
-\item{gsea_obj}{GSEA result object.}
+\item{gsea_obj}{GSEA result object: a \code{gseaResult}, or a \code{gs_result}
+(e.g. from the \code{run_gsea()} shim).}
 
 \item{padj_cutoff}{Adjusted p-value cutoff; a hard filter, as in the old
 function.}

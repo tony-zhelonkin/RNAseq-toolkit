@@ -25,7 +25,8 @@ gsea_dotplot(
 )
 }
 \arguments{
-\item{gsea_obj}{GSEA result object.}
+\item{gsea_obj}{GSEA result object: a \code{gseaResult}, or a \code{gs_result}
+(e.g. from the \code{run_gsea()} shim).}
 
 \item{filterBy}{Method to sort/filter results: \code{"p.adjust"} (default),
 \code{"NES"}, \code{"NES_positive"}, \code{"NES_negative"}.}

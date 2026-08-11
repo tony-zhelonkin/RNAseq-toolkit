@@ -50,6 +50,66 @@ test_that(".dep_gsea_to_gs_result builds a valid gs_result", {
   expect_identical(attr(x, "gene_sets"), g@geneSets)
 })
 
+# The composed path that mattered in practice: `run_gsea()` (a deprecated
+# shim returning a `gs_result`, not an S4 `gseaResult`) piped straight into
+# each of the four renderer shims. This is the exact object shape `run_gsea()`
+# hands back -- built here via `gs_test()` directly (as `run_gsea()` does
+# internally) against the shared `fake_ranks()`/`fake_gs_db()` fixtures,
+# so no MSigDB network fetch is needed. `.dep_gsea_to_gs_result()` must pass
+# such an object through untouched rather than rejecting it as "not a
+# gseaResult".
+fake_run_gsea_result <- function() {
+  ranks <- fake_ranks()
+  db <- fake_gs_db()
+  res <- gs_test(ranks, db, min_size = 5, max_size = 50)
+  attr(res, "ranks") <- ranks
+  attr(res, "gene_sets") <- db
+  res
+}
+
+test_that(".dep_gsea_to_gs_result passes a gs_result through untouched", {
+  res <- fake_run_gsea_result()
+  x <- .dep_gsea_to_gs_result(res)
+  expect_identical(x, res)
+})
+
+test_that("gsea_dotplot accepts run_gsea()-shaped gs_result input", {
+  res <- fake_run_gsea_result()
+  expect_warning(p <- gsea_dotplot(res, showCategory = 3), "deprecated")
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("gsea_dotplot_facet accepts run_gsea()-shaped gs_result input", {
+  res <- fake_run_gsea_result()
+  expect_warning(p <- gsea_dotplot_facet(res, showCategory = 3), "deprecated")
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("gsea_barplot accepts run_gsea()-shaped gs_result input", {
+  res <- fake_run_gsea_result()
+  expect_warning(p <- gsea_barplot(res, padj_cutoff = 1, top_n = 3),
+                "deprecated")
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("gsea_running_sum_plot accepts run_gsea()-shaped gs_result input, using its own ranks/gene_sets attributes", {
+  skip_if_not_installed("enrichplot")
+  skip_if_not_installed("patchwork")
+  res <- fake_run_gsea_result()
+  expect_warning(
+    p <- gsea_running_sum_plot(res, gene_set_ids = c("SET_UP", "SET_DOWN")),
+    "deprecated"
+  )
+  expect_s3_class(p, "ggplot")
+})
+
+test_that(".dep_gsea_to_gs_result rejects genuinely unsupported input", {
+  expect_error(
+    .dep_gsea_to_gs_result(data.frame(x = 1)),
+    "gseaResult.*gs_result|gs_result.*gseaResult"
+  )
+})
+
 test_that("gsea_dotplot warns and forwards to gs_plot_dot", {
   g <- fake_gsea_result()
   expect_warning(p <- gsea_dotplot(g, showCategory = 4), "deprecated")

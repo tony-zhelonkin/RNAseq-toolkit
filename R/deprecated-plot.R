@@ -1,25 +1,39 @@
-#' Convert a bare `gseaResult` to a minimal `gs_result` for the plot shims
+#' Convert a bare `gseaResult` (or pass through a `gs_result`) for the plot
+#' shims
 #'
 #' The frozen plot names (`gsea_dotplot()`, `gsea_dotplot_facet()`,
-#' `gsea_barplot()`, `gsea_running_sum_plot()`) only ever took a bare
-#' `gseaResult` -- no `database`/`contrast` metadata -- so they cannot go
+#' `gsea_barplot()`, `gsea_running_sum_plot()`) historically only ever took a
+#' bare `gseaResult` -- no `database`/`contrast` metadata -- so they cannot go
 #' through `normalize_gsea_results()`, whose old formals require both with no
-#' default. This builds just enough of a `gs_result` to drive the new
-#' renderers: `pathway_id`/`pathway_name` from `ID`/`Description`, `stat`/
-#' `stat_type` from `NES`/`"NES"`, `p_value`/`padj` from `pvalue`/`p.adjust`,
-#' `n_genes`/`n_genes_tested` both from `setSize` (the old object carries no
-#' better proxy for genes-tested), and `leading_edge` from splitting
-#' `core_enrichment` on `"/"`. `database` and `contrast` are filled with a
-#' constant placeholder since the frozen callers never supplied either.
+#' default. For that case, this builds just enough of a `gs_result` to drive
+#' the new renderers: `pathway_id`/`pathway_name` from `ID`/`Description`,
+#' `stat`/`stat_type` from `NES`/`"NES"`, `p_value`/`padj` from
+#' `pvalue`/`p.adjust`, `n_genes`/`n_genes_tested` both from `setSize` (the old
+#' object carries no better proxy for genes-tested), and `leading_edge` from
+#' splitting `core_enrichment` on `"/"`. `database` and `contrast` are filled
+#' with a constant placeholder since the frozen callers never supplied either.
 #'
-#' @param gsea_obj A `gseaResult` object.
-#' @return A `gs_result`, with `attr(., "ranks")` set to `gsea_obj@geneList`
-#'   and `attr(., "gene_sets")` set to `gsea_obj@geneSets`, for
-#'   `gs_plot_running()`'s fallback.
+#' But the single most common legacy call pattern is `run_gsea()` piped
+#' straight into one of these four -- and `run_gsea()` is itself a deprecated
+#' shim that now returns a `gs_result`, not an S4 `gseaResult`. That object
+#' already carries `attr(x, "ranks")`/`attr(x, "gene_sets")` when it came from
+#' `run_gsea()`, so it is passed through untouched rather than re-derived.
+#'
+#' @param gsea_obj A `gseaResult` object, or a `gs_result` (e.g. from the
+#'   `run_gsea()` shim).
+#' @return A `gs_result`. When `gsea_obj` is already a `gs_result` it is
+#'   returned unchanged (attributes and all). When it is a `gseaResult`,
+#'   `attr(., "ranks")` is set to `gsea_obj@geneList` and
+#'   `attr(., "gene_sets")` to `gsea_obj@geneSets`, for `gs_plot_running()`'s
+#'   fallback.
 #' @keywords internal
 .dep_gsea_to_gs_result <- function(gsea_obj) {
+  if (inherits(gsea_obj, "gs_result")) {
+    return(gsea_obj)
+  }
   if (!methods::is(gsea_obj, "gseaResult")) {
-    stop("This deprecated function requires a `gseaResult` object.",
+    stop("This deprecated function requires a `gseaResult` or a `gs_result` ",
+         "object; got `", paste(class(gsea_obj), collapse = "/"), "`.",
          call. = FALSE)
   }
   res <- as.data.frame(gsea_obj@result)
@@ -57,7 +71,8 @@
 #' Deprecated: use [gs_plot_dot()] instead. This shim reproduces the old
 #' formals of `gsea_dotplot()` verbatim and forwards to `gs_plot_dot()`.
 #'
-#' @param gsea_obj GSEA result object.
+#' @param gsea_obj GSEA result object: a `gseaResult`, or a `gs_result`
+#'   (e.g. from the `run_gsea()` shim).
 #' @param filterBy Method to sort/filter results: `"p.adjust"` (default),
 #'   `"NES"`, `"NES_positive"`, `"NES_negative"`.
 #' @param sortBy Secondary display sort (`"GeneRatio"` or `"p.adjust"`).
@@ -147,7 +162,8 @@ gsea_dotplot <- function(
 #' Deprecated: use [gs_plot_dot()] with `facet = "direction"` instead. This
 #' shim reproduces the old formals of `gsea_dotplot_facet()` verbatim.
 #'
-#' @param gsea_obj GSEA result object.
+#' @param gsea_obj GSEA result object: a `gseaResult`, or a `gs_result`
+#'   (e.g. from the `run_gsea()` shim).
 #' @param showCategory Number of pathways to show per direction.
 #' @param padj_cutoff Adjusted p-value cutoff used for significance
 #'   highlighting.
@@ -213,7 +229,8 @@ gsea_dotplot_facet <- function(
 #' Deprecated: use [gs_plot_bar()] instead. This shim reproduces the old
 #' formals of `gsea_barplot()` verbatim.
 #'
-#' @param gsea_obj GSEA result object.
+#' @param gsea_obj GSEA result object: a `gseaResult`, or a `gs_result`
+#'   (e.g. from the `run_gsea()` shim).
 #' @param padj_cutoff Adjusted p-value cutoff; a hard filter, as in the old
 #'   function.
 #' @param top_n Number of pathways to show.
@@ -264,7 +281,9 @@ gsea_barplot <- function(
 #' Deprecated: use [gs_plot_running()] instead. This shim reproduces the old
 #' formals of `gsea_running_sum_plot()` verbatim.
 #'
-#' @param gsea_obj A `gseaResult` object from clusterProfiler/fgsea.
+#' @param gsea_obj A `gseaResult` object from clusterProfiler/fgsea, or a
+#'   `gs_result` (e.g. from the `run_gsea()` shim) -- passed through
+#'   untouched, so its own `ranks`/`gene_sets` attributes drive the curve.
 #' @param gene_set_ids Integer vector (row indices) or character vector
 #'   (pathway IDs). `NULL` (default) picks the new renderer's default top 5
 #'   by \eqn{|NES|}.
@@ -369,7 +388,8 @@ custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
 #' reproduces the old formals of `plot_all_gsea_results()` verbatim and
 #' forwards to the internal `.gs_plot_all()`, which holds the ported body.
 #'
-#' @param gsea_list List of GSEA results.
+#' @param gsea_list List of GSEA results: `gseaResult` objects, `gs_result`
+#'   objects (e.g. from the `run_gsea()` shim), or a mix of both.
 #' @param analysis_name Name of the analysis.
 #' @param out_root Output root directory.
 #' @param n_pathways Number of pathways to show.
@@ -436,7 +456,8 @@ plot_all_gsea_results <- function(
 #' `save_gsea_log()` verbatim and forwards to the internal `.gs_write_log()`,
 #' which holds the ported body.
 #'
-#' @param gsea_obj GSEA result object.
+#' @param gsea_obj GSEA result object: a `gseaResult`, or a `gs_result`
+#'   (e.g. from the `run_gsea()` shim).
 #' @param filename Output filename (with or without path).
 #' @param padj_cutoff Adjusted p-value cutoff.
 #' @param dir Output directory (optional).
