@@ -4,7 +4,14 @@
 \alias{gs_write}
 \title{Write a \code{gs_result} to the standard table layout}
 \usage{
-gs_write(x, dir, name = "gsea", overview = TRUE, by_contrast = TRUE)
+gs_write(
+  x,
+  dir,
+  name = "gsea",
+  overview = TRUE,
+  by_contrast = TRUE,
+  prune = FALSE
+)
 }
 \arguments{
 \item{x}{A \link{gs_result}.}
@@ -17,6 +24,12 @@ gs_write(x, dir, name = "gsea", overview = TRUE, by_contrast = TRUE)
 \code{\link[=summary.gs_result]{summary.gs_result()}} table under \verb{_overview/}.}
 
 \item{by_contrast}{Logical. Also write one file per contrast x database.}
+
+\item{prune}{Logical. Delete the existing \verb{by_contrast/} tree before writing.
+\code{gs_write()} otherwise only ever adds files, so re-running a stage with a
+contrast dropped leaves the old directory in place for \code{\link[=gs_read]{gs_read()}} to pick
+up. Off by default because it deletes data; a manifest is written either
+way, and \code{gs_read()} warns about files that are not in it.}
 }
 \value{
 The directory, invisibly, with the written paths in the \code{"files"}

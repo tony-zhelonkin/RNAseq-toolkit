@@ -20,6 +20,11 @@
 #' @param overview Logical. Also write the pooled table and the
 #'   [summary.gs_result()] table under `_overview/`.
 #' @param by_contrast Logical. Also write one file per contrast x database.
+#' @param prune Logical. Delete the existing `by_contrast/` tree before writing.
+#'   `gs_write()` otherwise only ever adds files, so re-running a stage with a
+#'   contrast dropped leaves the old directory in place for [gs_read()] to pick
+#'   up. Off by default because it deletes data; a manifest is written either
+#'   way, and `gs_read()` warns about files that are not in it.
 #' @return The directory, invisibly, with the written paths in the `"files"`
 #'   attribute.
 #' @examples
@@ -36,13 +41,17 @@
 #' gs_read(d)
 #' @export
 gs_write <- function(x, dir, name = "gsea", overview = TRUE,
-                     by_contrast = TRUE) {
+                     by_contrast = TRUE, prune = FALSE) {
   .gs_check_result(x)
   if (!is.character(dir) || length(dir) != 1L || !nzchar(dir)) {
     stop("`dir` must be a single non-empty directory path.", call. = FALSE)
   }
   ensure_dir(dir)
   files <- character(0)
+
+  if (prune && by_contrast) {
+    unlink(file.path(dir, "by_contrast"), recursive = TRUE)
+  }
 
   if (by_contrast) {
     parts <- gs_split(x, by = c("contrast", "database"))
@@ -72,7 +81,41 @@ gs_write <- function(x, dir, name = "gsea", overview = TRUE,
     files <- c(files, f_all, f_sum)
   }
 
+  # The manifest is what makes a stale leftover visible. Without it `gs_read()`
+  # globs `by_contrast/*/<name>_*.tsv` and row-binds whatever is there, so a
+  # contrast dropped from the analysis reappears in the figure, dated from the
+  # previous run, with nothing to indicate it.
+  .gs_write_manifest(dir, name, files)
+
   structure(dir, files = files)
+}
+
+#' Record which files a `gs_write()` call produced
+#'
+#' @param dir The output directory.
+#' @param name The file-name stem.
+#' @param files Absolute paths just written.
+#' @return The manifest path, invisibly.
+#' @keywords internal
+.gs_write_manifest <- function(dir, name, files) {
+  path <- file.path(dir, paste0("_manifest_", .gs_slug(name), ".txt"))
+  rel <- .gs_relative_to(files, dir)
+  writeLines(rel, path)
+  invisible(path)
+}
+
+#' Express written paths relative to the output directory
+#'
+#' Literal prefix removal, not a regex: a directory name may contain any of
+#' `. ( ) [ ] + *`.
+#'
+#' @param paths Character vector of paths.
+#' @param dir The output directory.
+#' @return `paths` with a leading `dir/` removed where present.
+#' @keywords internal
+.gs_relative_to <- function(paths, dir) {
+  pre <- paste0(sub("/+$", "", dir), "/")
+  ifelse(startsWith(paths, pre), substring(paths, nchar(pre) + 1L), paths)
 }
 
 #' Read a `gs_result` back from the standard table layout
@@ -108,11 +151,13 @@ gs_read <- function(dir, name = "gsea") {
     if (file.exists(all_f)) {
       all_f
     } else {
-      list.files(
+      found <- list.files(
         file.path(dir, "by_contrast"),
         pattern = paste0("^", name, "_.*\\.tsv$"),
         recursive = TRUE, full.names = TRUE
       )
+      .gs_warn_unmanifested(dir, name, found)
+      found
     }
   }
   missing <- paths[!file.exists(paths)]
@@ -123,6 +168,32 @@ gs_read <- function(dir, name = "gsea") {
   }
   parts <- lapply(paths, .gs_read_tsv)
   gs_result(dplyr::bind_rows(parts))
+}
+
+#' Warn about globbed files the last `gs_write()` did not produce
+#'
+#' @param dir The directory being read.
+#' @param name The file-name stem.
+#' @param found Absolute paths the glob returned.
+#' @return `NULL`, invisibly.
+#' @keywords internal
+.gs_warn_unmanifested <- function(dir, name, found) {
+  man <- file.path(dir, paste0("_manifest_", .gs_slug(name), ".txt"))
+  if (!length(found) || !file.exists(man)) {
+    return(invisible(NULL))
+  }
+  listed <- readLines(man, warn = FALSE)
+  rel <- .gs_relative_to(found, dir)
+  stale <- rel[!rel %in% listed]
+  if (length(stale)) {
+    warning(
+      length(stale), " file(s) under ", sQuote(dir),
+      " were not written by the last `gs_write()` and are being read anyway: ",
+      paste(utils::head(stale, 5L), collapse = ", "),
+      ". Re-run `gs_write(prune = TRUE)` to clear them.", call. = FALSE
+    )
+  }
+  invisible(NULL)
 }
 
 # ---- internals --------------------------------------------------------------

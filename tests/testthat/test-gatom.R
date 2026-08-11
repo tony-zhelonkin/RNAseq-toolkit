@@ -389,3 +389,27 @@ test_that("gatom_save_html() writes a self-contained file and makes its dir", {
   expect_true(file.exists(out))
   expect_gt(file.info(out)$size, 1000)
 })
+
+# --- regression from the IO review -------------------------------------------
+
+test_that("a fresh download is searched before the staged container copy", {
+  # `dir = NULL, download = TRUE` fetched references into 00_data/references
+  # /gatom and then loaded the older /opt/gatom-refs ones, so the download had
+  # no visible effect.
+  f <- bulkiRNA:::.gatom_search_dirs
+  default_dir <- "00_data/references/gatom"
+
+  expect_identical(
+    f(NULL, TRUE, default_dir),
+    c(default_dir, "/opt/gatom-refs")
+  )
+  expect_identical(
+    f("/my/refs", TRUE, default_dir),
+    c("/my/refs", "/opt/gatom-refs", default_dir)
+  )
+  # Without a download the staged copy still wins over the default dir.
+  expect_identical(
+    f(NULL, FALSE, default_dir),
+    c("/opt/gatom-refs", default_dir)
+  )
+})

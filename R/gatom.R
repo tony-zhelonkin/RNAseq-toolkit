@@ -43,7 +43,9 @@ NULL
 #' so they are resolved from disk. Search order is an explicit `dir` first,
 #' then the staged container path `/opt/gatom-refs`, then
 #' [download_gatom_references()]'s default `dest_dir`
-#' (`"00_data/references/gatom"`).
+#' (`"00_data/references/gatom"`) -- note that the staged copy therefore wins
+#' over that default. With `download = TRUE` the download destination is
+#' searched first, so a fresh fetch is never shadowed by the staged copy.
 #'
 #' The returned object carries `met.db` alongside the network. That is
 #' deliberate: `gatom::makeMetabolicGraph()` needs `met.db` even when
@@ -85,15 +87,16 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
     org_anno = sprintf("org.%s.eg.gatom.anno.rds", sp$short)
   )
 
+  dl_dir <- dir %||% default_dir
   if (isTRUE(download)) {
     download_gatom_references(
-      dest_dir = dir %||% default_dir,
+      dest_dir = dl_dir,
       species = sp$download,
       networks = "kegg"
     )
   }
 
-  search_dirs <- unique(c(dir, "/opt/gatom-refs", default_dir))
+  search_dirs <- .gatom_search_dirs(dir, download, default_dir)
   found <- vapply(wanted, function(fname) {
     hit <- file.path(search_dirs, fname)
     hit <- hit[file.exists(hit)]
@@ -123,6 +126,26 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
     ),
     class = "gatom_refs"
   )
+}
+
+#' Directories to resolve GATOM reference files from, in order
+#'
+#' The staged container copy is searched before `default_dir`, so with
+#' `dir = NULL` a `download = TRUE` run fetched fresh references into
+#' `00_data/references/gatom` and then loaded the older `/opt/gatom-refs` ones:
+#' the download had no visible effect, and `print(refs)` was the only clue.
+#' What was just downloaded therefore goes first.
+#'
+#' @param dir An explicit directory, or `NULL`.
+#' @param download Logical; whether this call fetched the references.
+#' @param default_dir The downloader's default destination.
+#' @return Character vector of directories, most-preferred first.
+#' @keywords internal
+.gatom_search_dirs <- function(dir, download, default_dir) {
+  unique(c(
+    if (isTRUE(download)) dir %||% default_dir,
+    dir, "/opt/gatom-refs", default_dir
+  ))
 }
 
 #' Print a `gatom_refs` object

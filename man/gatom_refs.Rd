@@ -32,7 +32,9 @@ and a species-specific organism annotation. They are too large to bundle,
 so they are resolved from disk. Search order is an explicit \code{dir} first,
 then the staged container path \verb{/opt/gatom-refs}, then
 \code{\link[=download_gatom_references]{download_gatom_references()}}'s default \code{dest_dir}
-(\code{"00_data/references/gatom"}).
+(\code{"00_data/references/gatom"}) -- note that the staged copy therefore wins
+over that default. With \code{download = TRUE} the download destination is
+searched first, so a fresh fetch is never shadowed by the staged copy.
 }
 \details{
 The returned object carries \code{met.db} alongside the network. That is

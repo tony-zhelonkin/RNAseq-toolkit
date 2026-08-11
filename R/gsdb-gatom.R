@@ -58,19 +58,36 @@ download_gatom_references <- function(
   for (fname in files) {
     dest_file <- file.path(dest_dir, fname)
 
+    # An interrupted transfer used to leave a partial file in place that every
+    # later run reported as `[skip] ... (exists)`, so `gatom_refs()` then died
+    # in `readRDS()` naming neither the file nor the fix. A zero-byte file is
+    # treated as absent, and the transfer itself goes to `<dest>.part` and is
+    # renamed only on success, so an interruption cannot produce one.
     if (file.exists(dest_file) && !isTRUE(overwrite)) {
-      message(sprintf("  [skip] %s (exists; use overwrite = TRUE to replace)",
-                      fname))
-      downloaded <- c(downloaded, dest_file)
-      next
+      if (isTRUE(file.info(dest_file)$size > 0)) {
+        message(sprintf("  [skip] %s (exists; use overwrite = TRUE to replace)",
+                        fname))
+        downloaded <- c(downloaded, dest_file)
+        next
+      }
+      message(sprintf("  [redo] %s (present but empty -- refetching)", fname))
     }
 
     message(sprintf("  Downloading %s ...", fname))
+    part_file <- paste0(dest_file, ".part")
     ok <- tryCatch({
-      utils::download.file(file.path(base_url, fname), dest_file,
+      utils::download.file(file.path(base_url, fname), part_file,
                            mode = "wb", quiet = TRUE)
+      if (!isTRUE(file.info(part_file)$size > 0)) {
+        stop("the download produced an empty file", call. = FALSE)
+      }
+      if (!file.rename(part_file, dest_file)) {
+        stop("could not move the download into place at ", dest_file,
+             call. = FALSE)
+      }
       TRUE
     }, error = function(e) {
+      unlink(part_file)
       warning(sprintf("  [FAIL] %s: %s", fname, conditionMessage(e)),
               call. = FALSE)
       FALSE

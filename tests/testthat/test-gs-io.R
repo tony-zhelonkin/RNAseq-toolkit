@@ -59,3 +59,40 @@ test_that("gs_write validates its arguments", {
   expect_error(gs_write(data.frame(a = 1), tempdir()), "gs_result")
   expect_error(gs_write(io_res(), ""), "non-empty")
 })
+
+# --- regressions from the IO review ------------------------------------------
+
+test_that("gs_read warns about by_contrast files the last write did not make", {
+  # gs_write() only ever added files, and gs_read()'s fallback globs
+  # by_contrast/*/<name>_*.tsv, so a contrast dropped from the analysis was
+  # silently row-bound back in from the previous run.
+  d <- file.path(tempdir(), "gsw-stale")
+  unlink(d, recursive = TRUE)
+  gs_write(io_res(), d, overview = FALSE)
+
+  dropped <- dplyr::filter(io_res(), .data$contrast == "KO-WT")
+  gs_write(dropped, d, overview = FALSE)
+
+  expect_warning(back <- gs_read(d), "not written by the last")
+  expect_setequal(unique(back$contrast), c("KO-WT", "X vs Y"))
+})
+
+test_that("gs_write(prune = TRUE) clears the stale contrast", {
+  d <- file.path(tempdir(), "gsw-prune")
+  unlink(d, recursive = TRUE)
+  gs_write(io_res(), d, overview = FALSE)
+
+  dropped <- dplyr::filter(io_res(), .data$contrast == "KO-WT")
+  gs_write(dropped, d, overview = FALSE, prune = TRUE)
+
+  expect_false(dir.exists(file.path(d, "by_contrast", "X_vs_Y")))
+  expect_silent(back <- gs_read(d))
+  expect_identical(unique(back$contrast), "KO-WT")
+})
+
+test_that("a matching write/read pair does not warn", {
+  d <- file.path(tempdir(), "gsw-clean")
+  unlink(d, recursive = TRUE)
+  gs_write(io_res(), d, overview = FALSE)
+  expect_silent(gs_read(d))
+})
