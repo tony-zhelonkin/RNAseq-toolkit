@@ -52,12 +52,12 @@
     if (grepl("musculus", species, ignore.case = TRUE)) {
       db <- .gsdb_human_to_mouse(db)
     }
-    out$mitopathways <- filter_by_size(db, min_size, max_size)
+    out$mitopathways <- .gs_filter_size(db, min_size, max_size)
   }
 
   mx <- file.path(refs_dir, "mitoxplorer3.0", "raw", "mouse_gene_function.txt")
   if (file.exists(mx) && !grepl("sapiens", species, ignore.case = TRUE)) {
-    out$mitoxplorer <- filter_by_size(
+    out$mitoxplorer <- .gs_filter_size(
       .gsdb_parse_mitoxplorer(mx, species = species), min_size, max_size
     )
   }
@@ -76,7 +76,7 @@
 
   tdb <- file.path(refs_dir, "transportdb", "raw", "TransportDB2.0.csv")
   if (file.exists(tdb)) {
-    out$transportdb <- filter_by_size(
+    out$transportdb <- .gs_filter_size(
       .gsdb_parse_transportdb(tdb, species = species), min_size, max_size
     )
   }

@@ -28,19 +28,15 @@ test_that("load_reference_db() rebuild=TRUE now always errors", {
 })
 
 test_that("filter_by_size() filters a T2G/T2N pair with the old defaults", {
-  # KNOWN PACKAGE-LEVEL COLLISION (see handback report / roxygen note on
-  # filter_by_size() in R/deprecated-gs.R): R/gs-db.R defines its own
-  # top-level `filter_by_size(db, min_size = NULL, max_size = NULL, verbose =
-  # FALSE)`. A package namespace has exactly one binding per name, and file
-  # collation currently puts "gs-db.R" after "deprecated-gs.R"
-  # alphabetically, so *that* definition -- not this shim's -- is what
-  # `bulkiRNA::filter_by_size()` actually resolves to at runtime. This test
-  # documents the collision instead of asserting unreachable behaviour; it
-  # must be revisited (and this skip removed) once the integrator resolves
-  # the name clash, most likely by renaming the R/gs-db.R internal helper.
-  skip("filter_by_size() is currently shadowed package-wide by the R/gs-db.R \
-internal function of the same name; see the C1 handback report")
-
+  # RESOLVED COLLISION. C1 found that R/gs-db.R defined its own top-level
+  # `filter_by_size(db, min_size = NULL, max_size = NULL, verbose = FALSE)`.
+  # A namespace has one binding per name and collation puts "gs-db.R" after
+  # "deprecated-gs.R", so that definition -- not this shim -- was what
+  # `bulkiRNA::filter_by_size()` resolved to: no `.Deprecated()` warning, and
+  # the frozen 5/500 defaults silently replaced by NULL/NULL. C1 correctly
+  # refused to edit a file it did not own and skipped this test instead. The
+  # integrator renamed the internal to `.gs_filter_size()`, so the shim now
+  # owns its frozen name and the assertions below are reachable.
   t2g <- data.frame(
     gs_name = c(rep("SMALL", 2), rep("BIG", 8)),
     gene_symbol = paste0("G", 1:10),

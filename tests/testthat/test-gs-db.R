@@ -57,7 +57,7 @@ test_that("a filter_by_size(result, min_size, max_size) shim is writable", {
   )
   shim <- function(result, min_size = 5, max_size = 500) {
     db <- bulkiRNA:::.gsdb_from_t2g(result, "legacy", "Mus musculus")
-    bulkiRNA:::.gsdb_as_t2g(bulkiRNA:::filter_by_size(db, min_size, max_size))
+    bulkiRNA:::.gsdb_as_t2g(bulkiRNA:::.gs_filter_size(db, min_size, max_size))
   }
   out <- shim(legacy)                      # old default min_size = 5
   expect_identical(sort(unique(out$T2G$gs_name)), c("BIG", "OK"))
@@ -104,19 +104,19 @@ test_that("subsetting and summary keep the contract", {
   expect_output(print(db), "<gs_db>")
 })
 
-test_that("filter_by_size honours open bounds", {
+test_that(".gs_filter_size honours open bounds", {
   db <- bulkiRNA:::gs_db(
     list(A = "a", B = c("b", "c"), C = c("d", "e", "f")),
     database = "d", species = "Mus musculus"
   )
-  expect_identical(names(bulkiRNA:::filter_by_size(db)), c("A", "B", "C"))
-  expect_identical(names(bulkiRNA:::filter_by_size(db, min_size = 2)),
+  expect_identical(names(bulkiRNA:::.gs_filter_size(db)), c("A", "B", "C"))
+  expect_identical(names(bulkiRNA:::.gs_filter_size(db, min_size = 2)),
                    c("B", "C"))
-  expect_identical(names(bulkiRNA:::filter_by_size(db, max_size = 2)),
+  expect_identical(names(bulkiRNA:::.gs_filter_size(db, max_size = 2)),
                    c("A", "B"))
-  expect_identical(names(bulkiRNA:::filter_by_size(db, 2, 2)), "B")
-  expect_error(bulkiRNA:::filter_by_size(db, 5, 2), "must not exceed")
-  expect_error(bulkiRNA:::filter_by_size(list(A = "a"), 1), "must be a `gs_db`")
+  expect_identical(names(bulkiRNA:::.gs_filter_size(db, 2, 2)), "B")
+  expect_error(bulkiRNA:::.gs_filter_size(db, 5, 2), "must not exceed")
+  expect_error(bulkiRNA:::.gs_filter_size(list(A = "a"), 1), "must be a `gs_db`")
 })
 
 test_that(".gsdb_as_t2g round-trips the legacy shape", {

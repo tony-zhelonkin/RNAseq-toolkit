@@ -73,7 +73,7 @@ gsdb_msigdb <- function(species = "Mus musculus",
                collapse = "_")
   db <- gs_db(sets, database = key, species = species,
               pathway_names = labels, database_label = label)
-  db <- filter_by_size(db, min_size, max_size, verbose = verbose)
+  db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", label, species, length(db)))
   }

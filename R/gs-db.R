@@ -209,14 +209,20 @@ summary.gs_db <- function(object, ...) {
 #' The size filter that used to live in `build_reference_databases.R`. `NULL`
 #' bounds mean "no bound".
 #'
+#' Named with a leading dot so it cannot collide with the exported, deprecated
+#' `filter_by_size(result, min_size = 5, max_size = 500)` shim. Two top-level
+#' bindings of one name silently resolve by collation order, which is how the
+#' shim was being shadowed before this rename.
+#'
 #' @param db A `gs_db`.
 #' @param min_size Integer(1) or `NULL`; smallest set size to keep.
 #' @param max_size Integer(1) or `NULL`; largest set size to keep.
 #' @param verbose Logical(1); message how many sets were dropped.
 #' @return A `gs_db` with out-of-range sets removed.
 #' @keywords internal
-filter_by_size <- function(db, min_size = NULL, max_size = NULL,
-                           verbose = FALSE) {
+#' @name dot-gs_filter_size
+.gs_filter_size <- function(db, min_size = NULL, max_size = NULL,
+                            verbose = FALSE) {
   if (!is_gs_db(db)) {
     stop("`db` must be a `gs_db` object; see `gsdb_load()`.", call. = FALSE)
   }

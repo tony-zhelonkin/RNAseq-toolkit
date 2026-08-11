@@ -239,7 +239,7 @@ gsdb_load <- function(database,
   db <- .gsdb_from_t2g(raw, database = database,
                        species = .gsdb_species_label(species),
                        database_label = entry$label)
-  db <- filter_by_size(db, min_size, max_size, verbose = verbose)
+  db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", entry$label,
                     .gsdb_species_label(species), length(db)))

@@ -64,7 +64,7 @@ gsdb_from_file <- function(path,
     pathway_names = parsed$labels,
     database_label = database %||% basename(path)
   )
-  db <- filter_by_size(db, min_size, max_size, verbose = verbose)
+  db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
   if (verbose) {
     message(sprintf("Parsed %d sets from %s (%s).", length(db),
                     basename(path), format))
@@ -205,5 +205,5 @@ gsdb_register <- function(sets,
   db <- gs_db(sets, database = database, species = species,
               pathway_names = pathway_names,
               database_label = database_label)
-  filter_by_size(db, min_size, max_size)
+  .gs_filter_size(db, min_size, max_size)
 }
