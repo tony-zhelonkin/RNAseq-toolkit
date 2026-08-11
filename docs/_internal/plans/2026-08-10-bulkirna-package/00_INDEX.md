@@ -741,12 +741,47 @@ expected gatom skips, **golden 20/20, exit 0**.
 The edit half was done in a `/tmp` copy of the checkout, not in the repo, so no dev-loop
 proof left a working-tree change; the repo was confirmed clean afterwards.
 
-**Phase 2 is not fully discharged.** The plan's wording is "in one active repo,
-`load_all()` over the submodule, make a real change, run a real analysis" — and none of
-the consumer repos (`14839-DM-cGAS`, `STING-JR`, `DC-nexus`) exist on this host. What is
-proven is the *mechanism*: install-from-tag works, the `load_all()` backdoor shadows the
-installed copy, and edits take effect. What is unproven is the mechanism *in the presence
-of a real consumer's* `source()`-based prelude and its 64 legacy call sites. That is
-where the two known silent breaks will surface — `direction` is `"up"`/`"down"`, not
-`"Up"`/`"Down"`, and `$NES` is `NULL` because the column is `stat`. Both were confirmed
-again here against the installed build.
+**Phase 2 is discharged against a real consumer.** My earlier note in this section said the
+consumer repos were absent from this host; they are at `/scratch/current/antonz/projects`
+(`14839-DM-cGAS`, `STING-JR`, `DC-nexus`) -- my search had only covered `/data1` and
+`/home`. `14839-DM-cGAS` carries `01_modules/RNAseq-toolkit` as a submodule pinned to the
+old `scripts/` layout, on branch `dev`.
+
+### Equivalence on real production data
+
+`load_all()` over the dev checkout, then `gs_ranks()` + `gsdb_msigdb()` + `gs_test()` on
+`14839-DM-cGAS`'s real DE table for contrast `STING_KO_vs_WT_t4` (18,558 symbols),
+Hallmark, `seed = 123`, `n_perm_simple = 100000`, size bound 15/500 -- compared against
+that project's *cached production* `gseaResult` from the old `run_gsea()`:
+
+| Check | Result |
+|---|---|
+| Pathways | 50 old, 50 new, 50 matched |
+| `setSize` vs `n_genes_tested` | identical |
+| max abs dNES (`NES` vs `stat`) | `0` |
+| max abs dp, max abs dpadj | `0`, `0` |
+| Sign agreement, significant at 0.05 | 1.00, 23 old / 23 new |
+| Top 10 by padj, in order | identical |
+
+So the compute layer is bit-identical to what this project has already published, on its
+own data -- not just on the fixture.
+
+### What the shims do *not* carry (the Phase 4 work list)
+
+Probed with the same real data, through `run_gsea()` and `normalize_gsea_results()`:
+
+| Legacy pattern in `05_gsea_msigdb_run.R` | Behaviour now |
+|---|---|
+| `nrow(res@result)`, `res@result <- res@result[keep, ]` | **error** -- no `@` method for `gs_result`; the shim returns a tibble, not an S4 `gseaResult`. This is the blocking break, and it is loud. |
+| `res@result$setSize` | error, same cause; the column is `n_genes_tested` |
+| `if ("NES" %in% colnames(nt)) rename(nt, nes = NES)` | condition is `FALSE`, so the rename never fires and `nt$nes` is never created |
+| `filter(sig, nes > 0)` | **error**, `object 'nes' not found` -- consequence of the line above |
+| `filter(nt, direction == "Up")` | **silently 0 rows**; the values are `"up"`/`"down"`. The only genuinely silent break of the set. |
+| `normalize_gsea_results(atlas_universe = ...)` -> `genes_full_set` | column absent. The shim warns that `atlas_universe` is ignored, so this is loud, but it is a real feature loss: this project's pathway-explorer input spec depends on `genes_full_set`, and the replacement is `gs_leading_edge()` against the original `gs_db`. |
+
+The `ranks` and `gene_sets` attributes the `run_gsea()` shim promises are confirmed
+present on the real result, so `gs_plot_running()`'s fallback path is intact.
+
+Nothing in `14839-DM-cGAS` was modified: its working tree was already dirty from
+unrelated devcontainer edits, the project was mounted read-only, and every output went to
+`/tmp`.
