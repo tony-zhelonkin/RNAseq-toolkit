@@ -104,8 +104,8 @@ gs_test.character <- function(x, db, method = NULL, contrast = "contrast", ...,
 
 #' @rdname gs_test
 #' @export
-gs_test.gs_matrix <- function(x, db, method = NULL, contrast = "contrast", ...,
-                              verbose = FALSE) {
+gs_test.gs_matrix <- function(x, db = NULL, method = NULL,
+                              contrast = "contrast", ..., verbose = FALSE) {
   method <- method %||% "limma"
   if (!identical(method, "limma")) {
     stop("`method` must be \"limma\" for a gs_matrix `x`; got ", sQuote(method),
@@ -115,7 +115,10 @@ gs_test.gs_matrix <- function(x, db, method = NULL, contrast = "contrast", ...,
   gs_result(
     out,
     database = attr(x, "database"), contrast = out$contrast[1L] %||% contrast,
-    method = "gsva", stat_type = "t"
+    # `gs_score()` records which of gsva/ssgsea/zscore/plage produced the
+    # scores; hard-coding "gsva" here mislabelled three of the four in the
+    # result's own provenance -- and that column is what gets exported.
+    method = gs_method(x) %||% "gsva", stat_type = "t"
   )
 }
 
@@ -138,11 +141,21 @@ gs_test.gs_matrix <- function(x, db, method = NULL, contrast = "contrast", ...,
     )))
   }
   if (is.list(db) && length(db) && all(vapply(db, inherits, logical(1L), "gs_db"))) {
-    nms <- names(db) %||% vapply(db, function(d) attr(d, "database"), character(1L))
+    # `%||%` only fires when `names(db)` is wholly NULL. A *partially* named
+    # list returns "" for the unnamed slots, so the fallback never ran and half
+    # the rows carried `database = ""` -- which then groups plots and
+    # `gs_top(per = "database")` under a blank label.
+    own <- vapply(db, function(d) attr(d, "database") %||% NA_character_,
+                  character(1L), USE.NAMES = FALSE)
+    nms <- names(db)
+    if (is.null(nms)) nms <- rep(NA_character_, length(db))
+    fill <- is.na(nms) | !nzchar(nms)
+    nms[fill] <- own[fill]
+    nms[is.na(nms)] <- "database"
     return(Map(function(d, nm) {
       list(
         sets = .gs_db_sets(d),
-        database = nm %||% attr(d, "database"),
+        database = nm,
         pathway_names = attr(d, "pathway_names")
       )
     }, db, nms))
@@ -213,7 +226,21 @@ NULL
                       eps = 0, n_perm_simple = 100000L,
                       score_type = c("std", "pos", "neg"), seed = 123L) {
   score_type <- match.arg(score_type)
-  if (!is.null(seed)) set.seed(seed)
+  # `set.seed()` mutates the caller's global stream, so a script that seeds
+  # itself and then bootstraps after a `gs_test()` call was silently drawing
+  # from the seed-123 stream instead of its own -- once per database, at that.
+  # Seed for fgsea's benefit, then put the caller's stream back exactly as it
+  # was (including "there was no stream yet").
+  if (!is.null(seed)) {
+    if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      old_seed <- get(".Random.seed", envir = globalenv())
+      on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    } else {
+      on.exit(suppressWarnings(rm(".Random.seed", envir = globalenv())),
+              add = TRUE)
+    }
+    set.seed(seed)
+  }
   res <- fgsea::fgseaMultilevel(
     pathways = sets, stats = ranks,
     minSize = min_size, maxSize = max_size,
@@ -221,7 +248,7 @@ NULL
   )
   res <- as.data.frame(res)
   if (!nrow(res)) {
-    return(.gs_empty_core())
+    return(.gs_empty_core(numeric_cols = "es", list_cols = "leading_edge"))
   }
   data.frame(
     pathway_id = res$pathway,
@@ -264,7 +291,9 @@ NULL
   ))
   res <- res[res$overlap > 0L, , drop = FALSE]
   if (!nrow(res)) {
-    return(.gs_empty_core())
+    return(.gs_empty_core(numeric_cols = "fold_enrichment",
+                          integer_cols = "overlap",
+                          list_cols = "leading_edge"))
   }
   fe <- if (!is.null(res$foldEnrichment)) {
     res$foldEnrichment
@@ -386,15 +415,29 @@ NULL
 #'
 #' An empty result is a valid answer; `NULL` is not.
 #'
+#' Adapters name their optional columns here so an empty result has the same
+#' *shape* as a non-empty one from the same method. Otherwise a contrast that
+#' happened to yield no pathways lost `leading_edge`, and a per-contrast branch
+#' calling [gs_leading_edge()] got "carries no `leading_edge` column" -- a usage
+#' error reported for what is simply an empty answer.
+#'
+#' @param numeric_cols,integer_cols,list_cols Optional column names to append,
+#'   zero-length and of the named type.
 #' @return A zero-row data frame with the core [gs_result] columns.
 #' @keywords internal
-.gs_empty_core <- function() {
-  data.frame(
+.gs_empty_core <- function(numeric_cols = character(0),
+                           integer_cols = character(0),
+                           list_cols = character(0)) {
+  out <- data.frame(
     pathway_id = character(0), pathway_name = character(0),
     n_genes = integer(0), n_genes_tested = integer(0),
     stat = numeric(0), p_value = numeric(0), padj = numeric(0),
     stringsAsFactors = FALSE
   )
+  for (nm in numeric_cols) out[[nm]] <- numeric(0)
+  for (nm in integer_cols) out[[nm]] <- integer(0)
+  for (nm in list_cols) out[[nm]] <- list()
+  out
 }
 
 #' Attach a list column to a data frame without `I()` surprises

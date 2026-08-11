@@ -17,6 +17,8 @@
 }
 \value{
 A \code{gs_matrix}, or a plain vector when \code{drop} collapses a dimension.
+A subscript matching no pathway or no sample yields an empty \code{gs_matrix},
+not an error.
 }
 \description{
 Keeps the class and carries \code{pathway_names} / \code{sample_data} along with the

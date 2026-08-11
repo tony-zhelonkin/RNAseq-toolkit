@@ -103,3 +103,23 @@ test_that("gs_stat_label reads the axis label off stat_type", {
 test_that("print shows the gs_result header", {
   expect_output(print(fake_gs_result()), "gs_result")
 })
+
+# --- regressions from the compute-layer review -------------------------------
+
+test_that("a dplyr verb that breaks the contract downgrades to a tibble", {
+  # `dplyr_reconstruct` re-attached the class after checking column *presence*
+  # only, so validate_gs_result() was unreachable from every verb: a character
+  # `padj` or a restored "Up"/"Down" capitalisation still claimed to be a
+  # gs_result, and gs_filter(direction = "up") then returned zero rows silently.
+  res <- fake_gs_result(3L)
+  expect_warning(bad <- dplyr::mutate(res, padj = "oops"), "gs_result contract")
+  expect_false(inherits(bad, "gs_result"))
+  expect_s3_class(bad, "tbl_df")
+
+  expect_warning(dir_bad <- dplyr::mutate(res, direction = "Up"), "gs_result contract")
+  expect_false(inherits(dir_bad, "gs_result"))
+
+  # A verb that keeps the contract is untouched, and silent.
+  expect_silent(ok <- dplyr::arrange(res, .data$padj))
+  expect_s3_class(ok, "gs_result")
+})

@@ -16,6 +16,7 @@ A \code{gs_result} if the core columns survived, else a tibble (or a
 vector, if the tibble method returned one).
 }
 \description{
-Downgrades to a plain tibble when the subset no longer carries every core
-column, so a broken object never survives a \code{[} or a \code{select()}.
+Downgrades to a plain tibble when the subset no longer satisfies the
+contract -- a dropped core column, a wrong type, an out-of-vocabulary
+\code{direction} -- so a broken object never survives a \code{[} or a \code{select()}.
 }

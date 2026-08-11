@@ -14,7 +14,9 @@
 #'   \item{`database`}{character. Which `gsdb_*` provider the set came from.}
 #'   \item{`contrast`}{character. Comparison label, e.g. `"KO-WT"`. Pooling
 #'     across contrasts is `rbind()`, not a separate code path.}
-#'   \item{`method`}{character. One of `"fgsea"`, `"ora"`, `"gsva"`.}
+#'   \item{`method`}{character. `"fgsea"`, `"ora"`, or -- for a [gs_matrix]
+#'     tested with limma -- the scoring method that produced the matrix
+#'     (`"gsva"`, `"ssgsea"`, `"zscore"`, `"plage"`).}
 #'   \item{`n_genes`}{integer. Set size in the database.}
 #'   \item{`n_genes_tested`}{integer. Set size after intersecting with the data.}
 #'   \item{`stat`}{numeric. The effect size. What it *is* is named by `stat_type`.}
@@ -338,8 +340,9 @@ rbind.gs_result <- function(..., deparse.level = 1) {
 
 #' Subset a `gs_result`
 #'
-#' Downgrades to a plain tibble when the subset no longer carries every core
-#' column, so a broken object never survives a `[` or a `select()`.
+#' Downgrades to a plain tibble when the subset no longer satisfies the
+#' contract -- a dropped core column, a wrong type, an out-of-vocabulary
+#' `direction` -- so a broken object never survives a `[` or a `select()`.
 #'
 #' @param x A `gs_result`.
 #' @param ... Row/column subscripts, passed to the tibble method.
@@ -351,13 +354,47 @@ rbind.gs_result <- function(..., deparse.level = 1) {
   if (!is.data.frame(out)) {
     return(out)
   }
-  if (all(.gs_core_cols %in% names(out))) new_gs_result(out) else .as_plain_tibble(out)
+  .gs_reclass_result(out)
+}
+
+#' Re-attach the `gs_result` class only if the contract still holds
+#'
+#' `[` and every dplyr verb used to re-attach the class after checking column
+#' *presence* alone, so `validate_gs_result()` was only ever reached from
+#' `gs_result()` itself. `mutate(res, padj = "oops")` or a restored `"Up"`/
+#' `"Down"` capitalisation therefore produced an object that still claimed to be
+#' a `gs_result`, and `gs_filter(direction = "up")` then returned zero rows
+#' silently. Failing the contract downgrades to a plain tibble -- with a
+#' warning, because a silent downgrade is the same class of surprise.
+#'
+#' @param x A data frame produced by a subset or a dplyr verb.
+#' @return A `gs_result` if valid, else a plain tibble.
+#' @keywords internal
+.gs_reclass_result <- function(x) {
+  if (!all(.gs_core_cols %in% names(x))) {
+    return(.as_plain_tibble(x))
+  }
+  out <- new_gs_result(x)
+  ok <- tryCatch(
+    {
+      validate_gs_result(out)
+      TRUE
+    },
+    error = function(e) {
+      warning("Result no longer satisfies the gs_result contract (",
+              conditionMessage(e), "); returning a plain tibble.",
+              call. = FALSE)
+      FALSE
+    }
+  )
+  if (ok) out else .as_plain_tibble(x)
 }
 
 #' Keep `gs_result` through dplyr verbs
 #'
-#' Downgrades to a plain tibble when a verb drops a core column, so a broken
-#' object never survives a `select()`.
+#' Downgrades to a plain tibble (with a warning) when a verb leaves the object
+#' outside the contract, so a broken object never survives a `select()` or a
+#' `mutate()`.
 #'
 #' @param data The reconstructed data frame.
 #' @param template The original `gs_result`.
@@ -365,9 +402,5 @@ rbind.gs_result <- function(..., deparse.level = 1) {
 #' @importFrom dplyr dplyr_reconstruct
 #' @exportS3Method dplyr::dplyr_reconstruct
 dplyr_reconstruct.gs_result <- function(data, template) {
-  if (all(.gs_core_cols %in% names(data))) {
-    new_gs_result(data)
-  } else {
-    .as_plain_tibble(data)
-  }
+  .gs_reclass_result(data)
 }

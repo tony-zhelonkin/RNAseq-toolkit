@@ -243,10 +243,20 @@ summary.gs_matrix <- function(object, ...) {
 #' @param ... Ignored.
 #' @param drop Passed to the matrix method.
 #' @return A `gs_matrix`, or a plain vector when `drop` collapses a dimension.
+#'   A subscript matching no pathway or no sample yields an empty `gs_matrix`,
+#'   not an error.
 #' @export
 `[.gs_matrix` <- function(x, i, j, ..., drop = TRUE) {
   out <- unclass(x)
   attributes(out) <- attributes(out)[c("dim", "dimnames")]
+  # A character subscript that misses gives a raw "subscript out of bounds";
+  # name the offenders instead, as the renderers' `samples` argument does.
+  if (!missing(i) && is.character(i)) {
+    .gs_check_subscript(i, rownames(out), "pathway")
+  }
+  if (!missing(j) && is.character(j)) {
+    .gs_check_subscript(j, colnames(out), "sample")
+  }
   out <- if (missing(i) && missing(j)) {
     out[, , drop = drop]
   } else if (missing(i)) {
@@ -259,15 +269,46 @@ summary.gs_matrix <- function(object, ...) {
   if (length(dim(out)) != 2L) {
     return(out)
   }
+  # This goes through the low-level constructor, not `gs_matrix()`: a subset is
+  # well-formed by construction, whereas the full constructor rejects two things
+  # that are legitimate here. Zero-extent results -- `gm[rownames(gm) %in% keep, ]`
+  # where `keep` matches nothing -- aborted the script instead of yielding an
+  # empty matrix, even though "an empty result is a valid answer" is the
+  # contract on the `gs_result` side; and a repeated subscript (`gm[c(1, 1), ]`)
+  # tripped the duplicate-row-name check.
+  rn <- rownames(out) %||% character(0)
+  cn <- colnames(out) %||% character(0)
+  dimnames(out) <- list(rn, cn)
+  pn <- attr(x, "pathway_names")[rn]
+  names(pn) <- rn
+
   sd <- attr(x, "sample_data")
-  gs_matrix(
+  new_gs_matrix(
     out,
     database = attr(x, "database"),
     method = attr(x, "method"),
     score_type = attr(x, "score_type"),
-    pathway_names = attr(x, "pathway_names")[rownames(out)],
-    sample_data = if (is.null(sd)) NULL else sd[colnames(out), , drop = FALSE]
+    pathway_names = pn,
+    sample_data = if (is.null(sd)) NULL else sd[cn, , drop = FALSE]
   )
+}
+
+#' Report character subscripts that match nothing
+#'
+#' @param idx Character subscript.
+#' @param have Available names.
+#' @param what `"pathway"` or `"sample"`, used in the message.
+#' @return `NULL`, invisibly; errors when `idx` has unmatched entries.
+#' @keywords internal
+.gs_check_subscript <- function(idx, have, what) {
+  unknown <- setdiff(idx, have)
+  if (length(unknown)) {
+    stop(length(unknown), " ", what,
+         if (length(unknown) == 1L) "" else "s",
+         " not found in the gs_matrix: ",
+         paste(utils::head(unknown, 5L), collapse = ", "), ".", call. = FALSE)
+  }
+  invisible(NULL)
 }
 
 #' Convert a `gs_matrix` to long form

@@ -15,6 +15,7 @@
 A \code{gs_result} if the core columns survived, else a tibble.
 }
 \description{
-Downgrades to a plain tibble when a verb drops a core column, so a broken
-object never survives a \code{select()}.
+Downgrades to a plain tibble (with a warning) when a verb leaves the object
+outside the contract, so a broken object never survives a \code{select()} or a
+\code{mutate()}.
 }

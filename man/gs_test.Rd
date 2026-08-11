@@ -19,7 +19,14 @@ gs_test(x, db, method = NULL, contrast = "contrast", ..., verbose = FALSE)
 
 \method{gs_test}{character}(x, db, method = NULL, contrast = "contrast", ..., verbose = FALSE)
 
-\method{gs_test}{gs_matrix}(x, db, method = NULL, contrast = "contrast", ..., verbose = FALSE)
+\method{gs_test}{gs_matrix}(
+  x,
+  db = NULL,
+  method = NULL,
+  contrast = "contrast",
+  ...,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{x}{A named numeric vector, a character vector of gene identifiers, or

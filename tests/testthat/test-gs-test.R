@@ -99,3 +99,53 @@ test_that("gs_test on a gs_matrix needs a design", {
   )
   expect_error(gs_test(gm), "design")
 })
+
+# --- regressions from the compute-layer review -------------------------------
+
+test_that("gs_test leaves the caller's RNG stream untouched", {
+  # `set.seed(seed)` was called on the global stream and never restored, once
+  # per database, so anything random *after* a gs_test() call was drawn from the
+  # seed-123 stream rather than the script's own.
+  db <- fake_gs_db()
+  set.seed(999)
+  before <- runif(3)
+  set.seed(999)
+  invisible(gs_test(fake_ranks(), db, min_size = 5, max_size = 50))
+  after <- runif(3)
+  expect_identical(before, after)
+})
+
+test_that("a partially named db list still labels every database", {
+  # `names(db) %||% ...` never fired for a partially named list, because names()
+  # returns "" (not NULL) for the unnamed slots, so half the rows carried
+  # `database = ""` and grouped under a blank label.
+  db <- list(fake_gs_db(database = "alpha"),
+             beta = fake_gs_db(database = "betaDB"))
+  res <- gs_test(fake_ranks(), db, min_size = 5, max_size = 50)
+  expect_setequal(unique(res$database), c("alpha", "beta"))
+  expect_false(any(!nzchar(res$database)))
+})
+
+test_that("gs_test on a gs_matrix records the scoring method that made it", {
+  skip_if_not_installed("limma")
+  m <- matrix(
+    c(rnorm(4, 2), rnorm(4, -2), rnorm(8, 0)), nrow = 2, byrow = TRUE,
+    dimnames = list(c("SET_UP", "SET_MID"), paste0("s", 1:8))
+  )
+  gm <- bulkiRNA:::gs_matrix(
+    m, database = "testdb", method = "ssgsea",
+    sample_data = fake_sample_data()
+  )
+  res <- gs_test(gm, design = ~ 0 + group, contrast = "groupKO-groupWT")
+  expect_true(all(res$method == "ssgsea"))
+})
+
+test_that("an empty result keeps the method's optional columns", {
+  # A contrast that yields no pathways used to lose `leading_edge`, so a
+  # per-contrast gs_leading_edge() reported a usage error for an empty answer.
+  res <- gs_test(fake_ranks(), fake_gs_db(list(TOO_BIG = paste0("G", 1:100))),
+                 min_size = 5, max_size = 10)
+  expect_true("leading_edge" %in% names(res))
+  expect_true(is.list(res$leading_edge))
+  expect_length(gs_leading_edge(res), 0L)
+})

@@ -69,3 +69,32 @@ test_that("summary reports dimensions and score range", {
 test_that("print shows the gs_matrix header", {
   expect_output(print(fake_gs_matrix()), "gs_matrix")
 })
+
+# --- regressions from the compute-layer review -------------------------------
+
+test_that("subsetting to zero pathways or samples yields an empty gs_matrix", {
+  # `[` funnelled through the full gs_matrix() constructor, whose "must have row
+  # names" check rejects character(0) dimnames, so a pathway filter that matched
+  # nothing aborted the script instead of returning an empty matrix.
+  m <- fake_gs_matrix(3L, 4L)
+  none <- m[rownames(m) %in% "not_a_pathway", , drop = FALSE]
+  expect_s3_class(none, "gs_matrix")
+  expect_identical(dim(none), c(0L, 4L))
+  expect_length(bulkiRNA:::gs_pathway_names(none), 0L)
+
+  no_samp <- m[, character(0), drop = FALSE]
+  expect_s3_class(no_samp, "gs_matrix")
+  expect_identical(dim(no_samp), c(3L, 0L))
+  expect_identical(nrow(bulkiRNA:::gs_sample_data(no_samp)), 0L)
+})
+
+test_that("a repeated subscript is allowed and an unmatched name is named", {
+  m <- fake_gs_matrix(3L, 4L)
+  dup <- m[c(1L, 1L), , drop = FALSE]
+  expect_s3_class(dup, "gs_matrix")
+  expect_identical(dim(dup), c(2L, 4L))
+
+  # Was a raw "subscript out of bounds".
+  expect_error(m[c("SET_1", "nope"), ], "nope")
+  expect_error(m[, c("s1", "nosuch")], "nosuch")
+})
