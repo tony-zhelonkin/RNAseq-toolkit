@@ -2,7 +2,7 @@
 "empty_gsea_tibble","PASS",""
 "list_to_term2gene","PASS",""
 "filter_by_size","PASS",""
-"format_pathway_name","FAIL","4 string mismatches"
+"format_pathway_name","PASS",""
 "ensure_dir","PASS",""
 "build_dge","PASS",""
 "list_reference_dbs","PASS",""

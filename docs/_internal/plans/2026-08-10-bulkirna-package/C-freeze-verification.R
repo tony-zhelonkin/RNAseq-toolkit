@@ -1,3 +1,11 @@
+# Freeze verification: every one of the 24 frozen names, old formals vs the
+# package's, compared programmatically.
+#
+# HISTORICAL. This script needs scripts/ and therefore only runs at a commit
+# before scripts/ was deleted (383189a or earlier). Its output is preserved
+# verbatim next to it in C-freeze-verification.txt -- that file, not this one,
+# is the evidence. Kept so the method is auditable, not so it can be re-run.
+
 suppressWarnings(suppressMessages(pkgload::load_all(".", quiet=TRUE, export_all=FALSE)))
 options(warn=-1)
 # Load every old definition into one env, mimicking the harness's own order so

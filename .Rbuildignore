@@ -12,12 +12,10 @@
 ^LICENSE\.md$
 ^docs$
 ^examples$
-^scripts$
 ^data$
 ^tests/golden$
 ^tests/fixtures$
 ^tests/output$
 ^tests/README\.md$
 ^tests/VOLCANO_FIX_SUMMARY\.md$
-^tests/test_.*\.R$
 ^tests/.*\.pdf$
