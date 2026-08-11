@@ -70,7 +70,9 @@
 #'   black, with overlap suppression disabled.
 #' @param label_method One of `"top"`, `"sig"`, `"p"`, `"log2fc"`; anything else
 #'   labels nothing.
-#' @param x_breaks Numeric spacing between fold-change axis ticks.
+#' @param x_breaks Numeric spacing between fold-change axis ticks, in both
+#'   orientations -- it follows the fold-change axis, not the *x* position. The
+#'   -log10(p) axis always takes ggplot2's default breaks.
 #' @param title Plot title.
 #' @param subtitle Optional subtitle.
 #' @param caption Optional caption. `NULL` generates one documenting the
@@ -147,7 +149,13 @@ de_volcano <- function(
       sig_line  <- -log10(fixed_p_boundary)
       draw_line <- TRUE
     } else {
-      sig_pvals <- de_results$P.Value[sig_logic]
+      # `[sig_logic]` on a logical carrying NA keeps the NA positions, so this
+      # was non-empty even when nothing was significant; `max(na.rm = TRUE)`
+      # then returned -Inf and the line became NaN with draw_line = TRUE,
+      # captioning the figure "p <= NaN" and making the documented "no genes
+      # pass FDR" branch unreachable. `which()` drops the NAs.
+      sig_pvals <- de_results$P.Value[which(sig_logic)]
+      sig_pvals <- sig_pvals[!is.na(sig_pvals)]
       if (length(sig_pvals) > 0) {
         # The line goes at the largest raw p among the FDR-significant genes,
         # so it lands exactly on the colour boundary.
@@ -205,10 +213,12 @@ de_volcano <- function(
   }
 
   # ---- 3. limits and colours ------------------------------------------------
-  fc_max  <- ceiling(max(abs(df$logFC), na.rm = TRUE))
   fc_tick <- ceiling(max(abs(df$logFC), na.rm = TRUE) / x_breaks) * x_breaks
-  p_max   <- ceiling(max(-log10(df$P.Value), na.rm = TRUE))
-  p_tick  <- ceiling(max(-log10(df$P.Value), na.rm = TRUE) / x_breaks) * x_breaks
+  # A p-value that underflowed to 0 made `-log10()` infinite, and that Inf went
+  # straight into `coord_cartesian(ylim = c(0, p_max))`, squashing every point
+  # at the bottom of a blank panel. Clamp at the smallest representable double.
+  p_top   <- max(-log10(pmax(df$P.Value, .Machine$double.xmin)), na.rm = TRUE)
+  p_max   <- ceiling(p_top)
   dark_pal <- .de_shade(color_palette)
 
   legend_labels <- c(
@@ -269,9 +279,15 @@ de_volcano <- function(
                         colour = .data$cat)) +
       geom_point(size = 2, alpha = 0.65) +
       geom_hline(yintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
-      scale_x_continuous(breaks = seq(0, p_tick, by = x_breaks),
-                         limits = c(0, p_tick)) +
-      coord_cartesian(ylim = c(-fc_max, fc_max)) +
+      # `x_breaks` is documented as the fold-change tick spacing, but in this
+      # orientation fold change is on *y*: it used to retune the -log10(p) axis
+      # instead, so `x_breaks = 0.5` on a dataset reaching p = 1e-40 asked for
+      # ~80 p-axis ticks while the fold-change axis it names got ggplot2's
+      # defaults. Both orientations now put `x_breaks` on the fold-change axis
+      # and take the breaks-aligned tick maximum as its limit.
+      scale_y_continuous(breaks = seq(-fc_tick, fc_tick, by = x_breaks),
+                         limits = c(-fc_tick, fc_tick)) +
+      coord_cartesian(xlim = c(0, p_max)) +
       labs(y = "log2(FC)", x = expression(-log[10](p - value)))
   }
 
@@ -292,7 +308,7 @@ de_volcano <- function(
   } else if (decision_by == "fdr") {
     g <- g + annotate(
       "text",
-      x = if (orientation == "horizontal") fc_tick * 0.5 else p_tick * 0.5,
+      x = if (orientation == "horizontal") fc_tick * 0.5 else p_max * 0.5,
       y = if (orientation == "horizontal") p_max * 0.95 else 0,
       label = sprintf("No genes pass FDR \u2264 %.2g", p_cutoff),
       size = 4, colour = "darkred", fontface = "italic")

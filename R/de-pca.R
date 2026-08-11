@@ -51,8 +51,10 @@
 #'   `NULL`.
 #' @param label Logical. Draw the `colour_by` value above each point.
 #' @param title Plot title.
-#' @param xlim_abs,ylim_abs Optional symmetric axis limits. `NULL` derives them
-#'   from the data with 10% head-room.
+#' @param xlim_abs,ylim_abs Optional symmetric axis limits, applied as a zoom
+#'   (`coord_fixed()`), so a sample outside them is clipped from view rather
+#'   than dropped from the figure. `NULL` derives them from the data with 10%
+#'   head-room.
 #' @param point_size,label_size Numeric sizes.
 #' @param color_palette Character vector of colours recycled across the
 #'   `colour_by` levels.
@@ -122,15 +124,20 @@ de_pca <- function(dge,
       values = rep_len(color_palette, max(n_lev, 1L)))
   }
 
+  # `xlim()`/`ylim()` set *scale* limits, which convert out-of-range samples to
+  # NA and drop them -- the only signal being a "Removed n rows" warning at
+  # print time. Pinning `xlim_abs` to make panels comparable across organs
+  # therefore deleted the outlier sample instead of zooming past it. Every
+  # sibling renderer clips with coord_*, and this one already called
+  # `coord_fixed()`, so the limits belong there.
   g +
     .de_theme() +
-    xlim(-xlim_val, xlim_val) +
-    ylim(-ylim_val, ylim_val) +
     theme(legend.position = "right",
           legend.box = "vertical",
           plot.title = element_text(hjust = 0.5),
           plot.margin = margin(10, 10, 10, 10)) +
-    coord_fixed()
+    coord_fixed(xlim = c(-xlim_val, xlim_val),
+                ylim = c(-ylim_val, ylim_val))
 }
 
 #' Interactive three-dimensional PCA of a DGEList

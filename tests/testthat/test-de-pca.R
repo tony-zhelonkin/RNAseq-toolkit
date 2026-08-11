@@ -32,3 +32,19 @@ test_that("de_pca_3d returns a plotly object", {
   p <- de_pca_3d(dge, colour_by = "group")
   expect_s3_class(p, "plotly")
 })
+
+# --- regression from the DE review -------------------------------------------
+
+test_that("xlim_abs zooms instead of deleting samples", {
+  skip_if_not_installed("edgeR")
+  # `xlim()`/`ylim()` set scale limits, so a sample outside them became NA and
+  # was dropped -- the only signal a "Removed n rows" warning at print time.
+  dge <- fake_dge()
+  full <- de_pca(dge, colour_by = "group")
+  n <- nrow(ggplot2::ggplot_build(full)$data[[1]])
+
+  tight <- de_pca(dge, colour_by = "group", xlim_abs = 1e-3, ylim_abs = 1e-3)
+  pts <- ggplot2::ggplot_build(tight)$data[[1]]
+  expect_identical(nrow(pts), n)
+  expect_false(any(is.na(pts$x)))
+})

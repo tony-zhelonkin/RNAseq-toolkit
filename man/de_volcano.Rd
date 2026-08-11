@@ -47,7 +47,9 @@ black, with overlap suppression disabled.}
 \item{label_method}{One of \code{"top"}, \code{"sig"}, \code{"p"}, \code{"log2fc"}; anything else
 labels nothing.}
 
-\item{x_breaks}{Numeric spacing between fold-change axis ticks.}
+\item{x_breaks}{Numeric spacing between fold-change axis ticks, in both
+orientations -- it follows the fold-change axis, not the \emph{x} position. The
+-log10(p) axis always takes ggplot2's default breaks.}
 
 \item{title}{Plot title.}
 

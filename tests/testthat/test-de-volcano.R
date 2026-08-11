@@ -140,3 +140,47 @@ test_that("de_volcano_grid keeps the threshold caption in both modes", {
   g2 <- de_volcano_grid(list(A = pa, B = pa), keep_first_caption = TRUE)
   expect_equal(g2[[1]]$labels$caption, pa$labels$caption)
 })
+
+# --- regressions from the DE review ------------------------------------------
+
+test_that("an all-NA adj.P.Val takes the documented no-genes-pass path", {
+  # `de_results$P.Value[sig_logic]` kept the NA positions, so the vector was
+  # non-empty with nothing significant; max(na.rm = TRUE) returned -Inf and the
+  # line became NaN with draw_line = TRUE, captioning the figure "p <= NaN".
+  de <- fake_de_table()
+  de$adj.P.Val <- NA_real_
+  expect_silent(p <- de_volcano(de, fc_cutoff = 1))
+  expect_length(vline_xintercepts(p), 2L)      # the fold-change lines only
+  expect_length(hline_yintercepts(p), 0L)      # no p boundary line
+  expect_false(grepl("NaN", p$labels$caption, fixed = TRUE))
+  ann <- Filter(function(l) inherits(l$geom, "GeomText") &&
+                  !inherits(l$geom, "GeomTextRepel"), p$layers)
+  expect_true(any(grepl("No genes pass FDR",
+                        vapply(ann, function(l) l$aes_params$label %||% "",
+                               character(1L)))))
+})
+
+test_that("a p-value of zero does not make the axis limit infinite", {
+  de <- fake_de_table()
+  de$P.Value[1] <- 0
+  p <- de_volcano(de, fc_cutoff = 1)
+  yr <- ggplot2::ggplot_build(p)$layout$panel_params[[1]]$y.range
+  expect_true(all(is.finite(yr)))
+})
+
+test_that("x_breaks follows the fold-change axis in both orientations", {
+  # `x_breaks` is documented as fold-change tick spacing, but in vertical mode
+  # fold change is on y: it used to retune the -log10(p) axis instead.
+  de <- fake_de_table()
+  h <- de_volcano(de, fc_cutoff = 1, x_breaks = 0.5)
+  v <- de_volcano(de, fc_cutoff = 1, x_breaks = 0.5, orientation = "vertical")
+
+  fc_breaks <- function(p, axis) {
+    sc <- ggplot2::layer_scales(p)[[axis]]
+    b <- sc$get_breaks()
+    b <- b[is.finite(b)]
+    unique(round(diff(sort(b)), 8))
+  }
+  expect_identical(fc_breaks(h, "x"), 0.5)
+  expect_identical(fc_breaks(v, "y"), 0.5)
+})

@@ -31,8 +31,10 @@ de_pca(
 
 \item{title}{Plot title.}
 
-\item{xlim_abs, ylim_abs}{Optional symmetric axis limits. \code{NULL} derives them
-from the data with 10\% head-room.}
+\item{xlim_abs, ylim_abs}{Optional symmetric axis limits, applied as a zoom
+(\code{coord_fixed()}), so a sample outside them is clipped from view rather
+than dropped from the figure. \code{NULL} derives them from the data with 10\%
+head-room.}
 
 \item{point_size, label_size}{Numeric sizes.}
 
