@@ -9,7 +9,7 @@
 #' @return A single-character separator.
 #' @keywords internal
 .io_guess_sep <- function(path) {
-  line <- readLines(path, n = 1L, warn = FALSE)
+  line <- .io_first_noncomment_line(path)
   if (!length(line)) {
     stop("`", path, "` is empty.", call. = FALSE)
   }
@@ -21,6 +21,39 @@
          path, "`.", call. = FALSE)
   }
   unname(cand[which.max(counts)])
+}
+
+#' Count and return the leading `#`-comment lines of a text file
+#'
+#' `featureCounts` always writes a `# Program:featureCounts ...` line before
+#' its header. Sniffing or reading line 1 unconditionally treats that comment
+#' as the header/data, which breaks both. This scans from the top and returns
+#' how many leading lines start with `#`, plus the first line that does not.
+#'
+#' @param path Path to a text file.
+#' @return A list with `skip` (integer count of leading comment lines) and
+#'   `line` (the first non-comment line, or `character(0)` if the file is
+#'   exhausted).
+#' @keywords internal
+.io_skip_leading_comments <- function(path) {
+  con <- file(path, "r")
+  on.exit(close(con))
+  skip <- 0L
+  repeat {
+    line <- readLines(con, n = 1L, warn = FALSE)
+    if (!length(line)) return(list(skip = skip, line = character(0)))
+    if (!startsWith(line, "#")) return(list(skip = skip, line = line))
+    skip <- skip + 1L
+  }
+}
+
+#' First non-`#`-comment line of a text file
+#'
+#' @param path Path to a text file.
+#' @return A single-character line, or `character(0)` if the file has none.
+#' @keywords internal
+.io_first_noncomment_line <- function(path) {
+  .io_skip_leading_comments(path)$line
 }
 
 #' Read a wide counts table into a matrix
@@ -57,7 +90,8 @@ read_counts_matrix <- function(path) {
   if (!file.exists(path)) {
     stop("`path` does not exist: ", path, call. = FALSE)
   }
-  dt <- utils::read.delim(path, sep = .io_guess_sep(path),
+  n_skip <- .io_skip_leading_comments(path)$skip
+  dt <- utils::read.delim(path, sep = .io_guess_sep(path), skip = n_skip,
                           check.names = FALSE, stringsAsFactors = FALSE)
   nm <- names(dt)
   fc_meta <- c("Geneid", "Chr", "Start", "End", "Strand", "Length")
@@ -119,7 +153,7 @@ read_metadata <- function(path,
   }
   ext <- tolower(tools::file_ext(path))
   if (ext %in% c("xlsx", "xls")) {
-    .de_require("readxl", "Reading an Excel metadata sheet")
+    .require_pkg("readxl", "Reading an Excel metadata sheet")
     md <- as.data.frame(readxl::read_excel(path), check.names = FALSE)
   } else {
     md <- utils::read.delim(path, sep = .io_guess_sep(path),

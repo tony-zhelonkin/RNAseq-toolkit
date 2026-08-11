@@ -10,7 +10,8 @@ ensure_dir(path)
 \item{path}{Character vector of directory paths.}
 }
 \value{
-\code{path}, invisibly, so the call can be inlined.
+\code{path}, invisibly, so the call can be inlined. Errors if a
+directory could not be created (e.g. a read-only parent).
 }
 \description{
 Creates each directory in \code{path} if it is missing, including parents.
