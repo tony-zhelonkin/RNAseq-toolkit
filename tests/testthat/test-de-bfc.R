@@ -31,3 +31,27 @@ test_that("top labels are ranked by decreasing B on each side", {
   expect_length(repel, 1L)
   expect_equal(nrow(repel[[1]]$data), 4L)
 })
+
+# --- regression: highlight overlapping the top-N ------------------------------
+# `rbind()` uniquifies colliding row names, so a highlighted gene that was also
+# top-N was appended as "Gene11"/"Gene51" -- names of genes that do not exist --
+# and the following `!duplicated(rownames(...))` could never fire. The invented
+# string was drawn on the figure and, being unequal to the real id, was not
+# bolded either.
+test_that("de_bfc_plot never invents a gene name when highlight overlaps top-N", {
+  de <- data.frame(logFC = c(-3, -1, 0.2, 1.5, 4, 2.5, -2.2),
+                   B = c(4, -1, -3, 0.5, 6, 3, 2),
+                   AveExpr = 1:7, P.Value = 0.01, adj.P.Val = 0.02,
+                   row.names = paste0("Gene", 1:7))
+  p <- de_bfc_plot(de, fc_cutoff = 1, top_n = 3,
+                   highlight_gene = c("Gene5", "Gene1"))
+  drawn <- unlist(lapply(p$layers, function(l) {
+    d <- l$data
+    if (is.data.frame(d) && ".gene_label" %in% names(d)) d$.gene_label else NULL
+  }))
+  expect_true(all(drawn %in% rownames(de)))
+  expect_false(any(c("Gene11", "Gene51") %in% drawn))
+  # Both highlights must still be labelled exactly once.
+  expect_equal(sum(drawn == "Gene1"), 1L)
+  expect_equal(sum(drawn == "Gene5"), 1L)
+})

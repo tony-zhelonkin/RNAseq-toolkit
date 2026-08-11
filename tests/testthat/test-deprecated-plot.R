@@ -233,3 +233,19 @@ test_that("create_MD_plot warns and forwards to de_md_plot", {
   expect_s3_class(p, "ggplot")
   expect_equal(p$labels$title, "MD plot: KO_vs_WT")
 })
+
+# --- regression: the commonest legacy call on an unremarkable result -----------
+# `gs_plot_bar()` hard-filters by `padj_max` and returns an empty plot when
+# nothing survives; the shim then asked `nrow(p$data)` to decide whether to
+# re-sort. With `$data` a waiver that threw "argument is of length zero", so
+# `gsea_barplot()` errored outright for any run with no significant pathway --
+# the normal outcome at the default cutoff of 0.05. No shim test covered it,
+# which is why it shipped.
+test_that("gsea_barplot survives a result where nothing is significant", {
+  g <- fake_gsea_result(n = 4L)
+  g@result$p.adjust <- rep(0.9, 4)
+  expect_warning(p <- gsea_barplot(g, padj_cutoff = 0.05, top_n = 10),
+                 "deprecated")
+  expect_s3_class(p, "ggplot")
+  expect_equal(nrow(p$data), 0L)
+})

@@ -360,7 +360,7 @@ de_volcano_grid <- function(plots,
                             labels = names(plots),
                             legend_position = "bottom",
                             keep_first_caption = FALSE) {
-  .de_require("patchwork", "`de_volcano_grid()`")
+  .require_pkg("patchwork", "`de_volcano_grid()`")
   if (!is.list(plots) || !length(plots) ||
       !all(vapply(plots, inherits, logical(1), "ggplot"))) {
     stop("`plots` must be a non-empty list of ggplot objects from ",
@@ -373,7 +373,14 @@ de_volcano_grid <- function(plots,
   global_x <- max(vapply(plots, function(p)
     max(layer_scales(p)$x$range$range, na.rm = TRUE), numeric(1)))
 
-  first_cap <- ggplot_build(plots[[1]])$layout$plot$labels$caption
+  # Read the caption off the PLOT, not the build. Under ggplot2 4.0.3
+  # `ggplot_build(p)$layout$plot` no longer exists, so the old read returned
+  # NULL every time: the loop below then set `caption = NULL` on every panel and
+  # the promotion at the end became dead code, silently dropping the caption
+  # from both documented modes. The caption is the only place the *realised*
+  # raw-p boundary behind the dashed lines is reported, so losing it makes the
+  # lines unexplained.
+  first_cap <- plots[[1]]$labels$caption
   if (is.null(first_cap) || !nzchar(first_cap)) first_cap <- NULL
 
   # Each panel already carries its own coord from de_volcano(). Adding a second

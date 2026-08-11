@@ -47,6 +47,25 @@ test_that("no function name is defined twice at top level in R/", {
   )
 })
 
+test_that("no deprecation message sends users to an internal function", {
+  dir <- pkg_r_dir()
+  skip_if(is.null(dir), "package R/ sources not reachable from the test dir")
+
+  files <- list.files(dir, "^deprecated-.*[.]R$", full.names = TRUE)
+  skip_if(!length(files), "no deprecation shim files")
+  txt <- unlist(lapply(files, readLines, warn = FALSE))
+  calls <- grep("\\.Deprecated\\(", txt, value = TRUE)
+  expect_true(length(calls) > 0L)
+
+  # Six shims used to name their private successor -- ".gs_plot_all",
+  # ".gsdb_human_to_mouse()", "the internal filter_by_size() in R/gs-db.R" --
+  # which a user cannot call, and one named a function that no longer existed
+  # under that name at all. A deprecation warning's only job is to say what to
+  # do instead, so pointing at an unreachable name is worse than silence.
+  offenders <- grep('the internal|\\("\\.[a-zA-Z]', calls, value = TRUE)
+  expect_identical(offenders, character(0L))
+})
+
 test_that("every exported name is actually defined in R/", {
   dir <- pkg_r_dir()
   skip_if(is.null(dir), "package R/ sources not reachable from the test dir")

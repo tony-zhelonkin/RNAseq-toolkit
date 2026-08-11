@@ -460,7 +460,11 @@ plot_all_gsea_results <- function(
     sample_annotation = NULL,
     sample_order = NULL,
     ann_colors = NULL) {
-  .Deprecated(".gs_plot_all")
+  # `.gs_plot_all()` is internal, so naming it was unactionable advice.
+  .Deprecated(msg = paste(
+    "`plot_all_gsea_results()` is deprecated. Build the figures you want with",
+    "gs_plot_dot() / gs_plot_bar() / gs_plot_running() and write them with",
+    "gs_save(), which also writes each figure's source table."))
 
   if (is.null(gsea_list) || length(gsea_list) == 0) {
     return(invisible(character(0)))
@@ -503,7 +507,11 @@ save_gsea_log <- function(
     filename,
     padj_cutoff = 0.05,
     dir = NULL) {
-  .Deprecated(".gs_write_log")
+  # `.gs_write_log()` is internal, so naming it was unactionable advice.
+  .Deprecated(msg = paste(
+    "`save_gsea_log()` is deprecated. gs_save() writes the source table",
+    "beside each figure; there is no exported replacement for the free-text",
+    "log, by design."))
 
   if (!is.null(dir)) {
     filename <- file.path(dir, filename)

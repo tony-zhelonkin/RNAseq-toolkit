@@ -57,7 +57,7 @@ de_md_plot <- function(
   if (is.null(title)) title <- paste("MD plot:", coef_name)
 
   if (is.null(de_results)) {
-    .de_require("limma", "`de_md_plot(de_results = NULL)`",
+    .require_pkg("limma", "`de_md_plot(de_results = NULL)`",
                 'BiocManager::install("limma")')
     de_results <- limma::topTable(fit, coef = coef, number = Inf,
                                   sort.by = "none")

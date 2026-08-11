@@ -14,7 +14,7 @@
     stop("`dge` must be a `DGEList`; build one with `build_dge()`.",
          call. = FALSE)
   }
-  .de_require("edgeR", "PCA of a `DGEList`", 'BiocManager::install("edgeR")')
+  .require_pkg("edgeR", "PCA of a `DGEList`", 'BiocManager::install("edgeR")')
 
   logcpm <- edgeR::cpm(dge, log = TRUE, prior.count = 1)
   keep_r <- apply(logcpm, 1, stats::var) > 0
@@ -164,7 +164,7 @@ de_pca_3d <- function(dge,
                       symbol_by  = NULL,
                       title      = "3D PCA Plot",
                       point_size = 8) {
-  .de_require("plotly", "`de_pca_3d()`")
+  .require_pkg("plotly", "`de_pca_3d()`")
   pca <- .de_pca_scores(dge, min_dim = 3L)
   d   <- pca$scores
   if (!"PC3" %in% colnames(d)) {

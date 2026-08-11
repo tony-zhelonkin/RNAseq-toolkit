@@ -54,3 +54,31 @@ test_that("bad input is rejected", {
   expect_error(gs_plot_bar(fake_plot_result(), padj_max = "low"),
                "`padj_max`")
 })
+
+# --- regression: colliding display labels --------------------------------------
+# `label` is the y-axis factor, so two pathways formatting to the same string
+# collapsed onto ONE row with their bars stacked -- the figure showed n-1 of n
+# results, with no warning. Confirmed before the fix: 2 rows of data, 1 distinct
+# y level, 2 bars rendered.
+test_that("two pathways with the same formatted name get separate axis rows", {
+  r <- fake_plot_result(n = 2L)
+  r$pathway_id   <- c("HALLMARK_MYC_TARGETS_V1", "KEGG_MYC_TARGETS_V1")
+  r$pathway_name <- c("MYC_TARGETS_V1", "MYC_TARGETS_V1")
+  p <- gs_plot_bar(r)
+  expect_equal(nrow(p$data), 2L)
+  expect_equal(length(unique(as.character(p$data$label))), 2L)
+  # Disambiguated by the machine id, the one field guaranteed unique.
+  expect_true(all(grepl("HALLMARK_MYC_TARGETS_V1|KEGG_MYC_TARGETS_V1",
+                        as.character(p$data$label))))
+})
+
+# --- regression: the empty plot must answer nrow() -----------------------------
+# `ggplot()` with no data leaves `$data` a `waiver`, so `nrow()` returned NULL
+# and `if (nrow(p$data) > 0L)` threw "argument is of length zero" in callers.
+test_that("an all-filtered-out selection yields a zero-row, not dataless, plot", {
+  r <- fake_plot_result(n = 3L)
+  p <- gs_plot_bar(r, padj_max = 1e-12)
+  expect_s3_class(p, "ggplot")
+  expect_equal(nrow(p$data), 0L)
+  expect_false(is.null(nrow(p$data)))
+})

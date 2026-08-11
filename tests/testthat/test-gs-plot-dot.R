@@ -142,3 +142,21 @@ test_that("the source table travels with the plot", {
   expect_true(all(c("pathway_id", "label", "stat", "padj", "significant")
                   %in% names(src)))
 })
+
+# --- regression: padj == 0 -----------------------------------------------------
+# `-log10(0)` is `Inf`, which no size scale can map, so ggplot2 dropped the point
+# with no warning -- silently deleting the strongest hit in the analysis from the
+# figure. Before the clamp in `.gs_plot_frame()` the built layer's `size` column
+# came back `Inf, 10, 2` and only two of three points were drawn.
+test_that("a pathway with padj == 0 is still drawn, at the largest size", {
+  r <- fake_plot_result(n = 3L)
+  r$padj <- c(0, 1e-3, 0.2)
+  p <- gs_plot_dot(r)
+  d <- layer_data_for(p)
+  expect_equal(nrow(d), 3L)
+  expect_true(all(is.finite(d$size)))
+  # The clamped point must remain the most significant, not merely finite.
+  src <- attr(p, "gs_source")
+  expect_equal(src$pathway_id[which.max(src$neg_log_padj)],
+               r$pathway_id[which(r$padj == 0)])
+})

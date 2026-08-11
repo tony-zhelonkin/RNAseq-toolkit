@@ -105,7 +105,16 @@ load_reference_db <- function(
 #' @return List with filtered `T2G` and `T2N`, same shape as `result`.
 #' @export
 filter_by_size <- function(result, min_size = 5, max_size = 500) {
-  .Deprecated("the internal filter_by_size(db, min_size, max_size) in R/gs-db.R")
+  # Names a public path, not an internal. There is no exported successor
+  # function: size filtering became an *argument* on every provider, so the
+  # replacement for a separate filtering step is not calling one. (The former
+  # target, an internal also called `filter_by_size()`, no longer exists under
+  # that name -- it was renamed `.gs_filter_size()` precisely because sharing a
+  # name with this export silently shadowed it.)
+  .Deprecated(msg = paste(
+    "`filter_by_size()` is deprecated. Size filtering is now an argument on",
+    "the providers: gsdb_msigdb(min_size=, max_size=), gsdb_load(...),",
+    "gsdb_from_file(...)."))
   gs_sizes <- table(result$T2G$gs_name)
   keep <- names(gs_sizes[gs_sizes >= min_size & gs_sizes <= max_size])
   result$T2G <- result$T2G[result$T2G$gs_name %in% keep, , drop = FALSE]
@@ -233,7 +242,13 @@ parse_mitoxplorer <- function(
     min_size = 5,
     max_size = 500
 ) {
-  .Deprecated("the internal .gsdb_parse_mitoxplorer() in R/gsdb-rebuild.R")
+  # The parser itself is internal, so naming it told users to call something
+  # they cannot reach. Point at the public route to the same sets instead.
+  .Deprecated(msg = paste(
+    "`parse_mitoxplorer()` is deprecated. Load the bundled sets with",
+    "gsdb_load(\"mitoxplorer\"), or parse an arbitrary file with",
+    "gsdb_from_file(). Rebuilding from a raw mitoXplorer export is a",
+    "maintainer task and has no exported equivalent."))
   if (!file.exists(file)) {
     stop("mitoXplorer file not found: ", file)
   }
@@ -278,7 +293,12 @@ parse_mitoxplorer <- function(
 #' @return `T2G` with mouse gene symbols.
 #' @export
 convert_human_to_mouse <- function(T2G, drop_unmapped = TRUE, verbose = TRUE) {
-  .Deprecated("the internal .gsdb_human_to_mouse() in R/gsdb-rebuild.R")
+  # The mapper is internal; the user-facing equivalent is asking a provider for
+  # mouse sets from the human MSigDB, which maps orthologs itself.
+  .Deprecated(msg = paste(
+    "`convert_human_to_mouse()` is deprecated. Ask for the species you want",
+    "directly: gsdb_msigdb(species = \"Mus musculus\", db_species = \"HS\")",
+    "maps human sets to mouse orthologs as it loads them."))
   if (isFALSE(drop_unmapped)) {
     warning("`drop_unmapped = FALSE` has no effect: the new ortholog mapper ",
             "always drops genes it cannot map.", call. = FALSE)

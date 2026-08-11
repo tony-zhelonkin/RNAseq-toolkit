@@ -166,11 +166,30 @@
     df <- .gs_select_top(df, top = NULL, sort_by = sort_by, group_by = NULL)
   }
 
-  df$label <- .gs_wrap_label(
-    format_pathway_name(df$pathway_name, strip_prefix = strip_prefix),
-    width = wrap_width
-  )
-  df$neg_log_padj <- -log10(df$padj)
+  # Two different pathways can format to the same display label -- the same set
+  # name in two collections, or two ids that differ only in a part
+  # `format_pathway_name()` drops. `label` becomes the y-axis factor, so equal
+  # labels collapse onto ONE row and the bars/points stack on top of each other:
+  # the figure silently shows n-1 of n results. Disambiguate the collisions only
+  # (with the machine id, the one thing guaranteed unique), before wrapping, so
+  # the appended text is wrapped too.
+  lbl <- format_pathway_name(df$pathway_name, strip_prefix = strip_prefix)
+  dup <- lbl %in% lbl[duplicated(lbl)]
+  if (any(dup)) {
+    lbl[dup] <- paste0(lbl[dup], " (", df$pathway_id[dup], ")")
+  }
+  df$label <- .gs_wrap_label(lbl, width = wrap_width)
+
+  # `padj == 0` is reachable whenever a p-value underflows -- routine for
+  # permutation-free methods and large n -- and `-log10(0)` is `Inf`, which no
+  # size or colour scale can map. ggplot2 drops such a point with no warning
+  # and no error, so the pathway silently missing from the figure is the single
+  # STRONGEST hit in the analysis. Clamp to the smallest non-zero `padj` in the
+  # frame, which keeps the scale's spread meaningful, rather than to the double
+  # floor, which would peg one point at -log10 ~= 308 and flatten the rest.
+  pos <- df$padj[is.finite(df$padj) & df$padj > 0]
+  padj_floor <- if (length(pos)) min(pos) else .Machine$double.xmin
+  df$neg_log_padj <- -log10(pmax(df$padj, padj_floor))
   df$significant <- if (is.null(highlight)) {
     rep(FALSE, nrow(df))
   } else {
@@ -265,7 +284,13 @@
 #' @return A ggplot object.
 #' @keywords internal
 .gs_empty_plot <- function(title = NULL, subtitle = "No pathways to plot") {
-  p <- ggplot() +
+  # `ggplot()` with no data leaves `$data` a `waiver`, so `nrow(p$data)` is
+  # NULL and any caller writing `if (nrow(p$data) > 0L)` throws "argument is of
+  # length zero". That is not hypothetical: it is why `gsea_barplot()` errored
+  # outright whenever nothing passed `padj_cutoff` -- the normal outcome at the
+  # default 0.05. An explicit zero-row frame makes the empty plot answer
+  # `nrow()`, `ncol()` and `$data` like every non-empty one.
+  p <- ggplot(data.frame()) +
     labs(title = title, subtitle = subtitle) +
     theme_bulki()
   attr(p, "gs_source") <- data.frame()

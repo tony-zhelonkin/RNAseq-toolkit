@@ -119,3 +119,24 @@ test_that("de_volcano_grid applies shared limits without ggplot2 chatter", {
   panel <- ggplot2::ggplot_build(g[[1]])$layout$panel_params[[1]]
   expect_equal(panel$y.range, c(-global_y, global_y) * 1.1, tolerance = 1e-8)
 })
+
+# --- regression: the grid's threshold caption ---------------------------------
+# The caption was read as `ggplot_build(p)$layout$plot$labels$caption`, but
+# ggplot2 4.0.3 dropped `$layout$plot`, so the read was always NULL: every panel
+# then had `caption = NULL` set and the promotion branch was dead code. Both
+# documented modes lost the caption, which is the only place the realised raw-p
+# boundary behind the dashed lines is reported.
+test_that("de_volcano_grid keeps the threshold caption in both modes", {
+  skip_if_not_installed("patchwork")
+  de <- fake_de_table(n = 60, n_sig = 20)
+  pa <- de_volcano(de, fc_cutoff = 1)
+  expect_true(nzchar(pa$labels$caption))
+
+  # Default: promoted to a single figure-level annotation.
+  g <- de_volcano_grid(list(A = pa, B = pa))
+  expect_equal(g$patches$annotation$caption, pa$labels$caption)
+
+  # keep_first_caption: kept on panel 1 instead.
+  g2 <- de_volcano_grid(list(A = pa, B = pa), keep_first_caption = TRUE)
+  expect_equal(g2[[1]]$labels$caption, pa$labels$caption)
+})

@@ -84,8 +84,16 @@ de_bfc_plot <- function(
     df[0, , drop = FALSE]
   )
   if (!is.null(highlight_gene)) {
-    lab_df <- rbind(lab_df, df[rownames(df) %in% highlight_gene, , drop = FALSE])
-    lab_df <- lab_df[!duplicated(rownames(lab_df)), , drop = FALSE]
+    extra <- df[rownames(df) %in% highlight_gene, , drop = FALSE]
+    # `rbind()` on data frames *uniquifies* colliding row names -- "Gene1"
+    # becomes "Gene11" -- so appending a highlight that is already in `lab_df`
+    # invented a gene that does not exist. The `!duplicated(rownames(...))` that
+    # used to follow could never fire, because after the rename the names are no
+    # longer duplicates, and the mangled string was then drawn on the figure as
+    # a label (and, being unequal to the real id, was not bolded either).
+    # Remove the overlap from `lab_df` first so `rbind()` has nothing to rename.
+    lab_df <- lab_df[!rownames(lab_df) %in% rownames(extra), , drop = FALSE]
+    lab_df <- rbind(lab_df, extra)
   }
 
   xmax <- ceiling(max(abs(df$logFC), na.rm = TRUE) / x_breaks) * x_breaks

@@ -36,25 +36,6 @@ NULL
   )
 }
 
-#' Require a Suggests package
-#'
-#' @param pkg Character(1) package name.
-#' @param what Character(1) description of what needed it.
-#' @return `TRUE`, invisibly; errors otherwise.
-#' @keywords internal
-.gatom_require <- function(pkg, what) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    installer <- if (pkg == "gatom") {
-      "BiocManager::install(\"gatom\")"
-    } else {
-      sprintf("install.packages(\"%s\")", pkg)
-    }
-    stop("`", what, "` requires the ", pkg, " package. Install it with ",
-         installer, ".", call. = FALSE)
-  }
-  invisible(TRUE)
-}
-
 #' Locate the GATOM reference files
 #'
 #' GATOM needs three files: an atom-transition network, a metabolite database
@@ -329,9 +310,9 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #' @export
 gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
                          seed = 42, solver = "rnc", verbose = FALSE) {
-  .gatom_require("gatom", "gatom_module()")
-  .gatom_require("mwcsr", "gatom_module()")
-  .gatom_require("igraph", "gatom_module()")
+  .require_pkg("gatom", "gatom_module()", 'BiocManager::install("gatom")')
+  .require_pkg("mwcsr", "gatom_module()")
+  .require_pkg("igraph", "gatom_module()")
 
   if (!inherits(refs, "gatom_refs")) {
     stop("`refs` must be a `gatom_refs` object from gatom_refs().",
@@ -425,7 +406,7 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
 #' }
 #' @export
 gatom_genes <- function(m) {
-  .gatom_require("igraph", "gatom_genes()")
+  .require_pkg("igraph", "gatom_genes()")
   if (!inherits(m, "igraph")) {
     stop("`m` must be an igraph module from gatom_module(); got ",
          class(m)[[1L]], ".", call. = FALSE)
@@ -460,8 +441,8 @@ gatom_genes <- function(m) {
 #' }
 #' @export
 gatom_save_html <- function(m, path, name = "") {
-  .gatom_require("gatom", "gatom_save_html()")
-  .gatom_require("igraph", "gatom_save_html()")
+  .require_pkg("gatom", "gatom_save_html()", 'BiocManager::install("gatom")')
+  .require_pkg("igraph", "gatom_save_html()")
   if (!inherits(m, "igraph")) {
     stop("`m` must be an igraph module from gatom_module(); got ",
          class(m)[[1L]], ".", call. = FALSE)

@@ -61,18 +61,3 @@
   }, character(1))
 }
 
-#' Require a suggested package
-#'
-#' @param pkg Package name.
-#' @param what Short description of the feature that needs it.
-#' @param install Installation call to suggest.
-#' @return `TRUE`, invisibly, or an error.
-#' @keywords internal
-.de_require <- function(pkg, what,
-                        install = sprintf('install.packages("%s")', pkg)) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    stop(sprintf("%s requires the `%s` package. Install it with %s.",
-                 what, pkg, install), call. = FALSE)
-  }
-  invisible(TRUE)
-}

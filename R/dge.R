@@ -26,7 +26,7 @@
 #' }
 build_dge <- function(count_mat, samples_df, genes_df,
                       round_nonint = TRUE, norm_method = "TMM") {
-  .de_require("edgeR", "`build_dge()`", 'BiocManager::install("edgeR")')
+  .require_pkg("edgeR", "`build_dge()`", 'BiocManager::install("edgeR")')
 
   cm <- as.matrix(count_mat)
   storage.mode(cm) <- "numeric"
@@ -97,9 +97,9 @@ annotate_genes <- function(ens_ids,
                     "Mus musculus" = "mmusculus_gene_ensembl",
                     "Homo sapiens" = "hsapiens_gene_ensembl")
 
-  .de_require("AnnotationDbi", "`annotate_genes()`",
+  .require_pkg("AnnotationDbi", "`annotate_genes()`",
               'BiocManager::install("AnnotationDbi")')
-  .de_require(orgdb, sprintf("`annotate_genes(species = \"%s\")`", species),
+  .require_pkg(orgdb, sprintf("`annotate_genes(species = \"%s\")`", species),
               sprintf('BiocManager::install("%s")', orgdb))
 
   stable <- sub("\\..*$", "", ens_ids)
