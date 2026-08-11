@@ -707,3 +707,46 @@ Four commits, one per layer.
   two new tests mock `utils::download.file` and exercise the skip/rename logic, not the network.
 - **`.gatom_search_dirs()` was extracted** so the resolution order is testable without a
   `/opt/gatom-refs` present. The old path had no test at all.
+
+---
+
+## 11. Release and dev-loop verification (2026-08-11)
+
+**Origin was already current.** An earlier report in this plan said
+`origin/feat/bulkirna-package` was 64 commits behind; that was a stale remote ref read
+before a fetch. `git rev-list --count origin/feat/bulkirna-package..HEAD` is `0` at
+`a484acd`.
+
+**`v0.3.0` was force-moved from `163cc4f` to `a484acd`** and pushed to both `origin` and
+`hub`. The old tag predated all eight high-severity and roughly twenty medium fixes and
+had never been published, so nothing pinned it; the alternative considered was a fresh
+`v0.3.1`, rejected because the restructure plan and the `scdock-r-dev` bump both name
+`v0.3.0` by version. Its message now carries the corrected gate claim: `R CMD check` is
+OK under `_R_CHECK_FORCE_SUGGESTS_=false`, and under `--as-cran` there is one Title-case
+NOTE plus one environmental ERROR from `gatom`/`mwcsr` being absent from the dev image.
+
+Gates re-run on `a484acd` immediately before tagging: **802 tests / 0 failures**, 5
+expected gatom skips, **golden 20/20, exit 0**.
+
+### Phase 2 — what is proven, and what is not
+
+| Check | Result |
+|---|---|
+| `remotes::install_github("tony-zhelonkin/bulkiRNA@v0.3.0")` into a clean lib | installs from source, loads from both temporary and final location |
+| Installed package exports | 61, as designed |
+| Real analysis against the **installed** copy: `gs_test()` -> `gs_write()` -> `gs_read()` -> `gs_plot_dot()` | `leading_edge` round-trips identically; renderer returns a ggplot |
+| `devtools::load_all()` over the dev checkout while the installed copy is on `.libPaths()` | the dev namespace shadows the installed one |
+| A real source edit, then reload | takes effect (sentinel observed) |
+
+The edit half was done in a `/tmp` copy of the checkout, not in the repo, so no dev-loop
+proof left a working-tree change; the repo was confirmed clean afterwards.
+
+**Phase 2 is not fully discharged.** The plan's wording is "in one active repo,
+`load_all()` over the submodule, make a real change, run a real analysis" — and none of
+the consumer repos (`14839-DM-cGAS`, `STING-JR`, `DC-nexus`) exist on this host. What is
+proven is the *mechanism*: install-from-tag works, the `load_all()` backdoor shadows the
+installed copy, and edits take effect. What is unproven is the mechanism *in the presence
+of a real consumer's* `source()`-based prelude and its 64 legacy call sites. That is
+where the two known silent breaks will surface — `direction` is `"up"`/`"down"`, not
+`"Up"`/`"Down"`, and `$NES` is `NULL` because the column is `stat`. Both were confirmed
+again here against the installed build.
