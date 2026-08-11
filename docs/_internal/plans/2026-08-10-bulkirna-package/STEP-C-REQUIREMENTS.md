@@ -137,14 +137,41 @@ is a bug.
 | `load_reference_db_{mitopathways,transportdb}` | set *ordering* changed | Content verified identical **before** re-capturing: `setequal()` over all 3691 `(gs_name, gene_symbol)` pairs is `TRUE`. `split()` sorts set names where the old RDS preserved source order. Cannot be canonicalised away, because the golden stored `head(50)` and a different order samples different sets. |
 | `ensure_dir` | old returned `dir.exists(d) == FALSE`, new returns `TRUE` | **The golden encoded a bug.** `02_api-inventory.md` §3.2 records two colliding definitions: `utils_plotting.R:16` takes a *directory* (2 consumers, the frozen one), `build_reference_databases.R:49` takes a *file path* and creates `dirname(path)`. The harness evaluated the latter last, so it won by collation and the golden captured the loser of the collision. Step A implemented the frozen directory semantics, so the new value is the correct one. |
 
-### Still open at the time of writing
+### Renderer differences on the deprecated path -- accepted by the user, documented here
+
+The user's decision, asked explicitly once the differences were measured rather than guessed:
+**deprecated names follow the new renderers' conventions; every residual difference is written
+down and the golden re-captured.** The alternatives -- chasing byte-exactness, or resurrecting
+the old renderers as internal functions -- were declined. Note that only the *legacy* path is
+affected; nothing here changes a figure produced by the new `gs_plot_*` API.
+
+Two real bugs were fixed first, so this list is what remains *after* them:
+
+| Function | Residual difference | Verified |
+|---|---|---|
+| `gsea_dotplot`, `gsea_dotplot_facet` | y-axis ordering follows the new renderer (by `stat`); the old default `sortBy = "GeneRatio"` ordered the y axis by gene ratio | old stage 3, `gsea_dotplot.R:158-163` |
+| `gsea_dotplot` | 1 of 15 pathways differs -- **an exact `padj` tie**, not a defect: `HALLMARK_MYOGENESIS` and `HALLMARK_TGF_BETA_SIGNALING` both sit at `0.2913391`, straddling the top-15 boundary, so each implementation keeps one. 15 of the 20 top padj values are non-distinct. | measured on the real fixture |
+| `gsea_dotplot` | **x aesthetic and all 15 dot sizes match exactly** after the `aes_x = "gene_ratio"` fix | measured |
+| `gsea_barplot` | bars ordered `stat`-descending; old re-sorted ascending for display (`gsea_barplot.R:64`). Also one extra layer: `gs_plot_bar()` draws a zero line the old one did not (`R/gs-plot-bar.R:84`). `linewidth` 0.545 -> 0.4 is `gs_plot_bar()`'s own default. | measured |
+| `gsea_barplot`, all `gs_plot_*` | `colour = NA` -> `"transparent"` | deliberate; ggplot2 4.0.3 convention, `CONVENTIONS.md` |
+| `gsea_running_sum_plot` | B4's redesign: class loses the `patchwork` prefix, 3 sub-plots -> 5 layers in one plot | sanctioned from the start |
+
+**The bug worth remembering** is the one that was *not* on this list until the harness
+migration exposed it: the dotplot shims left `gs_plot_dot()`'s `aes_x = "stat"` default, so the
+toolkit's most-used GSEA figure silently changed its x axis from gene ratio to NES. The
+capability already existed (`aes_x = "gene_ratio"`, `R/gs-plot-dot.R:63`) -- B3 built it and
+the shim simply did not ask. No gate before the migration could see it.
+
+### Resolved: the C1/C2 seam
 
 `gsea_dotplot`, `gsea_dotplot_facet`, `gsea_barplot` and `gsea_running_sum_plot` **ERROR**
 rather than FAIL: `run_gsea()` (C1's shim) returns a `gs_result`, and C2's shims accept only a
 literal S4 `gseaResult`. The commonest legacy pattern in the toolkit,
 `obj <- run_gsea(...); gsea_dotplot(obj)`, is broken end to end. Every C2 test passes because
 they all use a synthetic S4 fixture; every C1 test passes because they never call a renderer.
-**Nothing tested the composition.** Sent back to C2.
+**Nothing tested the composition.** Fixed by C2 in `wt/c2b-gsresult`, merged at `3ab416e`:
+`.dep_gsea_to_gs_result()` now returns a `gs_result` untouched and only converts a genuine S4
+object. All four cases moved ERROR -> FAIL, i.e. they became real comparisons.
 
 ---
 
