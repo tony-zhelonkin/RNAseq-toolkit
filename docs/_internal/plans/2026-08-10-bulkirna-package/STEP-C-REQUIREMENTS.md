@@ -38,6 +38,30 @@ went; `combine_volcano_row` became `de_volcano_grid`.)
 
 ---
 
+## 0b. The freeze, verified mechanically -- 24 of 24
+
+Run before `scripts/` was deleted, because after that this check is impossible. Script and
+full output are preserved next to this file as `C-freeze-verification.R` /
+`C-freeze-verification.txt`: it loads every old definition into one environment using the same
+order the golden harness used (so any collision resolves the same way the baseline saw it),
+then compares `names(formals())` and every default expression against the package.
+
+**Result: 23 of 24 byte-identical. The 24th differs only as an expression, not as a value.**
+
+`gsea_running_sum_plot`'s `panel_heights` default was the symbol `.GRS_PANEL_HEIGHTS`; the shim
+inlines the literal `c(2.4, 0.7, 0.9)`. Confirmed equal at
+`scripts/GSEA/GSEA_plotting/gsea_running_sum_plot.R:234`. Inlining was *required*, not
+optional: the constant lived in `scripts/` and disappears with it.
+
+This is the check no gate performs, and it covers the four names nobody had verified before --
+`format_pathway_name`, `ensure_dir`, `build_dge`, `download_gatom_references` -- which kept
+their own names through the refactor and so were never diffed against the frozen list.
+Verifying formals is *not* the same as verifying behaviour: `filter_by_size` reported
+"identical" here while being completely unreachable (see finding 27), and `ensure_dir` reports
+identical while its *semantics* changed (§2).
+
+---
+
 ## 0a. The `--as-cran` clean-up already applied at integration
 
 | Fix | Commit | Why it only appeared on merge |
