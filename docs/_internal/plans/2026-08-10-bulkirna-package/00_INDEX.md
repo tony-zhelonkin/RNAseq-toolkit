@@ -18,12 +18,11 @@ instead of sourcing `scripts/`; ten goldens re-captured with a written reason ea
 freeze verified mechanically at 24/24 before `scripts/` went. Ledger and evidence in
 `STEP-C-REQUIREMENTS.md` §§ 0b and 2.
 
-**In progress: the architecture review pass.** Six Opus reviewers over `R/` by layer — gsdb
-providers, compute/objects, `gs_plot_*` renderers, DE, IO/utils/gatom, and one cross-cutting
-architecture-and-shims remit. They check namespace separation, organisation, readability,
-architecture, and behaviour against the old implementations. Findings land in
-`/tmp/review-*.md` and are applied by the integrator; reviewers are read-only. `v0.3.0` is
-deliberately **untagged** until this pass lands, so the tag names a reviewed state.
+**Done: the architecture review pass.** Six Opus reviewers over `R/` by layer produced 1421
+lines of findings — 8 high, ~20 medium. All eight highs were re-verified by the integrator in
+the container before any fix, and all are now fixed with regression tests **each proven to
+fail without its fix**. See §9. Tests **748** pass / 0 fail (was 700). Golden **20/20**.
+`R CMD check --as-cran` **0/0/0**.
 
 Note for anyone verifying against the old code: `scripts/` is deleted, but readable at
 `ff80de2^` — `git show ff80de2^:scripts/<path>`.
@@ -592,3 +591,72 @@ defects; asking an agent to reason about the code did not.** Prefer a check that
   **zero rows, not an error**.
 - `empty_gsea_tibble()` and `run_gsea()` return `gs_result`'s 12 core columns; `$NES` on the
   result is now `NULL` rather than a vector.
+
+---
+
+## 9. The architecture review pass (2026-08-10)
+
+Six Opus reviewers, read-only, one per layer: gsdb providers, compute/objects, `gs_plot_*`
+renderers, DE, IO/utils/gatom, plus one cross-cutting architecture-and-shims remit. Brief:
+namespace separation, organisation, readability, architecture, and behaviour against the old
+implementations (still readable at `ff80de2^`).
+
+### The eight high-severity findings, all confirmed and fixed
+
+| # | Defect | Consequence |
+|---|---|---|
+| 1 | `.gs_empty_plot()` built on `ggplot()` with no data, so `$data` was a `waiver` and `nrow()` returned `NULL` | `gsea_barplot()` **errored outright** whenever nothing passed `padj_cutoff` — the normal outcome at the default 0.05 |
+| 2 | `padj == 0` → `-log10` → `Inf`, unmappable by a size scale | The **strongest hit** silently absent from the dotplot, no warning |
+| 3 | Two pathways formatting to the same label | Collapsed onto **one axis row**, bars stacked, figure shows n−1 of n |
+| 4 | `de_volcano_grid()` read the caption via `ggplot_build(p)$layout$plot`, removed in ggplot2 4.0.3 | Threshold caption **lost in both modes** — the only place the realised raw-p boundary is stated |
+| 5 | `de_bfc_plot()` appended highlights with `rbind()`, which uniquifies rownames | Printed **invented gene names** (`Gene11`, `Gene51`); the dedup that followed could never fire |
+| 6 | `.io_guess_sep()` sniffed line 1, `read.delim(comment.char = "")` | Raw `featureCounts` output **unreadable**, erroring that a present `Geneid` column was absent |
+| 7 | `ensure_dir()` discarded `dir.create()`'s result and never checked `dir.exists()` | **Reported success on failure**; every writer trusted it |
+| 8 | Six shims named a private successor, one named a function that no longer existed | Deprecation advice **a user cannot act on** |
+
+### What made this pass work, and what nearly broke it
+
+- **Requiring an on-disk artefact.** All six reviewers went idle *without a final message* —
+  the exact failure mode that produced nothing in the previous session. The briefs required
+  findings written to `/tmp/review-*.md`, so all 1421 lines survived. **Never rely on a
+  subagent's closing message as the deliverable.**
+- **Re-verifying every high finding before fixing it.** Cheap, and it is the step that earns
+  the right to change code on a reviewer's word.
+- **Proving each regression test fails without its fix.** Done by reverting only the fixed
+  hunk. One test (`de_volcano_grid`) initially appeared to fail for an unrelated reason — a
+  stash had reverted a file to a version calling a helper deleted elsewhere — which is exactly
+  the false signal that makes an unverified "it failed before" worthless.
+- **Not accepting a fix that traded one bug for another.** The renderer agent fixed the
+  raw-id-in-legend bug by formatting *every* label, and updated a pre-existing assertion to
+  match `"Beta response"` → `"beta Response"`. `format_pathway_name()` is built for
+  ALL_CAPS_SNAKE ids and is not idempotent on prose. Re-implemented to format only labels
+  still equal to their own id. **An agent changing an existing assertion to match new output
+  is a signal to look harder, not a completed task.**
+- **The worktree base fault.** Every agent worktree was created at `25d9a6c`, predating the
+  restructure, so `R/` did not exist. Two agents correctly refused to work around it and
+  escalated. Fixing it repo-side was right; *telling the agents a constraint had been "worded
+  too broadly" right after one was blocked by it* was not, and was correctly refused as
+  permission laundering. If a brief's own wording blocks legitimate work, the fix is a new
+  brief from the human, not a relaxation announced mid-flight.
+
+### Declined, deliberately
+
+- Barplot fill limits stay per-call rather than fixed at ±3.5 — cosmetic consistency, would
+  move many baselines. Documented on `@param limits` instead.
+- `gs_source` row order ≠ draw order: no correctness impact, and reordering would fight
+  `gsea_barplot()`'s deliberate re-sort for parity with the old function.
+- `gsdb_list()`'s yaml-less fallback still omits the `gatom` row — a registry-design question,
+  not a mechanical bug.
+
+### One behaviour change for external callers
+
+`gsdb_from_file(database = "x")` no longer sets `database_label` to `"x"`; the label defaults
+to `basename(path)` and is set independently. A display label and a machine key are different
+concepts. Every internal caller passes an explicit label, and golden stayed 20/20.
+
+### Medium findings not yet actioned
+
+~20 remain in `/tmp/review-*.md` (compute-layer RNG hygiene, `gs_matrix` persistence, `gs_test`
+on a matrix hard-coding `method = "gsva"`, `gs_write`/`gs_read` round-trip staleness, validation
+bypass via `[` and dplyr verbs). None is a wrong-figure or crash defect. **Copy those files
+somewhere durable before `/tmp` is cleared** if this is not picked up in the same session.
