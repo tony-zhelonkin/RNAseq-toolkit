@@ -18,13 +18,27 @@ instead of sourcing `scripts/`; ten goldens re-captured with a written reason ea
 freeze verified mechanically at 24/24 before `scripts/` went. Ledger and evidence in
 `STEP-C-REQUIREMENTS.md` §§ 0b and 2.
 
-**Next: Step 1b / Phase 6** — unfreeze the 24 names, rename where the design says to, update
-consumers. Nothing blocks it.
+**In progress: the architecture review pass.** Six Opus reviewers over `R/` by layer — gsdb
+providers, compute/objects, `gs_plot_*` renderers, DE, IO/utils/gatom, and one cross-cutting
+architecture-and-shims remit. They check namespace separation, organisation, readability,
+architecture, and behaviour against the old implementations. Findings land in
+`/tmp/review-*.md` and are applied by the integrator; reviewers are read-only. `v0.3.0` is
+deliberately **untagged** until this pass lands, so the tag names a reviewed state.
 
-**Nothing is pushed.** The user pushes at the end. `origin` needs an ssh-agent with a
-passphrase key — ask, do not work around it.
+Note for anyone verifying against the old code: `scripts/` is deleted, but readable at
+`ff80de2^` — `git show ff80de2^:scripts/<path>`.
 
-Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
+**Then: Step 1b / Phase 6** — unfreeze the 24 names, rename where the design says to, update
+consumers. Nothing blocks it. Note that "unfreezing" means retiring the shims, which breaks
+the 64 legacy call sites, so it is coupled to Phase 4 consumer migration in `sciagent-rna`
+and is a scope decision for the user, not a refactor decision.
+
+**Pushed to `hub` only** (`fc016ff`). `origin` needs an ssh-agent with a passphrase key —
+ask, do not work around it. Merged worktrees have been removed; the `wt/*` branches are kept
+as provenance.
+
+Resume by reading this header, then §1 for how the state was reached. **§3 and the two blocks
+at the end of §1 are historical snapshots, explicitly labelled — do not act on them.**
 
 ---
 
@@ -164,9 +178,17 @@ B1 and B2 never saw each other's code. Confirmed working on the merged branch:
 **0 errors, 0 warnings, 1 NOTE** (unused Imports `ggrepel`, `rlang`, `scales`, `stringr`,
 `tidyr` — all claimed by B3/B5) · **18 exports** so far.
 
-### Steps B3, B4, B5, C — ⬜ not started
+### Steps B3, B4, B5, B6, C — ✅ all done and merged
 
-`scripts/` is untouched, which is why golden still passes.
+**The two blocks above are a historical snapshot, kept deliberately.** They record the state
+at `633dddc` — 311 tests, 18 exports, `scripts/` still present — because the sentence
+"`scripts/` is untouched, which is why golden still passes" is the single most important
+thing this document says. It was true, and it meant the golden gate was **green and
+structurally blind**: it exercised only the old code. Migrating it onto the package is what
+found the five defects in §8. Read those two blocks as evidence, not as current state.
+
+Current state is in the header: 61 exports, 700/723 tests, golden 20/20 against the
+**package**, `scripts/` deleted.
 
 ---
 
@@ -236,7 +258,12 @@ B1 and B2 never saw each other's code. Confirmed working on the merged branch:
 
 ---
 
-## 3. Next action — dispatch B3, B4, B5, B6
+## 3. HISTORICAL — the dispatch brief for B3, B4, B5, B6
+
+**All four shipped and merged; this section is retained as the record of what they were told,
+not as an instruction.** It is worth keeping because §8's assessment of the fleet only makes
+sense against the briefs they actually received. Do not act on it. For current next steps see
+the header.
 
 Briefs are `08_refactor-execution-plan.md` §4; the rules are §5 + **§5.1 (the freeze rule)**,
 and the in-repo contract is **`CONVENTIONS.md`** — agents read that first.
@@ -470,16 +497,17 @@ Read, in order:
   4. /data1/users/antonz/pipeline/sciagent-rna/docs/08_refactor-execution-plan.md §4 (B3/B4/B5
      briefs), §5 and §5.1 (rules + the freeze rule)
 
-State: branch `feat/bulkirna-package` at `633dddc`. Steps 0, A, B1 and B2 are done and
-merged — 18 exports, 311 tests passing, golden 20/20, R CMD check 0E/0W/1 NOTE.
-`scripts/` is UNTOUCHED and still working, which is why golden passes. Nothing is
-pushed; the user pushes at the end.
+State: branch `feat/bulkirna-package` at `fc016ff`, pushed to `hub` only. Steps 0, A,
+B1–B6 and C are ALL done and merged — 61 exports (41 new API + 20 deprecation shims),
+700/723 tests passing, golden 20/20 against the PACKAGE, R CMD check 0E/0W/0N.
+`scripts/` is DELETED; the package is the only implementation. Old code is still
+readable at `ff80de2^` (`git show ff80de2^:scripts/<path>`) for verification.
+`v0.3.0` is deliberately untagged pending the architecture review pass.
 
-Task: dispatch B3 (renderers + theme), B4 (running-sum rewrite), B5 (DE + IO) and
-B6 (gatom_* module — see §5a for the agreed 5-export surface) as four parallel agents
-in git worktrees, then integrate as Step C. §3 of 00_INDEX.md has the
-worktree commands and exactly what each agent must be told beyond its §4 brief — read
-it rather than re-deriving.
+Task: see the header of 00_INDEX.md for what is actually in flight. As of the last
+session that was the six-reviewer architecture pass (read-only reviewers, integrator
+applies fixes). After it: Step 1b / Phase 6, which is coupled to consumer migration
+and is the user's scope call.
 
 Hard constraints:
 - No R on this host. Everything runs in a throwaway container:
@@ -495,13 +523,18 @@ Hard constraints:
   branch under a live worktree cost real time this session.
 - Never measure a live worktree — verify only after the agent commits AND reports idle.
 - `Rscript tests/golden/verify_golden.R` must exit 0. Confirm at the start too, so a
-  later failure is attributable.
-- Do NOT delete `scripts/` until the golden harness is migrated onto the new API.
+  later failure is attributable. The gate now loads the PACKAGE; re-capture only with
+  `--cases=<name>` so blessing one baseline cannot silently bless unrelated drift.
+- The golden gate is BLIND to label text and theme element sizes (ggplot_build carries
+  only numeric layer data). Assertions about those belong in tests/testthat/.
+- tests/golden/ and tests/fixtures/ are integrator-owned; agents may read, never write.
 - Push to `hub` and `origin` only when the user says so (origin needs an ssh-agent with
   a passphrase key — ask rather than working around it).
 
 Verify agents' claims yourself; do not take a handback at face value. B2 never reported
-at all and its gates had to be checked independently.
+at all and its gates had to be checked independently. Two Opus reviewers with tight
+briefs returned nothing across four idle cycles — do not wait on a silent reviewer;
+run the mechanical check yourself. See §8.
 ```
 
 To resume the **SciAgent** track instead, point a session at
@@ -510,7 +543,7 @@ To resume the **SciAgent** track instead, point a session at
 
 ---
 
-## 6. Step C outcome, and the one lesson that generalises
+## 8. Step C outcome, and the one lesson that generalises
 
 **The golden gate was green and blind for the entire refactor.** `capture_golden.R` sourced
 `scripts/`, so 20/20 PASS meant "the old code still works" -- it could not observe a single
