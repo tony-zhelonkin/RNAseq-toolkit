@@ -18,11 +18,15 @@ instead of sourcing `scripts/`; ten goldens re-captured with a written reason ea
 freeze verified mechanically at 24/24 before `scripts/` went. Ledger and evidence in
 `STEP-C-REQUIREMENTS.md` §§ 0b and 2.
 
-**Done: the architecture review pass.** Six Opus reviewers over `R/` by layer produced 1421
-lines of findings — 8 high, ~20 medium. All eight highs were re-verified by the integrator in
-the container before any fix, and all are now fixed with regression tests **each proven to
-fail without its fix**. See §9. Tests **748** pass / 0 fail (was 700). Golden **20/20**.
-`R CMD check --as-cran` **0/0/0**.
+**Done: the architecture review pass, and the medium findings after it.** Six Opus reviewers
+over `R/` by layer produced 1421 lines of findings — 8 high, ~20 medium. Every finding acted
+on was re-verified by the integrator in the container first, and every fix carries a
+regression test **proven to fail without it**. See §9 for the highs and §10 for the mediums.
+Tests **802** pass / 0 fail (was 700 at merge). Golden **20/20**. `R CMD check`
+(`_R_CHECK_FORCE_SUGGESTS_=false`, no `--as-cran`) **OK — 0/0/0**. Under `--as-cran` there is
+one NOTE (CRAN wants the Title as "RNA-Seq") and one ERROR that is environmental only
+(`gatom`/`mwcsr` are Suggests and are absent from the dev image). An earlier claim of
+"`--as-cran` 0/0/0" in this file was the non-`--as-cran` run; corrected here.
 
 Note for anyone verifying against the old code: `scripts/` is deleted, but readable at
 `ff80de2^` — `git show ff80de2^:scripts/<path>`.
@@ -32,7 +36,7 @@ consumers. Nothing blocks it. Note that "unfreezing" means retiring the shims, w
 the 64 legacy call sites, so it is coupled to Phase 4 consumer migration in `sciagent-rna`
 and is a scope decision for the user, not a refactor decision.
 
-**Pushed to `hub` only** (`fc016ff`). `origin` needs an ssh-agent with a passphrase key —
+**Pushed to `hub` only** (through `9b63f91`; four commits since are local). `origin` needs an ssh-agent with a passphrase key —
 ask, do not work around it. Merged worktrees have been removed; the `wt/*` branches are kept
 as provenance.
 
@@ -642,7 +646,9 @@ implementations (still readable at `ff80de2^`).
 ### Declined, deliberately
 
 - Barplot fill limits stay per-call rather than fixed at ±3.5 — cosmetic consistency, would
-  move many baselines. Documented on `@param limits` instead.
+  move many baselines. Documented on `@param limits` instead, and `.gs_plot_all()` now passes
+  one shared `limits` across the databases it renders, which was the case that actually
+  misled a reader (see §10).
 - `gs_source` row order ≠ draw order: no correctness impact, and reordering would fight
   `gsea_barplot()`'s deliberate re-sort for parity with the old function.
 - `gsdb_list()`'s yaml-less fallback still omits the `gatom` row — a registry-design question,
@@ -654,9 +660,50 @@ implementations (still readable at `ff80de2^`).
 to `basename(path)` and is set independently. A display label and a machine key are different
 concepts. Every internal caller passes an explicit label, and golden stayed 20/20.
 
-### Medium findings not yet actioned
+### Medium findings — all actioned, see §10
 
-~20 remain in `/tmp/review-*.md` (compute-layer RNG hygiene, `gs_matrix` persistence, `gs_test`
-on a matrix hard-coding `method = "gsva"`, `gs_write`/`gs_read` round-trip staleness, validation
-bypass via `[` and dplyr verbs). None is a wrong-figure or crash defect. **Copy those files
-somewhere durable before `/tmp` is cleared** if this is not picked up in the same session.
+The six reviewer files are preserved in this directory as `review-*.md` (commit `9b63f91`),
+so they no longer depend on `/tmp`.
+
+---
+
+## 10. The medium-findings pass (2026-08-10/11)
+
+Same discipline as §9: verify, fix, and prove the regression test fails against the reverted
+hunk (done in a throwaway copy under `/tmp`, never by stashing in the repo — see §9 for why).
+Four commits, one per layer.
+
+| Layer | Finding | What it did |
+|---|---|---|
+| compute | `set.seed()` never restored | Any random draw after a `gs_test()` call came from the seed-123 stream, not the script's own — once per database |
+| compute | `names(db) %||% …` on a partly named list | Half the rows carried `database = ""` and grouped under a blank label |
+| compute | `method` hard-coded `"gsva"` | ssgsea/zscore/plage runs recorded — and exported — as GSVA |
+| compute | `[` and dplyr verbs checked column *presence* only | `mutate(res, padj = "oops")` still claimed to be a `gs_result`; `gs_filter(direction = "up")` then returned zero rows silently |
+| compute | `[.gs_matrix` funnelled through the full constructor | A pathway filter matching nothing **aborted the script** instead of yielding an empty matrix |
+| compute | Empty results dropped the method's optional columns | An empty contrast turned `gs_leading_edge()` into a usage error |
+| DE | `xlim()`/`ylim()` in `de_pca()` | `xlim_abs` **deleted** out-of-range samples instead of zooming; only signal a warning at print time |
+| DE | `x_breaks` in `orientation = "vertical"` | Retuned the *p* axis, not the fold-change axis it documents |
+| DE | `[sig_logic]` kept `NA` positions | An all-`NA` `adj.P.Val` captioned the figure `p ≤ NaN` and skipped the documented "no genes pass" path |
+| DE | `-log10(0)` | A `P.Value` of 0 made the y limit `Inf`, squashing every point at the bottom of a blank panel |
+| IO | `gs_write()` only ever added files | A contrast dropped from the analysis reappeared in the figure, dated from the previous run |
+| IO | No integrity check on a cached download | An interrupted transfer was reported as `[skip] (exists)` forever; `gatom_refs()` then died in `readRDS()` |
+| IO | `/opt/gatom-refs` searched before the download destination | `gatom_refs(download = TRUE)` had no visible effect |
+| plot | Per-figure fill limits | Same NES pale in one panel of a figure, saturated in the next |
+| tests | Guards saw only the exact bug found | Deprecation targets that resolve to nothing, and S3 methods for absent generics, passed silently |
+| tests | Every shim test picked a cutoff that keeps rows | The nothing-significant path was untested through the shims — which is why the §9 barplot bug shipped |
+
+### Judgement calls worth keeping
+
+- **`prune` is opt-in.** The stale-output fix could have been "`unlink()` the tree on every
+  write". A function whose job is to write does not get to delete by default; the default
+  writes a manifest and `gs_read()` warns, naming the files and the fix.
+- **`gs_matrix` persistence was declined, not forgotten.** Giving it a table format is an API
+  decision that belongs with the consumer migration, not a review side effect. The asymmetry
+  is now stated in `gs_write()`'s docs, pointing at `saveRDS()`.
+- **The two new structural guards were checked against planted faults** — a bogus
+  `.Deprecated()` target and an S3 method for a generic nothing provides. A guard that has
+  never been seen to fail is a guess about what it covers.
+- **`download_gatom_references()` has frozen formals**, so there was no URL seam to inject; its
+  two new tests mock `utils::download.file` and exercise the skip/rename logic, not the network.
+- **`.gatom_search_dirs()` was extracted** so the resolution order is testable without a
+  `/opt/gatom-refs` present. The old path had no test at all.
