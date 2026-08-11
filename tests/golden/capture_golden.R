@@ -20,28 +20,31 @@ suppressPackageStartupMessages({
 # --capture (default) writes the goldens; --verify recomputes and diffs.
 MODE <- if (any(grepl("--verify", commandArgs(TRUE)))) "verify" else "capture"
 
+# --cases=a,b,c restricts a capture to named cases. Step C re-captures exactly
+# the handful of goldens whose change is sanctioned and written down, and a
+# blanket re-capture would silently bless every other drift at the same time.
+# With a filter set, the manifest is left alone: it describes the full run.
+ONLY <- {
+  a <- grep("^--cases=", commandArgs(TRUE), value = TRUE)
+  if (length(a)) strsplit(sub("^--cases=", "", a[1]), ",")[[1]] else NULL
+}
+
 FIX  <- "tests/fixtures"
 OUT  <- "tests/golden/data"
 dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
 
 # ---- load the toolkit -------------------------------------------------------
-# Every script is a definition file except build_reference_databases.R, which
-# executes at source time and resolves paths from its own location. For that one
-# we parse and evaluate only the top-level function definitions.
-script_files <- list.files("scripts", "[.]R$", recursive = TRUE, full.names = TRUE)
-exec_script  <- grep("build_reference_databases[.]R$", script_files, value = TRUE)
-
-for (f in setdiff(script_files, exec_script)) {
-  suppressWarnings(suppressMessages(source(f)))
-}
-for (f in exec_script) {
-  for (e in parse(f)) {
-    is_fn_def <- is.call(e) && length(e) == 3L &&
-      as.character(e[[1]]) %in% c("<-", "=") && is.call(e[[3]]) &&
-      identical(as.character(e[[3]][[1]]), "function")
-    if (is_fn_def) try(eval(e, globalenv()), silent = TRUE)
-  }
-}
+# Step C: this used to source() every file under scripts/. It now loads the
+# installed package, so the goldens captured from the old script library are
+# compared against the *new* implementations reached through the deprecation
+# shims in R/deprecated-gs.R and R/deprecated-plot.R. Every case below still
+# calls a frozen name, unchanged -- that is the point. Until this switch, a
+# green run only proved the old code still worked.
+suppressWarnings(suppressMessages(
+  pkgload::load_all(".", quiet = TRUE, export_all = FALSE)
+))
+# The shims all emit .Deprecated() by design; the harness calls them on purpose.
+options(warn = -1)
 
 # Harness self-test: perturb one function so --verify MUST report a failure.
 # Proves the gate is not vacuous. Never set in normal use.
@@ -75,6 +78,19 @@ normalize <- function(x) {
     if ("result" %in% sl) return(methods::slot(x, "result"))
     return(lapply(stats::setNames(sl, sl), function(s) methods::slot(x, s)))
   }
+  x
+}
+
+# Column order inside a built layer carries no meaning -- ggplot2 emits aesthetic
+# columns in the order the aes() mapping happened to name them, so an equivalent
+# rewrite of a geom call reorders them without changing a single value. all.equal()
+# compares data frames positionally, which turns that into a spurious "target is
+# character, current is numeric". Canonicalising the order is not a loosened
+# tolerance: every value is still compared exactly, and comparing like-named
+# columns is strictly stricter than comparing by position.
+canon <- function(x) {
+  if (is.data.frame(x)) return(x[, order(names(x)), drop = FALSE])
+  if (is.list(x)) return(lapply(x, canon))
   x
 }
 
@@ -149,6 +165,7 @@ manifest <- data.frame(case = character(), status = character(),
                        note = character(), stringsAsFactors = FALSE)
 
 for (nm in names(CASES)) {
+  if (!is.null(ONLY) && !nm %in% ONLY) next
   set.seed(123)
   res <- try(suppressWarnings(suppressMessages(eval(CASES[[nm]], globalenv()))),
              silent = TRUE)
@@ -158,7 +175,7 @@ for (nm in names(CASES)) {
     cat(sprintf("  %-34s ERROR\n", nm))
     next
   }
-  val <- try(normalize(res), silent = TRUE)
+  val <- try(canon(normalize(res)), silent = TRUE)
   if (inherits(val, "try-error")) {
     manifest <- rbind(manifest, data.frame(case = nm, status = "NORMALIZE_FAIL",
                         note = trimws(sub("\n.*", "", as.character(val)))))
@@ -176,7 +193,7 @@ for (nm in names(CASES)) {
                           note = "no golden on record"))
       cat(sprintf("  %-34s NEW\n", nm)); next
     }
-    cmp <- all.equal(readRDS(path), val, tolerance = 1e-6,
+    cmp <- all.equal(canon(readRDS(path)), val, tolerance = 1e-6,
                      check.attributes = FALSE)
     if (isTRUE(cmp)) {
       manifest <- rbind(manifest, data.frame(case = nm, status = "PASS", note = ""))
@@ -204,9 +221,13 @@ skipped <- data.frame(
   stringsAsFactors = FALSE)
 manifest <- rbind(manifest, skipped)
 
-write.csv(manifest, file.path("tests/golden",
-          if (MODE == "capture") "manifest.csv" else "verify-report.csv"),
-          row.names = FALSE)
+if (is.null(ONLY)) {
+  write.csv(manifest, file.path("tests/golden",
+            if (MODE == "capture") "manifest.csv" else "verify-report.csv"),
+            row.names = FALSE)
+} else {
+  cat("\nSelective capture: manifest.csv left untouched.\n")
+}
 if (MODE == "capture") {
   cat("\n", sum(manifest$status == "OK"), " captured, ",
       sum(manifest$status == "ERROR"), " errors, ",

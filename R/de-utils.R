@@ -1,20 +1,30 @@
 #' Theme used by the `de_*` renderers
 #'
-#' Resolves to `theme_bulki()` when that renderer-layer theme is present in the
-#' package namespace, and otherwise falls back to a self-contained minimal
-#' theme with the same visual contract (white background, visible axis lines,
-#' no grid). The indirection exists because the DE module and the theme live in
-#' different modules of the refactor; once `theme_bulki()` lands, every `de_*`
-#' plot picks it up with no further edit.
+#' Resolves to the shared `theme_bulki()` look when that renderer-layer theme is
+#' present in the package namespace, and otherwise falls back to a
+#' self-contained minimal theme with the same visual contract (white
+#' background, visible axis lines, no grid). The indirection exists because the
+#' DE module and the theme live in different modules of the refactor.
+#'
+#' Two details are load-bearing, both of which this function got wrong when the
+#' modules were first merged:
+#'
+#' * `base_size` is **forwarded**. The original called `theme_bulki()` with no
+#'   arguments, so a caller asking for `base_size = 20` silently got 14.
+#' * The floor is **skipped** (`floor = NULL`). The DE renderers' documented
+#'   default is 12 pt and their geometry derives from it, so `theme_bulki()`'s
+#'   deliberate 14 pt floor scaled every volcano and MD plot by 14/12 -- point
+#'   stroke 1.5 -> 1.75, line widths to match. The floor still applies to the
+#'   `gs_plot_*` layer it was designed for.
 #'
 #' @param base_size Base font size.
 #' @return A `ggplot2` theme object.
 #' @keywords internal
 .de_theme <- function(base_size = 12) {
   ns <- asNamespace("bulkiRNA")
-  if (exists("theme_bulki", envir = ns, inherits = FALSE)) {
-    fn <- get("theme_bulki", envir = ns)
-    return(fn())
+  if (exists(".theme_bulki", envir = ns, inherits = FALSE)) {
+    fn <- get(".theme_bulki", envir = ns)
+    return(fn(base_size = base_size, floor = NULL))
   }
   theme_classic(base_size = base_size) +
     theme(
