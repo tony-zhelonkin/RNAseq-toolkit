@@ -6,13 +6,23 @@ during the 2026-08-10 session — a Phase 6 item, done early. The `hub` remote s
 **Branch:** `feat/bulkirna-package` (off `dev`)
 **Fork point / revert target:** `752481f` (`dev` tip at fork)
 **Baseline at fork:** 9 legacy suites in `tests/`; 20 golden cases captured, 0 errors
-**Current:** Steps 0, A, **B1–B6 all complete and merged.** 41 exports.
-`R CMD check --as-cran`: **0 errors, 0 warnings, 0 notes.** 609 tests (dev image) /
-635 (gatom image), 0 failures. Golden **20/20, exit 0**. `scripts/` still untouched.
-**Next: the rest of Step C** — `R/deprecated.R` for the 24 frozen names, migrate the
-golden harness onto the new API, then delete `scripts/`. See `STEP-C-REQUIREMENTS.md`,
-which carries every shim recipe and doc correction the B agents handed back.
-**Nothing is pushed.** The user pushes at the end.
+**Current:** Steps 0, A, **B1–B6 and C all complete and merged.** 61 exports
+(41 new API + 20 deprecation shims). `R CMD check --as-cran`: **0 errors, 0 warnings,
+0 notes.** 700 tests (dev image) / 723 (gatom image), 0 failures. Golden **20/20** against
+the package, with the perturbation self-test still failing it (19/1) so the gate is live.
+**`scripts/` is deleted — the package is the only implementation.**
+
+Step C, done: `R/deprecated-gs.R` + `R/deprecated-plot.R` shim all 20 frozen names that
+needed one (4 of the 24 kept their own names); the golden harness now loads the package
+instead of sourcing `scripts/`; ten goldens re-captured with a written reason each; the
+freeze verified mechanically at 24/24 before `scripts/` went. Ledger and evidence in
+`STEP-C-REQUIREMENTS.md` §§ 0b and 2.
+
+**Next: Step 1b / Phase 6** — unfreeze the 24 names, rename where the design says to, update
+consumers. Nothing blocks it.
+
+**Nothing is pushed.** The user pushes at the end. `origin` needs an ssh-agent with a
+passphrase key — ask, do not work around it.
 
 Resume by reading §1 (state), then §3 (next action). Everything needed to continue is here.
 
@@ -497,3 +507,55 @@ at all and its gates had to be checked independently.
 To resume the **SciAgent** track instead, point a session at
 `scbio-docker/toolkits/SciAgent-toolkit/docs/_internal/plans/2026-08-07-demolish-role-layer/00_INDEX.md`
 (branch `refactor/demolish-role-layer`) and read §1 then §3.
+
+---
+
+## 6. Step C outcome, and the one lesson that generalises
+
+**The golden gate was green and blind for the entire refactor.** `capture_golden.R` sourced
+`scripts/`, so 20/20 PASS meant "the old code still works" -- it could not observe a single
+thing the new code did. Migrating it onto the package (`9c7e1a5`) found five defects in one
+sitting, none of which `document()`, `test()`, `check --as-cran` or the previous green golden
+could see:
+
+1. **The dotplot plotted the wrong variable.** Old x is GeneRatio (`count / setSize`); the
+   shims left `gs_plot_dot()`'s `aes_x = "stat"` default, so the toolkit's most-used GSEA
+   figure silently changed what its x axis *meant*. The capability already existed --
+   `aes_x = "gene_ratio"` -- and the shim simply never asked. After the fix, x matches on
+   14/15 pathways and all 15 dot sizes match exactly; the 15th is an exact `padj` tie
+   (`HALLMARK_MYOGENESIS` vs `HALLMARK_TGF_BETA_SIGNALING`, both 0.2913391).
+2. **`.de_theme()` discarded `base_size` entirely** (`base_size = 20` rendered at 14) and let
+   `theme_bulki()`'s 14pt floor scale every volcano and MD plot by 14/12.
+3. **A cross-agent seam**: `run_gsea()` returns a `gs_result`; the four `gsea_*` renderer
+   shims accepted only S4 `gseaResult`. `obj <- run_gsea(...); gsea_dotplot(obj)` -- the
+   commonest legacy call in the toolkit -- was broken end to end, and passed both agents'
+   suites because each tested only its own half.
+4. **`filter_by_size` was an unreachable export**, shadowed by collation order. Now guarded by
+   `test-namespace-hygiene.R`, verified to fail on a planted duplicate.
+5. **The golden baseline itself held a bug**: `ensure_dir`'s stored value came from the loser
+   of a documented name collision, because the harness evaluated that definition last.
+
+Three volcano cases and `create_MD_plot` pass **byte-identically**, which is the first hard
+evidence `de_volcano()`/`de_md_plot()` reproduce their frozen predecessors rather than an
+agent asserting they do.
+
+### On the fleet
+
+Seven agents. Three (C1, C2, C3) delivered clean work and, more usefully, pushed back: C1
+found the `filter_by_size` collision and correctly refused to fix a file it did not own; C2
+found the `gs_source` row-order divergence that is invisible in the figure but wrong in the
+table `gs_save()` writes; C3 flagged two doc contradictions outside its scope rather than
+silently widening its diff. **Two Opus reviewers returned nothing at all**, going idle without
+reporting even when asked directly. Their checks -- the 24-name freeze diff, the namespace
+scan, the golden triage -- were done by the integrator instead and found more than the reviews
+did.
+
+The generalisable lesson, consistent with findings 21 and 24: **running the gate found real
+defects; asking an agent to reason about the code did not.** Prefer a check that executes.
+
+### Two silent breaks for downstream code
+
+- `direction` is `"up"`/`"down"`, was `"Up"`/`"Down"`. Filtering `direction == "Up"` yields
+  **zero rows, not an error**.
+- `empty_gsea_tibble()` and `run_gsea()` return `gs_result`'s 12 core columns; `$NES` on the
+  result is now `NULL` rather than a vector.
