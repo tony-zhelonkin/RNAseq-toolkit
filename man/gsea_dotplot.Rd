@@ -61,8 +61,6 @@ gsea_dotplot(
 \item{use_gradient}{Logical, use continuous gradient for NES.}
 
 \item{nes_limits}{Numeric vector of length 2 for symmetric NES limits.}
-
-\item{...}{Unused; absorbs no old formals but kept for forward safety.}
 }
 \value{
 A ggplot object, as returned by \code{\link[=gs_plot_dot]{gs_plot_dot()}}.

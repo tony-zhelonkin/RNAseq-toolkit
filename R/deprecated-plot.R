@@ -91,7 +91,6 @@
 #'   `padj_cutoff`.
 #' @param strip_prefix Logical, strip common prefixes like `"HALLMARK_"`.
 #' @param use_gradient Logical, use continuous gradient for NES.
-#' @param ... Unused; absorbs no old formals but kept for forward safety.
 #'
 #' @return A ggplot object, as returned by [gs_plot_dot()].
 #' @note The x axis carries the leading-edge **gene ratio**, via
