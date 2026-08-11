@@ -25,6 +25,22 @@ test_that("gsdb_msigdb returns a gs_db for the hallmarks", {
   expect_lt(length(sub), length(db))
 })
 
+test_that("pathway_descriptions is attached and survives subsetting", {
+  skip_if_not_installed("msigdbr")
+  db <- tryCatch(
+    gsdb_msigdb("Mus musculus", collection = "H"),
+    error = function(e) skip(paste("MSigDB unavailable:", conditionMessage(e)))
+  )
+  desc <- attr(db, "pathway_descriptions")
+  expect_true(!is.null(desc))
+  expect_identical(sort(names(desc)), sort(names(db)))
+  expect_true(all(nzchar(desc)))
+
+  one <- names(db)[1]
+  sub <- db[one]
+  expect_identical(attr(sub, "pathway_descriptions"), desc[one])
+})
+
 test_that("an unknown collection errors with guidance", {
   skip_if_not_installed("msigdbr")
   err <- tryCatch(gsdb_msigdb(collection = "ZZZ"), error = conditionMessage)

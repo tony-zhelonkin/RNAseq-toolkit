@@ -30,10 +30,11 @@ gsdb_msigdb <- function(species = "Mus musculus",
                         min_size = NULL,
                         max_size = NULL,
                         verbose = FALSE) {
-  if (!requireNamespace("msigdbr", quietly = TRUE)) {
-    stop("`gsdb_msigdb()` requires the msigdbr package. Install it with ",
-         "install.packages(\"msigdbr\").", call. = FALSE)
-  }
+  # `msigdbr` is a hard dependency (DESCRIPTION `Imports`), unlike the other
+  # optional providers in this package (homologene, yaml, gatom, ...), which
+  # are in `Suggests` and genuinely may be missing. It is therefore always
+  # installed alongside bulkiRNA and a `requireNamespace()` guard here would
+  # be unreachable dead code; call it directly instead.
   species <- .gsdb_species_label(species)
   if (!is.character(collection) || length(collection) != 1L ||
         is.na(collection) || !nzchar(collection)) {
@@ -81,13 +82,9 @@ gsdb_msigdb <- function(species = "Mus musculus",
                  else strsplit(subcollection, "[:.]")[[1]]),
                collapse = "_")
   db <- gs_db(sets, database = key, species = species,
-              pathway_names = labels, database_label = label)
+              pathway_names = labels, database_label = label,
+              pathway_descriptions = descriptions)
   db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
-  # After the filter, not before: `[.gs_db` subsets the attributes it knows
-  # about and would leave this one describing dropped sets.
-  if (!is.null(descriptions)) {
-    attr(db, "pathway_descriptions") <- descriptions[names(db)]
-  }
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", label, species, length(db)))
   }

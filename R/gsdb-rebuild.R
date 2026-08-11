@@ -47,8 +47,8 @@
   gmx <- file.path(refs_dir, "mitocarta3.0", "raw", "MitoPathways3.0.gmx")
   if (file.exists(gmx)) {
     db <- gsdb_from_file(gmx, database = "mitopathways",
-                         species = species, prefix = "MITOPATHWAYS")
-    attr(db, "database_label") <- "MitoPathways 3.0"
+                         species = species, prefix = "MITOPATHWAYS",
+                         database_label = "MitoPathways 3.0")
     if (grepl("musculus", species, ignore.case = TRUE)) {
       db <- .gsdb_human_to_mouse(db)
     }
@@ -63,6 +63,12 @@
   }
 
   if (!is.null(out$mitopathways)) {
+    # `!duplicated(names(merged))` is first-wins, not a union of the two
+    # sets' genes (the old builder unioned via `split()` on rbind'ed T2G
+    # frames). This is safe today only because the two inputs are
+    # prefix-disjoint ("MITOPATHWAYS_..." vs "MITOXPLORER_..." set ids) and
+    # can never collide; revisit if a third, non-prefixed component is added
+    # to this merge.
     merged <- c(unclass(out$mitopathways), unclass(out$mitoxplorer))
     labels <- c(attr(out$mitopathways, "pathway_names"),
                 attr(out$mitoxplorer, "pathway_names"))
@@ -93,6 +99,10 @@
       path <- file.path(refs_dir, tgt[1], "processed", sp_dir, tgt[2])
       ensure_parent_dir(path)
       legacy <- .gsdb_as_t2g(out[[key]])
+      # Deliberately the display label ("MitoPathways 3.0"), not the old
+      # builder's machine string ("MitoPathways3.0" / "TransportDB2.0"). No
+      # code in this package reads `source`; a caller that string-matched
+      # the old provenance value will need updating.
       legacy$source <- attr(out[[key]], "database_label")
       legacy$created <- Sys.time()
       saveRDS(legacy, path)

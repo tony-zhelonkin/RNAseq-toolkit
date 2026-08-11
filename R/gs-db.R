@@ -15,6 +15,10 @@
 #'   prettify from here; the data layer never depends on it.
 #' - `species` -- `"Mus musculus"` or `"Homo sapiens"`.
 #' - `gene_id_type` -- `"symbol"` (the only value today).
+#' - `pathway_descriptions` -- optional named character, id -> full-sentence
+#'   description (e.g. MSigDB's `gs_description`), or `NULL` when a provider
+#'   has none. Unlike `pathway_names` this is not guaranteed to cover every
+#'   id. Carried through `[.gs_db` like every other attribute.
 #'
 #' Empty sets are dropped at construction, genes are de-duplicated within a
 #' set, and set ids must be unique.
@@ -27,6 +31,8 @@
 #' @param database_label Character(1) display name, or `NULL` to reuse
 #'   `database`.
 #' @param gene_id_type Character(1); only `"symbol"` is supported.
+#' @param pathway_descriptions Named character of longer descriptions, or
+#'   `NULL` when the provider has none. Not required to cover every id.
 #' @return A `gs_db` object.
 #' @keywords internal
 gs_db <- function(sets,
@@ -34,7 +40,8 @@ gs_db <- function(sets,
                   species,
                   pathway_names = NULL,
                   database_label = NULL,
-                  gene_id_type = "symbol") {
+                  gene_id_type = "symbol",
+                  pathway_descriptions = NULL) {
   if (!is.list(sets) || (length(sets) > 0L && is.null(names(sets)))) {
     stop("`sets` must be a named list of character vectors.", call. = FALSE)
   }
@@ -75,6 +82,19 @@ gs_db <- function(sets,
 
   pathway_names <- .gsdb_resolve_names(pathway_names, names(sets))
 
+  if (!is.null(pathway_descriptions)) {
+    if (length(pathway_descriptions) && is.null(names(pathway_descriptions))) {
+      stop("`pathway_descriptions` must be a *named* character vector ",
+           "(id -> description).", call. = FALSE)
+    }
+    hit <- intersect(names(sets), names(pathway_descriptions))
+    pathway_descriptions <- if (length(hit)) {
+      stats::setNames(as.character(pathway_descriptions[hit]), hit)
+    } else {
+      NULL
+    }
+  }
+
   structure(
     sets,
     pathway_names  = pathway_names,
@@ -82,6 +102,7 @@ gs_db <- function(sets,
     database_label = database_label %||% database,
     species        = species,
     gene_id_type   = gene_id_type,
+    pathway_descriptions = pathway_descriptions,
     class          = "gs_db"
   )
 }
@@ -193,6 +214,14 @@ summary.gs_db <- function(object, ...) {
 #' @return A `gs_db` with the selected sets.
 #' @export
 `[.gs_db` <- function(x, i) {
+  if (is.character(i)) {
+    bad <- setdiff(i, names(x))
+    if (length(bad)) {
+      stop("`i` selects sets not in this database: ",
+           paste0("\"", utils::head(bad, 5L), "\"", collapse = ", "), ".",
+           call. = FALSE)
+    }
+  }
   sets <- unclass(x)[i]
   gs_db(
     sets,
@@ -200,7 +229,8 @@ summary.gs_db <- function(object, ...) {
     species        = attr(x, "species"),
     pathway_names  = attr(x, "pathway_names"),
     database_label = attr(x, "database_label"),
-    gene_id_type   = attr(x, "gene_id_type")
+    gene_id_type   = attr(x, "gene_id_type"),
+    pathway_descriptions = attr(x, "pathway_descriptions")
   )
 }
 
