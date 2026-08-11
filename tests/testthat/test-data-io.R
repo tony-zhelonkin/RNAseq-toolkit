@@ -20,6 +20,22 @@ test_that("raw featureCounts metadata columns are dropped", {
   expect_equal(colnames(m), c("S1", "S2"))
 })
 
+test_that("raw featureCounts output with its real leading `#` comment line loads", {
+  f <- tempfile(fileext = ".txt")
+  writeLines(c(
+    '# Program:featureCounts v2.0.1; Command:"featureCounts" "-a" "g.gtf" "-o" "counts.txt" "s1.bam" "s2.bam"',
+    paste(c("Geneid", "Chr", "Start", "End", "Strand", "Length",
+            "s1.bam", "s2.bam"), collapse = "\t"),
+    paste(c("g1", "1", "1", "100", "+", "100", "3", "5"), collapse = "\t"),
+    paste(c("g2", "1", "200", "300", "-", "100", "4", "6"), collapse = "\t")
+  ), f)
+  m <- read_counts_matrix(f)
+  expect_equal(dim(m), c(2L, 2L))
+  expect_equal(rownames(m), c("g1", "g2"))
+  expect_equal(colnames(m), c("s1", "s2"))
+  expect_equal(unname(m["g1", ]), c(3, 5))
+})
+
 test_that("Salmon gene-level input keeps gene_name as an attribute", {
   f <- write_tsv(data.frame(gene_id = c("ENSG1.3", "ENSG2.1"),
                             gene_name = c("A", "B"),

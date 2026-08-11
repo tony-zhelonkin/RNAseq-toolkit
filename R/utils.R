@@ -5,7 +5,8 @@
 #' file path, pass `dirname(path)` (or use the internal [ensure_parent_dir()]).
 #'
 #' @param path Character vector of directory paths.
-#' @return `path`, invisibly, so the call can be inlined.
+#' @return `path`, invisibly, so the call can be inlined. Errors if a
+#'   directory could not be created (e.g. a read-only parent).
 #' @examples
 #' d <- file.path(tempdir(), "figures")
 #' ensure_dir(d)
@@ -19,7 +20,14 @@ ensure_dir <- function(path) {
     stop("`path` must contain non-missing, non-empty directory paths.", call. = FALSE)
   }
   for (p in path) {
-    if (!dir.exists(p)) dir.create(p, recursive = TRUE, showWarnings = FALSE)
+    if (!dir.exists(p)) {
+      dir.create(p, recursive = TRUE, showWarnings = FALSE)
+      if (!dir.exists(p)) {
+        stop("Failed to create directory `", p, "`. ",
+             "Check that the parent directory is writable (file.access(): ",
+             file.access(dirname(p), mode = 2), ").", call. = FALSE)
+      }
+    }
   }
   invisible(path)
 }
@@ -35,6 +43,33 @@ ensure_dir <- function(path) {
 ensure_parent_dir <- function(path) {
   ensure_dir(unique(dirname(path)))
   invisible(path)
+}
+
+#' Require a Suggests package, with a caller-supplied install hint
+#'
+#' Shared body for the "this needs an optional package" check. Two other
+#' near-duplicates of this existed (`.de_require()` in `R/de-utils.R` and
+#' `.gatom_require()` in `R/gatom.R`, the latter hardcoding a
+#' `BiocManager::install("gatom")` special case) plus several bare
+#' `requireNamespace()` calls scattered around `R/`. This is the union of
+#' their behaviour: `install` is a caller-supplied hint string (as in
+#' `.de_require()`), so call sites needing a `BiocManager::install(...)`
+#' message (as `.gatom_require()` special-cased for `pkg == "gatom"`) just
+#' pass that string instead of relying on a hardcoded branch.
+#'
+#' @param pkg Character(1) package name.
+#' @param what Character(1) description of what needed it.
+#' @param install Character(1) install-command hint shown in the error.
+#'   Defaults to `install.packages("<pkg>")`.
+#' @return `TRUE`, invisibly; errors if `pkg` is not installed.
+#' @keywords internal
+.require_pkg <- function(pkg, what,
+                         install = sprintf('install.packages("%s")', pkg)) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    stop(sprintf("%s requires the `%s` package. Install it with %s.",
+                 what, pkg, install), call. = FALSE)
+  }
+  invisible(TRUE)
 }
 
 #' Default value for NULL

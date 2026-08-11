@@ -21,6 +21,21 @@ test_that("ensure_dir rejects empty, NULL and NA paths", {
   expect_error(ensure_dir(""), "non-missing")
 })
 
+test_that("ensure_dir errors (rather than silently returning) when creation fails", {
+  skip_on_os("windows")
+  parent <- file.path(tempdir(), "bulkirna-utils-readonly")
+  unlink(parent, recursive = TRUE)
+  dir.create(parent)
+  on.exit({
+    Sys.chmod(parent, "0755")
+    unlink(parent, recursive = TRUE)
+  })
+  Sys.chmod(parent, "0500")
+  target <- file.path(parent, "child")
+  expect_error(ensure_dir(target), "Failed to create directory")
+  expect_false(dir.exists(target))
+})
+
 test_that("ensure_parent_dir takes a file path and creates its parent only", {
   root <- file.path(tempdir(), "bulkirna-utils-parent")
   on.exit(unlink(root, recursive = TRUE))
