@@ -17,17 +17,15 @@ A ggplot2 theme object.
 \description{
 Deprecated: use \code{\link[=theme_bulki]{theme_bulki()}} instead. This shim reproduces the old
 formals of \code{custom_minimal_theme_with_grid()} verbatim and forwards to
-\code{theme_bulki(grid = TRUE)}.
+the grid variant of the \code{theme_bulki()} theme.
 }
 \note{
-\code{theme_bulki()} enforces a 14pt base-size floor
-(\code{base_size <- max(base_size, 14)}), which the old theme never did. The
-old default of \code{base_size = 12} therefore does NOT round-trip: calling
-this shim with its default arguments renders at 14pt, not 12pt, and any
-golden-tested figure that relied on the unfloored 12pt default will
-render with visibly larger text. \code{base_size} is forwarded faithfully
-(not silently overridden a second time) so any explicit non-default
-value the caller passes still reaches \code{theme_bulki()} unchanged; only the
-floor itself -- \code{theme_bulki()}'s behaviour, not this shim's -- causes
-the divergence at the old default.
+The old theme had no base-size floor and rendered at its documented
+12 pt default; \code{theme_bulki()} raises anything below 14 pt to 14 pt on
+purpose. To keep this deprecated path byte-faithful, the shim routes
+through the internal \code{.theme_bulki(floor = NULL)} rather than the public
+\code{theme_bulki()}, so \code{base_size = 12} really does render at 12 pt. The
+public theme keeps its floor. No gate could have caught the difference:
+the golden record for this case stores only the 144 theme element \emph{names},
+never their sizes.
 }

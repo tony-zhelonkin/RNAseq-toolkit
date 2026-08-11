@@ -22,13 +22,33 @@
 #'   theme_bulki()
 #' @export
 theme_bulki <- function(base_size = 14, base_family = "", grid = FALSE) {
+  .theme_bulki(base_size = base_size, base_family = base_family,
+               grid = grid, floor = 14)
+}
+
+#' `theme_bulki()` with the base-size floor as a parameter
+#'
+#' The floor is deliberate for the public theme, but the deprecated
+#' `custom_minimal_theme_with_grid()` shim has to reproduce the old theme
+#' exactly, and the old theme had no floor -- its documented default was 12 pt
+#' and it rendered at 12 pt. Routing both through this helper lets the public
+#' function keep its floor while the shim passes `floor = NULL`, instead of
+#' either silently enlarging every legacy figure or clamping in two places.
+#'
+#' @inheritParams theme_bulki
+#' @param floor Numeric(1) smallest honoured `base_size`, or `NULL` for none.
+#' @return A ggplot2 theme object.
+#' @keywords internal
+#' @name dot-theme_bulki
+.theme_bulki <- function(base_size = 14, base_family = "", grid = FALSE,
+                         floor = 14) {
   if (!is.numeric(base_size) || length(base_size) != 1L || is.na(base_size)) {
     stop("`base_size` must be a single number.", call. = FALSE)
   }
   if (!is.logical(grid) || length(grid) != 1L || is.na(grid)) {
     stop("`grid` must be TRUE or FALSE.", call. = FALSE)
   }
-  base_size <- max(base_size, 14)
+  if (!is.null(floor)) base_size <- max(base_size, floor)
 
   grid_major <- if (grid) {
     element_line(colour = "grey92", linewidth = 0.3)

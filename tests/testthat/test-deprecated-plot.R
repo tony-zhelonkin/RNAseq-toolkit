@@ -102,12 +102,22 @@ test_that("gsea_running_sum_plot warns and forwards to gs_plot_running", {
 test_that("custom_minimal_theme_with_grid warns and forwards to theme_bulki", {
   expect_warning(th <- custom_minimal_theme_with_grid(), "deprecated")
   expect_s3_class(th, "theme")
-  # The 14pt floor in theme_bulki() means the old default (12) does not
-  # round-trip -- this is the documented divergence, not a bug.
-  expect_equal(th$text$size, 14)
+  # The old theme had no base-size floor: its documented 12 pt default really
+  # rendered at 12 pt. C2 originally forwarded to the public `theme_bulki()`,
+  # whose deliberate 14 pt floor silently enlarged every legacy figure, and
+  # documented that as a divergence. The integrator removed the divergence
+  # instead by routing this shim through `.theme_bulki(floor = NULL)`.
+  expect_equal(th$text$size, 12)
 
   th2 <- suppressWarnings(custom_minimal_theme_with_grid(base_size = 20))
   expect_equal(th2$text$size, 20)
+
+  # A value under the floor is honoured on the deprecated path only; the
+  # public theme keeps the floor. Without this pair, a future "simplification"
+  # back to theme_bulki() would pass every other assertion here.
+  expect_equal(suppressWarnings(
+    custom_minimal_theme_with_grid(base_size = 9))$text$size, 9)
+  expect_equal(theme_bulki(base_size = 9)$text$size, 14)
 })
 
 test_that("plot_all_gsea_results warns, writes files, forwards to .gs_plot_all", {

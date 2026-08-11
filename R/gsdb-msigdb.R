@@ -59,11 +59,20 @@ gsdb_msigdb <- function(species = "Mus musculus",
   }
 
   sets <- split(as.character(tbl$gene_symbol), as.character(tbl$gs_name))
-  labels <- NULL
+
+  # `pathway_names` is the axis/legend label (see `gs_result`), so it is the
+  # formatted set name -- "Myc Targets V1" -- not MSigDB's `gs_description`,
+  # which is a full sentence ("A subgroup of genes regulated by MYC - version 1
+  # (v1).") and unusable as a label. The old toolkit formatted the id at every
+  # call site instead; doing it once here keeps every renderer consistent.
+  # The description is genuinely useful, so it is kept alongside rather than
+  # dropped.
+  labels <- stats::setNames(format_pathway_name(names(sets)), names(sets))
+  descriptions <- NULL
   if ("gs_description" %in% names(tbl)) {
     uniq <- tbl[!duplicated(tbl$gs_name), c("gs_name", "gs_description")]
-    labels <- stats::setNames(as.character(uniq$gs_description),
-                              as.character(uniq$gs_name))
+    descriptions <- stats::setNames(as.character(uniq$gs_description),
+                                    as.character(uniq$gs_name))
   }
 
   label <- paste(c("MSigDB", collection, subcollection), collapse = " ")
@@ -74,6 +83,11 @@ gsdb_msigdb <- function(species = "Mus musculus",
   db <- gs_db(sets, database = key, species = species,
               pathway_names = labels, database_label = label)
   db <- .gs_filter_size(db, min_size, max_size, verbose = verbose)
+  # After the filter, not before: `[.gs_db` subsets the attributes it knows
+  # about and would leave this one describing dropped sets.
+  if (!is.null(descriptions)) {
+    attr(db, "pathway_descriptions") <- descriptions[names(db)]
+  }
   if (verbose) {
     message(sprintf("Loaded %s (%s): %d sets.", label, species, length(db)))
   }

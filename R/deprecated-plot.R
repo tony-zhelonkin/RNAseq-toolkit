@@ -340,26 +340,25 @@ gsea_running_sum_plot <- function(gsea_obj,
 #' @description
 #' Deprecated: use [theme_bulki()] instead. This shim reproduces the old
 #' formals of `custom_minimal_theme_with_grid()` verbatim and forwards to
-#' `theme_bulki(grid = TRUE)`.
+#' the grid variant of the `theme_bulki()` theme.
 #'
 #' @param base_size Base font size for the theme.
 #' @param base_family Base font family for the theme.
 #'
 #' @return A ggplot2 theme object.
-#' @note `theme_bulki()` enforces a 14pt base-size floor
-#'   (`base_size <- max(base_size, 14)`), which the old theme never did. The
-#'   old default of `base_size = 12` therefore does NOT round-trip: calling
-#'   this shim with its default arguments renders at 14pt, not 12pt, and any
-#'   golden-tested figure that relied on the unfloored 12pt default will
-#'   render with visibly larger text. `base_size` is forwarded faithfully
-#'   (not silently overridden a second time) so any explicit non-default
-#'   value the caller passes still reaches `theme_bulki()` unchanged; only the
-#'   floor itself -- `theme_bulki()`'s behaviour, not this shim's -- causes
-#'   the divergence at the old default.
+#' @note The old theme had no base-size floor and rendered at its documented
+#'   12 pt default; `theme_bulki()` raises anything below 14 pt to 14 pt on
+#'   purpose. To keep this deprecated path byte-faithful, the shim routes
+#'   through the internal `.theme_bulki(floor = NULL)` rather than the public
+#'   `theme_bulki()`, so `base_size = 12` really does render at 12 pt. The
+#'   public theme keeps its floor. No gate could have caught the difference:
+#'   the golden record for this case stores only the 144 theme element *names*,
+#'   never their sizes.
 #' @export
 custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
   .Deprecated("theme_bulki")
-  theme_bulki(base_size = base_size, base_family = base_family, grid = TRUE)
+  .theme_bulki(base_size = base_size, base_family = base_family,
+               grid = TRUE, floor = NULL)
 }
 
 #' Plot all GSEA results for a given analysis (deprecated)
