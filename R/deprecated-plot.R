@@ -93,14 +93,20 @@
 #' @param use_gradient Logical, use continuous gradient for NES.
 #'
 #' @return A ggplot object, as returned by [gs_plot_dot()].
-#' @note The x axis carries the leading-edge **gene ratio**, via
-#'   `gs_plot_dot(aes_x = "gene_ratio")`, because that is what the old dotplot
-#'   plotted (`GeneRatio <- count / setSize`); NES is the fill gradient. Leaving
-#'   the new renderer's `aes_x = "stat"` default in place silently changed what
-#'   the x axis meant.
-#' @note `sortBy` (the old *secondary* display sort) has no counterpart in
-#'   `gs_plot_dot()`, which orders the y axis by the chosen `sort_by` within the
-#'   selection. Accepted and ignored.
+#' @note The old dotplot put **GeneRatio** on the x axis and NES only in the
+#'   fill gradient (`GeneRatio <- count / setSize`, where `count` is the
+#'   leading-edge gene count). This shim forwards `aes_x = "gene_ratio"` to
+#'   reproduce that; `gs_plot_dot()`'s own default (`aes_x = "stat"`) would put
+#'   NES on x, which changes what the axis *means* rather than how it looks.
+#'   `gs_plot_dot()`'s `gene_ratio` is `lengths(leading_edge) / n_genes`, which
+#'   is exactly `count / setSize` on both paths into this shim: a converted
+#'   `gseaResult` (where `n_genes` comes from `setSize` and `leading_edge` from
+#'   splitting `core_enrichment`) and a `gs_result` from the `run_gsea()` shim
+#'   (`n_genes` from `lengths(sets[pathway])`, `leading_edge` from fgsea's
+#'   `leadingEdge`). An exact match, not an approximation.
+#' @note `sortBy` was the old *display* sort (its stage 3), not a selection
+#'   tie-break. `gs_plot_dot()` orders the y axis by the chosen `sort_by` within
+#'   the selection, so `sortBy` is accepted and ignored.
 #' @note `use_gradient = FALSE` (the old "binary colour" mode) has no
 #'   counterpart: `gs_plot_dot()` always uses the continuous diverging
 #'   gradient. Accepted and ignored; the plot always renders with a gradient.
@@ -186,6 +192,8 @@ gsea_dotplot <- function(
 #' @param strip_prefix Logical, strip common prefixes like `"HALLMARK_"`.
 #'
 #' @return A ggplot object, as returned by [gs_plot_dot()].
+#' @note Forwards `aes_x = "gene_ratio"`, matching the old faceted dotplot's
+#'   GeneRatio x axis -- see the `gsea_dotplot()` note for the derivation.
 #' @export
 gsea_dotplot_facet <- function(
     gsea_obj,
@@ -252,6 +260,11 @@ gsea_dotplot_facet <- function(
 #'   individual bars, so `highlight` is forced to `NULL` here -- outlining an
 #'   already-significance-filtered set would be a no-op difference from the
 #'   old figure, but is called out explicitly rather than left implicit.
+#' @note After `gs_plot_bar()` returns, the plot's `$data` and `gs_source`
+#'   attribute are re-sorted to ascending `stat`, matching the old function's
+#'   post-selection `dplyr::arrange(NES)`. This changes only row order in the
+#'   data and the table `gs_save()` writes -- bar positions come from the y-axis
+#'   factor's levels and are already correct.
 #' @export
 gsea_barplot <- function(
     gsea_obj,
@@ -267,7 +280,7 @@ gsea_barplot <- function(
 
   x <- .dep_gsea_to_gs_result(gsea_obj)
 
-  gs_plot_bar(
+  p <- gs_plot_bar(
     x,
     top = top_n,
     sort_by = "stat",
@@ -279,6 +292,21 @@ gsea_barplot <- function(
     strip_prefix = strip_prefix,
     title = title
   )
+
+  # `gs_plot_bar()` selects top-by-|stat|, matching the old
+  # `arrange(desc(abs(NES))) |> head(top_n)`, and sets the y-axis factor's
+  # *levels* in ascending-stat order -- levels alone decide bar position, so
+  # nothing rendered depends on row order. The old function additionally
+  # reordered the rows themselves (`arrange(NES)`, `gsea_barplot.R:64`), which
+  # is what `gs_save()` writes to the table beside the figure. Without this the
+  # table would list pathways in selection order (steepest |NES| first) instead.
+  if (nrow(p$data) > 0L) {
+    ord <- order(p$data$stat)
+    p$data <- p$data[ord, , drop = FALSE]
+    src <- attr(p, "gs_source")
+    if (!is.null(src)) attr(p, "gs_source") <- src[ord, , drop = FALSE]
+  }
+  p
 }
 
 #' Unified GSEA running-sum plot (deprecated)

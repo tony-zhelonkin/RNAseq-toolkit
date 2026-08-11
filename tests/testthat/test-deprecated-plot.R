@@ -93,8 +93,6 @@ test_that("gsea_barplot accepts run_gsea()-shaped gs_result input", {
 })
 
 test_that("gsea_running_sum_plot accepts run_gsea()-shaped gs_result input, using its own ranks/gene_sets attributes", {
-  skip_if_not_installed("enrichplot")
-  skip_if_not_installed("patchwork")
   res <- fake_run_gsea_result()
   expect_warning(
     p <- gsea_running_sum_plot(res, gene_set_ids = c("SET_UP", "SET_DOWN")),
@@ -149,8 +147,6 @@ test_that("gsea_barplot warns, hard-filters by padj_cutoff, forwards", {
 })
 
 test_that("gsea_running_sum_plot warns and forwards to gs_plot_running", {
-  skip_if_not_installed("enrichplot")
-  skip_if_not_installed("patchwork")
   g <- fake_gsea_result()
   expect_warning(
     p <- gsea_running_sum_plot(g, gene_set_ids = c("SET_1", "SET_2")),

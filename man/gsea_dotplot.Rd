@@ -70,15 +70,21 @@ Deprecated: use \code{\link[=gs_plot_dot]{gs_plot_dot()}} instead. This shim rep
 formals of \code{gsea_dotplot()} verbatim and forwards to \code{gs_plot_dot()}.
 }
 \note{
-The x axis carries the leading-edge \strong{gene ratio}, via
-\code{gs_plot_dot(aes_x = "gene_ratio")}, because that is what the old dotplot
-plotted (\code{GeneRatio <- count / setSize}); NES is the fill gradient. Leaving
-the new renderer's \code{aes_x = "stat"} default in place silently changed what
-the x axis meant.
+The old dotplot put \strong{GeneRatio} on the x axis and NES only in the
+fill gradient (\code{GeneRatio <- count / setSize}, where \code{count} is the
+leading-edge gene count). This shim forwards \code{aes_x = "gene_ratio"} to
+reproduce that; \code{gs_plot_dot()}'s own default (\code{aes_x = "stat"}) would put
+NES on x, which changes what the axis \emph{means} rather than how it looks.
+\code{gs_plot_dot()}'s \code{gene_ratio} is \code{lengths(leading_edge) / n_genes}, which
+is exactly \code{count / setSize} on both paths into this shim: a converted
+\code{gseaResult} (where \code{n_genes} comes from \code{setSize} and \code{leading_edge} from
+splitting \code{core_enrichment}) and a \code{gs_result} from the \code{run_gsea()} shim
+(\code{n_genes} from \code{lengths(sets[pathway])}, \code{leading_edge} from fgsea's
+\code{leadingEdge}). An exact match, not an approximation.
 
-\code{sortBy} (the old \emph{secondary} display sort) has no counterpart in
-\code{gs_plot_dot()}, which orders the y axis by the chosen \code{sort_by} within the
-selection. Accepted and ignored.
+\code{sortBy} was the old \emph{display} sort (its stage 3), not a selection
+tie-break. \code{gs_plot_dot()} orders the y axis by the chosen \code{sort_by} within
+the selection, so \code{sortBy} is accepted and ignored.
 
 \code{use_gradient = FALSE} (the old "binary colour" mode) has no
 counterpart: \code{gs_plot_dot()} always uses the continuous diverging

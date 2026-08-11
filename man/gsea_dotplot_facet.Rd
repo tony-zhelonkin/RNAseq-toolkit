@@ -60,3 +60,7 @@ A ggplot object, as returned by \code{\link[=gs_plot_dot]{gs_plot_dot()}}.
 Deprecated: use \code{\link[=gs_plot_dot]{gs_plot_dot()}} with \code{facet = "direction"} instead. This
 shim reproduces the old formals of \code{gsea_dotplot_facet()} verbatim.
 }
+\note{
+Forwards \code{aes_x = "gene_ratio"}, matching the old faceted dotplot's
+GeneRatio x axis -- see the \code{gsea_dotplot()} note for the derivation.
+}

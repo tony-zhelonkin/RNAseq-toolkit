@@ -49,4 +49,10 @@ The old function pre-filtered on \code{padj_cutoff} and never outlined
 individual bars, so \code{highlight} is forced to \code{NULL} here -- outlining an
 already-significance-filtered set would be a no-op difference from the
 old figure, but is called out explicitly rather than left implicit.
+
+After \code{gs_plot_bar()} returns, the plot's \verb{$data} and \code{gs_source}
+attribute are re-sorted to ascending \code{stat}, matching the old function's
+post-selection \code{dplyr::arrange(NES)}. This changes only row order in the
+data and the table \code{gs_save()} writes -- bar positions come from the y-axis
+factor's levels and are already correct.
 }
