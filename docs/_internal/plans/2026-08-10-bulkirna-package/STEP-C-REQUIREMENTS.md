@@ -87,14 +87,40 @@ you cannot `+` onto a patchwork, and the return value is now a plain ggplot.
 
 ---
 
-## 2. Golden re-captures — re-capture, never loosen
+## 2. Golden re-captures - re-capture, never loosen
 
-| Case | Change | Why |
+**The migration happened in `9c7e1a5`.** `capture_golden.R` now loads the package instead of
+sourcing `scripts/`, so the 20 cases reach the new code through the deprecation shims. The
+prediction in the original version of this section -- that only `gsea_running_sum_plot` would
+move -- was **wrong**. Actual outcome below. Only these are sanctioned; anything else moving
+is a bug.
+
+### Compared by name, not re-captured
+
+| Case | Apparent change | Resolution |
 |---|---|---|
-| `gsea_running_sum_plot` | class loses its `patchwork` prefix (`ggplot2::ggplot/ggplot/ggplot2::gg/S7_object/gg`); data goes from 3 sub-plots to 5 layers in one plot | B4's deliberate redesign; enrichplot dropped |
+| `create_standard_volcano_{fdr,p,counts}` | `Component 4: target is character, current is numeric` | **Not a change.** Built-layer column *order* differs (`[label,x,y]` vs `[x,y,label]`) and `all.equal()` compares data frames positionally. `canon()` now orders columns by name. Byte-identical afterwards, which is the first real evidence `de_volcano()` reproduces the old function. |
+| `create_MD_plot` | geometry scaled by 14/12 | **A real bug, fixed, not re-captured.** `.de_theme()` called `theme_bulki()` with no arguments, discarding `base_size` entirely, and the 14pt floor overrode the DE layer's documented 12pt default. Point stroke 1.5 -> 1.75. |
 
-Every other case must stay byte-identical. **A golden change on any B branch before the
-harness migration is a bug, not a feature.**
+### Sanctioned re-captures
+
+| Case | Change | Why it is sanctioned |
+|---|---|---|
+| `gsea_running_sum_plot` | class loses its `patchwork` prefix; 3 sub-plots -> 5 layers in one plot | B4's deliberate redesign; enrichplot dropped |
+| `run_gsea_hallmark` | old S4 `gseaResult@result` (14 bespoke columns) -> `gs_result`'s 12 core columns | the shim returns a `gs_result` by design; `normalize()` reached the S4 slot before |
+| `normalize_gsea_results` | same schema change, **plus `direction` changing from `"Up"`/`"Down"` to `"up"`/`"down"`** | Step A contract (`R/gs-result.R:22`). Verified before blessing: `pathway_id` sets are identical and `padj` matches to 1e-6, so only the schema moved. **The `direction` case-change is the dangerous one** - a consumer filtering `direction == "Up"` silently gets zero rows rather than an error. |
+| `empty_gsea_tibble` | 14 bespoke columns -> `gs_result`'s 12 | this document's own recipe asked for a zero-row `gs_result`. A consumer doing `$NES` now gets `NULL`. |
+| `load_reference_db_{mitopathways,transportdb}` | set *ordering* changed | Content verified identical **before** re-capturing: `setequal()` over all 3691 `(gs_name, gene_symbol)` pairs is `TRUE`. `split()` sorts set names where the old RDS preserved source order. Cannot be canonicalised away, because the golden stored `head(50)` and a different order samples different sets. |
+| `ensure_dir` | old returned `dir.exists(d) == FALSE`, new returns `TRUE` | **The golden encoded a bug.** `02_api-inventory.md` §3.2 records two colliding definitions: `utils_plotting.R:16` takes a *directory* (2 consumers, the frozen one), `build_reference_databases.R:49` takes a *file path* and creates `dirname(path)`. The harness evaluated the latter last, so it won by collation and the golden captured the loser of the collision. Step A implemented the frozen directory semantics, so the new value is the correct one. |
+
+### Still open at the time of writing
+
+`gsea_dotplot`, `gsea_dotplot_facet`, `gsea_barplot` and `gsea_running_sum_plot` **ERROR**
+rather than FAIL: `run_gsea()` (C1's shim) returns a `gs_result`, and C2's shims accept only a
+literal S4 `gseaResult`. The commonest legacy pattern in the toolkit,
+`obj <- run_gsea(...); gsea_dotplot(obj)`, is broken end to end. Every C2 test passes because
+they all use a synthetic S4 fixture; every C1 test passes because they never call a renderer.
+**Nothing tested the composition.** Sent back to C2.
 
 ---
 
