@@ -6,7 +6,7 @@
 **How:** a single GitHub issue. No email, no CRAN contact. The package is actively developed on
 GitHub and this is a plain reproducible bug. Include the reprex; it does the arguing.
 
-**Filed:** see the `## Filed` section at the end.
+**Filed:** https://github.com/igordot/msigdbr/issues/62 (2026-08-12)
 
 ---
 
@@ -24,10 +24,10 @@ but builds that table from only the genes of the collection being queried.
 
 Every later call in the same session reuses it. The result is silently reduced to the
 intersection of the two collections' gene spaces. No warning is emitted, and the returned object
-looks normal in principle, except that the number of sets tested is smaller than you'd expect.
+looks normal in principle, except that the number of sets tested is smaller than one would expect.
 
-Because the effect depends on call order rather than call arguments, the same script gives
-different answers depending on which collection it queries first.
+Because the effect depends on call order, 
+the same script gives different answers depending on which collection it queries first.
 
 ### Reproducible example
 
@@ -54,7 +54,7 @@ nrow(r)
 #> 44635
 ```
 
-### Whichever collection is queried first, the second gets truncated
+Whichever collection is queried first, the second gets truncated
 
 ```r
 # Hallmark first
@@ -72,7 +72,8 @@ Reactome queried after Hallmark: 3655
 ```
 
 The mouse-symbol count above (3688) differs from a naive symbol-level intersection (3689) by one,
-because ortholog mapping is many-to-many. The truncation itself happens on the join key.
+as ortholog mapping is many-to-many. 
+The truncation itself happens on the join key.
 
 ### Cause
 
@@ -99,11 +100,8 @@ only the taxon.
 The subsequent `inner_join(mdb, species_genes, by = "db_ensembl_gene")` then drops every gene
 absent from the cached table.
 
-### Why this is easy to miss
-
-Nothing fails. The call returns a well-formed tibble with plausible set sizes, so the only
-symptom is downstream, when gene sets test as smaller than you'd expect. The resulting p-values
-and FDRs are inflated too.
+The call returns a well-formed tibble with plausible set sizes, so the only symptom is downstream, 
+when gene sets test as smaller than you'd expect. The resulting p-values and FDRs are inflated too.
 
 I found it by noticing that one script reported 677 Reactome pathways where an equivalent one
 reported 1,050.
@@ -117,10 +115,9 @@ correct:
 species_genes <- babelgene::orthologs(genes = <all db_ensembl_gene for the species>, ...)
 ```
 
-Then the per-call `inner_join` subsets it correctly. On the first query of a session that costs
-one larger `babelgene::orthologs()` call, and the order dependence goes away.
-
-If that is unattractive: include the queried genes in the cache key, or drop the memoisation.
+Then the per-call `inner_join` subsets it correctly. 
+On the first query of a session that costs one larger `babelgene::orthologs()` call, 
+the order dependence goes away.
 
 ### Workaround
 
@@ -133,9 +130,7 @@ if (exists(key, envir = asNamespace("msigdbr")$pkg_env, inherits = FALSE)) {
 
 Dropping the cache before each query restores correct results.
 
-It reaches into package internals, so it needs an independent check on the returned gene
-coverage. A workaround that silently stops working restores exactly the failure it was meant to
-prevent.
+It reaches into package internals, so it needs an independent check on the returned gene coverage. 
 
 ### Session info
 
@@ -152,4 +147,9 @@ Happy to open a PR if the approach above looks right to you.
 
 ## Filed
 
-Opened with `gh issue create --repo igordot/msigdbr`. URL recorded below once filed.
+https://github.com/igordot/msigdbr/issues/62 — opened 2026-08-12 with
+`gh issue create --repo igordot/msigdbr`.
+
+If the maintainer takes the suggested fix, the two-layer guard in `R/gsdb-msigdb.R` can
+eventually drop its cache-clearing layer. The coverage assertion stays either way: it is
+mechanism-independent, and it is what would catch a regression.

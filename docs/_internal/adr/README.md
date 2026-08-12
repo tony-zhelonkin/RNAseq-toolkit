@@ -27,4 +27,4 @@ rather than taken on trust.
 
 | Report | Status |
 |---|---|
-| [msigdbr ortholog cache](../upstream/2026-08-12-msigdbr-ortholog-cache.md) | drafted 2026-08-12, not yet filed |
+| [msigdbr ortholog cache](../upstream/2026-08-12-msigdbr-ortholog-cache.md) | filed 2026-08-12 — [igordot/msigdbr#62](https://github.com/igordot/msigdbr/issues/62) |
