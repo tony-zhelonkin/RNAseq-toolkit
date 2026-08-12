@@ -928,3 +928,35 @@ TransportDB 96) survive, because `append_master_table()` replaces per database.
 Expectations to check against: Hallmark holds at 50 per contrast (it ran first, so it was
 never truncated), Reactome rises from 677 to ~1050, and GO_BP/GO_CC/GO_MF/KEGG all rise.
 `padj` moves for every collection except Hallmark.
+
+## 14. CoReSh: extraction plan and the package-versus-skill decision (2026-08-11)
+
+Surveyed the three independent CoReSh implementations (DC-nexus `coresh-slice`,
+`14839-DM-cGAS` scripts `07`/`08`, and the `coresh-signature-search` skill) against the
+SciAgent-toolkit refactor. The plan of record lives at
+[../2026-08-11-coresh-extraction/00_PLAN.md](../2026-08-11-coresh-extraction/00_PLAN.md).
+
+Headlines:
+
+- **The 269-line CoReSh engine is md5-identical in four checkouts** and is 0%
+  project-specific. Across the 1,404 surveyed lines, ~81% is generic machinery.
+- **The CoReSh `neg_log_padj` defect flagged in §13 is a column-projection bug**, not
+  arithmetic. `08_coresh_derived_gsea.R:215` projects to a ten-column allowlist that omits
+  `neg_log_padj`, `gene_ratio` and `leading_edge_size`; `bind_rows()` then NA-fills them.
+  Confirmed in the live table: `padj=2.6175484e-33, neg_log_padj=NA`.
+- **One column carries two saturation conventions** — `normalize_gsea.R` caps at 16, the
+  migrated `05_gsea_msigdb_run.R` and the renderer `12_gsea_viz.R` reach ~307.65. Settle this
+  before `06` and `08` migrate.
+- **Recommendation: both.** `bulkiRNA` gains `gsdb_coresh()` plus the search, set-building
+  and gene-identifier primitives; the skill keeps the judgement — query design, the top-20
+  categorisation rubric, negative controls, the Synapse walkthrough. Boundary rule: a table
+  in and a table out belongs to the package, a result in and a decision out belongs to the
+  skill. `Suggests` grows by `qs2`, `BiocParallel`, `data.table`, `digest`.
+- **`coresh_batch.R:44` calls `fgsea:::gesecaCpp`**, an unexported internal. Discharge it
+  against public `fgsea::geseca()` the way `B2-fgsea-equivalence.R` discharged
+  clusterProfiler; guard it only if that fails.
+- **Phase 5 gains a concrete target.** `bulkiRNA` appears nowhere in SciAgent-toolkit; the
+  existing `bulk-rnaseq-gsea` skill still instructs
+  `source(.../GSEA/GSEA_processing/run_gsea.R)`, and `annotate-bulk-rnaseq-data` pins
+  RNAseq-toolkit v0.2.0. The high-level bulkiRNA skill is a rewrite of those two, not a new
+  skill. Edit the `scbio-docker/toolkits/` copy — it is ahead of the Meta-Aging checkout.
