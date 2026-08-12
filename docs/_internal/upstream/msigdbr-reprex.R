@@ -23,8 +23,14 @@
 #   symmetry_rev    Reactome = 10762  then H =  3688   <-- 705 genes lost
 #   workaround      H = 4393   then Reactome = 10762   <-- cache dropped
 #
-# 3688 is the intersection of the two collections' mapped gene spaces. Whichever
-# collection is queried second is reduced to that intersection, in either order.
+# Whichever collection is queried second is reduced to the intersection of the
+# two gene spaces, in either order. That is exact at the join key: measured from
+# clean sessions, db_ensembl_gene gives H = 4362, Reactome = 10847,
+# intersection = 3655 -- and the truncated second call is 3655 exactly.
+#
+# The mouse-symbol figure (3688) is one off a naive symbol-level intersection
+# (3689) because ortholog mapping is many-to-many. Do not state the symbol counts
+# as an exact identity; the truncation happens on the join key.
 
 suppressPackageStartupMessages(library(msigdbr))
 
