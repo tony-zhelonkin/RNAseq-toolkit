@@ -18,3 +18,13 @@ Earlier decisions predate this directory and live in the plan index
 (`plans/2026-08-10-bulkirna-package/00_INDEX.md`) — notably MADR-008 (`genes_full_set` is
 computed by the caller), the four-layer architecture, and the export freeze. They are not
 back-filled here; the plan index remains their home.
+
+## Upstream
+
+[`../upstream/`](../upstream/) holds bug reports filed against, or drafted for, our
+dependencies — with the reproducible example alongside the prose, so the claim can be re-checked
+rather than taken on trust.
+
+| Report | Status |
+|---|---|
+| [msigdbr ortholog cache](../upstream/2026-08-12-msigdbr-ortholog-cache.md) | drafted 2026-08-12, not yet filed |
