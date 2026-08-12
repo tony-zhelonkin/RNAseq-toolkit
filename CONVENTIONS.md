@@ -286,3 +286,42 @@ for the user, not a refactor decision.** Report it; do not act on it.
   orthologs. It is correctness-relevant and not suppressible through its API, so
   it stays visible despite §5's "no progress output unless `verbose`". Do not
   write a test asserting that MSigDB providers are silent.
+
+---
+
+## 13. Commit messages and prose
+
+### Commit messages
+
+A commit message says what changed and why, for someone reading this repo later.
+
+Keep deliberation out of it. Reasoning about what we might do next, which layer could
+eventually be removed, or how confident we are belongs in `docs/_internal/`, not in history.
+
+**Never write a linkable issue reference to another project's repository.** GitHub reads
+`owner/repo#123` and full issue URLs in commit messages and cross-posts the whole commit body
+onto that issue. A message written for this repo then lands on a stranger's tracker. Write
+`issue 123` in plain text instead. This already happened once, on the msigdbr tracker (issue 62).
+
+Our own issues are fine to reference.
+
+### Prose
+
+State what holds, rather than what does not. `install_failures.csv` "keeps its meaning:
+requested and failed", not "is deliberately **not** written to". The build "proceeds whatever it
+finds", not "never fails".
+
+Short sentences. One idea per line. First person where a person did something.
+
+Things to cut, all of which read as machine-written:
+
+| Cut | Example |
+|---|---|
+| Aphoristic closers that restate the moral | "A workaround that silently stops working restores exactly the failure it was meant to prevent." |
+| Punchy two-word fragments | "Nothing fails." |
+| Headings that frame an argument instead of naming a section | "### Why this is easy to miss" |
+| `X rather than Y` where the plain statement suffices | "depends on call order rather than call arguments" → "depends on call order" |
+| Menus of alternatives nobody asked for | "If that is unattractive: include the queried genes in the cache key, or drop the memoisation." |
+| Em-dashes used for drama | use a comma, a full stop, or a colon |
+
+Sparing use of any of these is fine. Three in a paragraph is the tell.
