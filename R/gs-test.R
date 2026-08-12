@@ -334,10 +334,8 @@ NULL
 #' @keywords internal
 .gs_limma <- function(x, design = NULL, contrast = "contrast", coef = NULL,
                       block = NULL, trend = FALSE, robust = FALSE) {
-  if (!requireNamespace("limma", quietly = TRUE)) {
-    stop("Testing a gs_matrix requires the limma package. Install it with ",
-         "BiocManager::install(\"limma\").", call. = FALSE)
-  }
+  .require_pkg("limma", "Testing a gs_matrix",
+               'BiocManager::install("limma")')
   sd <- attr(x, "sample_data")
   if (inherits(design, "formula")) {
     if (is.null(sd)) {

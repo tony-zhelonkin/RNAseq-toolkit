@@ -120,7 +120,9 @@ annotate_genes <- function(ens_ids,
     gene_biotype = NA_character_
   )
 
-  if (use_biomart && requireNamespace("biomaRt", quietly = TRUE)) {
+  if (use_biomart) {
+    .require_pkg("biomaRt", "`annotate_genes(use_biomart = TRUE)`",
+                 'BiocManager::install("biomaRt")')
     bt <- try({
       margs <- list("genes", dataset = dataset)
       if (!is.null(biomart_version)) margs[["version"]] <- biomart_version

@@ -240,11 +240,7 @@
 #' @return A `gs_db` with mouse symbols and `species = "Mus musculus"`.
 #' @keywords internal
 .gsdb_human_to_mouse <- function(db, verbose = FALSE) {
-  if (!requireNamespace("homologene", quietly = TRUE)) {
-    stop("Converting human symbols to mouse orthologs requires the ",
-         "homologene package. Install it with ",
-         "install.packages(\"homologene\").", call. = FALSE)
-  }
+  .require_pkg("homologene", "Converting human symbols to mouse orthologs")
   human <- unique(unlist(db, use.names = FALSE))
   map <- homologene::homologene(human, inTax = 9606, outTax = 10090)
   if (!nrow(map)) {

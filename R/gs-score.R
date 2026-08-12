@@ -77,10 +77,7 @@ gs_score <- function(expr, db,
 .gs_gsva <- function(expr, sets, method = "gsva",
                      min_size = 10L, max_size = 500L, kcdf = "Gaussian",
                      verbose = FALSE, ...) {
-  if (!requireNamespace("GSVA", quietly = TRUE)) {
-    stop("`gs_score()` requires the GSVA package. Install it with ",
-         "BiocManager::install(\"GSVA\").", call. = FALSE)
-  }
+  .require_pkg("GSVA", "`gs_score()`", 'BiocManager::install("GSVA")')
   param <- switch(
     method,
     gsva = GSVA::gsvaParam(

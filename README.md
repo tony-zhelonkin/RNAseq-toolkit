@@ -103,7 +103,8 @@ alike.
 ### Network modules
 
 `gatom_de()` `gatom_genes()` `gatom_module()` `gatom_refs()` `gatom_save_html()`
-`download_gatom_references()` — these need `gatom` and `mwcsr`, which install from GitHub.
+`download_gatom_references()` — these need `gatom` from Bioconductor and `mwcsr`
+from CRAN.
 
 ---
 

@@ -48,10 +48,7 @@
 #' @return The parsed YAML as a list.
 #' @keywords internal
 .gsdb_metadata <- function() {
-  if (!requireNamespace("yaml", quietly = TRUE)) {
-    stop("Reading the reference registry requires the yaml package. ",
-         "Install it with install.packages(\"yaml\").", call. = FALSE)
-  }
+  .require_pkg("yaml", "Reading the reference registry")
   path <- .gsdb_extdata("METADATA.yaml")
   if (!nzchar(path)) {
     stop("`METADATA.yaml` is missing from the installed package. ",
