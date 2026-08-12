@@ -31,11 +31,13 @@
 #' collections' genes would avoid the recompute but requires loading the whole
 #' database, which is far more expensive than the mapping it saves.
 #'
-#' This reaches into another package's internals, so every step is guarded and
-#' failure is silent: if msigdbr changes its caching, the worst case is that
-#' this becomes a no-op and we are back to upstream behaviour, never a hard
-#' error in a provider call. `tests/testthat/test-gsdb-msigdb.R` carries the
-#' regression test that would catch that regression.
+#' This reaches into another package's internals, so it is deliberately *not*
+#' the thing that guarantees correctness. If msigdbr renames `pkg_env` or its
+#' cache key, this silently becomes a no-op -- and a silent no-op restores
+#' exactly the silent truncation it exists to prevent. The guarantee therefore
+#' comes from `.msigdbr_assert_ortholog_coverage()`, which checks the *result*
+#' and does not care how the mapping was produced. This function is the fix;
+#' that one is the seatbelt.
 #'
 #' @return `TRUE` if a cache entry was dropped, otherwise `FALSE`, invisibly.
 #' @keywords internal
@@ -52,6 +54,96 @@
     TRUE
   }, error = function(e) FALSE)
   invisible(isTRUE(dropped))
+}
+
+
+#' Assert that ortholog mapping did not silently drop most of a collection
+#'
+#' The mechanism-independent half of the msigdbr ortholog-cache guard (see
+#' `.msigdbr_drop_ortholog_cache()`). Truncation is invisible in the returned
+#' table -- the `inner_join` removes whole genes, so nothing looks anomalous
+#' from the inside -- but it *is* visible against the source collection, which
+#' can be fetched with `species = "Homo sapiens"`. That path never touches the
+#' ortholog cache (msigdbr skips the branch entirely for human), so it can
+#' neither be poisoned nor poison, and it costs one cached read, no network and
+#' no `babelgene` call.
+#'
+#' The check is a coverage floor: what fraction of the collection's human genes
+#' survived mapping to the target species. Measured with the fix in place,
+#' `species = "Mus musculus"`, `db_species = "HS"`:
+#'
+#' | collection        | human genes | mapped | ratio |
+#' | ----------------- | ----------- | ------ | ----- |
+#' | H                 |  4384       |  4393  | 1.002 |
+#' | C2 CP:REACTOME    | 11448       | 10762  | 0.940 |
+#' | C2 CP:KEGG_LEGACY |  5246       |  5032  | 0.959 |
+#' | C5 GO:MF          | 15971       | 14444  | 0.904 |
+#' | C5 GO:CC          | 14953       | 13407  | 0.897 |
+#' | C5 GO:BP          | 18215       | 15988  | 0.878 |
+#' | C7                | 21385       | 17517  | 0.819 |
+#' | C3 TFT:GTRD       | 27022       | 16143  | 0.597 |
+#'
+#' Truncated by the bug, the same collections land at 0.32 (Reactome) and 0.24
+#' (GO:BP). `0.45` sits in the gap: below the worst legitimate collection
+#' (0.597, C3's very wide TF-target sets) and above the mildest truncation seen.
+#' It is a floor against catastrophic loss, not a quality metric -- a threshold
+#' tight enough to grade ortholog quality would fire on legitimate collections.
+#'
+#' Failure is an error, not a warning. The whole problem with the upstream bug
+#' is that it produces plausible numbers, so a warning in a long pipeline log
+#' is indistinguishable from success. Anything that gets past this is a
+#' complete collection or a stopped script.
+#'
+#' Skipped when no ortholog mapping happens (human target, or `db_species =
+#' "MM"`), and skipped -- with a warning rather than an error -- if the
+#' reference fetch itself fails, since a broken cache is not evidence of
+#' truncation.
+#'
+#' @param tbl The tibble returned by [msigdbr::msigdbr()].
+#' @param args The argument list that produced `tbl`.
+#' @param min_coverage Numeric(1) coverage floor.
+#' @return `tbl`, invisibly and unchanged.
+#' @keywords internal
+#' @noRd
+.msigdbr_assert_ortholog_coverage <- function(tbl, args, min_coverage = 0.45) {
+  if (!identical(args$db_species, "HS")) return(invisible(tbl))
+  if (args$species %in% c("Homo sapiens", "human")) return(invisible(tbl))
+  if (!all(c("gene_symbol", "db_gene_symbol") %in% names(tbl))) {
+    return(invisible(tbl))
+  }
+
+  ref_args <- args
+  ref_args$species <- "Homo sapiens"
+  ref <- tryCatch(do.call(msigdbr::msigdbr, ref_args), error = function(e) NULL)
+  if (is.null(ref) || !"db_gene_symbol" %in% names(ref)) {
+    warning("Could not verify ortholog coverage for MSigDB `collection = \"",
+            args$collection, "\"`; proceeding unchecked. Gene sets may be ",
+            "silently truncated -- see `?gsdb_msigdb`.", call. = FALSE)
+    return(invisible(tbl))
+  }
+
+  n_source <- length(unique(as.character(ref$db_gene_symbol)))
+  n_mapped <- length(unique(as.character(tbl$db_gene_symbol)))
+  if (n_source == 0L) return(invisible(tbl))
+  coverage <- n_mapped / n_source
+
+  if (coverage < min_coverage) {
+    stop("MSigDB ortholog mapping dropped ", format(n_source - n_mapped,
+         big.mark = ","), " of ", format(n_source, big.mark = ","),
+         " genes for `collection = \"", args$collection, "\"`",
+         if (is.null(args$subcollection)) "" else
+           paste0(", `subcollection = \"", args$subcollection, "\"`"),
+         " (", round(100 * coverage), "% retained, expected >",
+         round(100 * min_coverage), "%).\n",
+         "This is the msigdbr cross-collection ortholog-cache bug: the gene ",
+         "sets would be truncated to another collection's gene space, giving ",
+         "under-tested sets and a wrong `padj`. bulkiRNA's workaround did not ",
+         "hold, most likely because msigdbr changed its internals.\n",
+         "Workaround: query this collection in a fresh R session, before any ",
+         "other collection. Please report this so the guard can be updated.",
+         call. = FALSE)
+  }
+  invisible(tbl)
 }
 
 
@@ -106,8 +198,12 @@ gsdb_msigdb <- function(species = "Mus musculus",
   if (!is.null(subcollection)) {
     args$subcollection <- subcollection
   }
+  # Two-part guard against an msigdbr ortholog-cache bug that silently truncates
+  # collections: clear the stale cache, then verify the result independently of
+  # whether that clear worked. See both helpers above.
   .msigdbr_drop_ortholog_cache()
   tbl <- do.call(msigdbr::msigdbr, args)
+  .msigdbr_assert_ortholog_coverage(tbl, args)
 
   if (!nrow(tbl)) {
     stop("MSigDB returned no gene sets for `collection = \"", collection,

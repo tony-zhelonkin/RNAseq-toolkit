@@ -105,3 +105,43 @@ test_that("an unknown collection errors with guidance", {
           "MSigDB unavailable")
   expect_match(err, "msigdbr_collections|no gene sets|collection")
 })
+
+test_that("truncated ortholog mapping is an error, not a quiet result", {
+  # The seatbelt: even if the cache-clearing workaround stops working, a
+  # truncated collection must never be returned. Simulated by defeating the
+  # workaround the same way the bug does -- poison the cache, then call the
+  # coverage check directly on the truncated table.
+  skip_if_not_installed("msigdbr")
+  skip_if_not_installed("babelgene")
+  raw <- function(coll, sub = NULL) {
+    a <- list(db_species = "HS", species = "Mus musculus", collection = coll)
+    if (!is.null(sub)) a$subcollection <- sub
+    tryCatch(do.call(msigdbr::msigdbr, a),
+             error = function(e) skip(paste("MSigDB unavailable:",
+                                            conditionMessage(e))))
+  }
+  .msigdbr_drop_ortholog_cache()
+  invisible(raw("H"))                                    # poison with Hallmark
+  args <- list(db_species = "HS", species = "Mus musculus",
+               collection = "C2", subcollection = "CP:REACTOME")
+  truncated <- raw("C2", "CP:REACTOME")
+  skip_if(length(unique(truncated$db_gene_symbol)) > 8000,
+          "msigdbr no longer leaks its ortholog cache across collections")
+
+  expect_error(.msigdbr_assert_ortholog_coverage(truncated, args),
+               "ortholog mapping dropped")
+  # And the honest result passes the same check unchanged.
+  clean <- gsdb_msigdb("Mus musculus", collection = "C2",
+                       subcollection = "CP:REACTOME", db_species = "HS")
+  expect_s3_class(clean, "gs_db")
+})
+
+test_that("the coverage check stands down when no ortholog mapping happens", {
+  # Human target and mouse-native sets never hit the buggy code path, so the
+  # check must not fire -- and must not cost a reference fetch either.
+  args_hs <- list(db_species = "HS", species = "Homo sapiens", collection = "H")
+  args_mm <- list(db_species = "MM", species = "Mus musculus", collection = "H")
+  bad <- data.frame(gene_symbol = "A", db_gene_symbol = "A")
+  expect_silent(.msigdbr_assert_ortholog_coverage(bad, args_hs))
+  expect_silent(.msigdbr_assert_ortholog_coverage(bad, args_mm))
+})
