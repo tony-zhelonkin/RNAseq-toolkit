@@ -858,3 +858,73 @@ Two false starts are recorded because both *passed* and neither tested anything:
 The test skips (rather than fails) if upstream ever stops leaking, and a negative control
 confirms it fails with the workaround disabled. Gates after the change: **806 pass / 0
 fail** (was 802; 4 new assertions), golden **20/20**, `verify_golden.R` exit 0.
+
+## 13. Hardening the guard, the documentation sweep, and the re-run (2026-08-11)
+
+### The guard grew a second, independent layer
+
+`.msigdbr_drop_ortholog_cache()` alone was brittle in the worst way: it reaches into
+msigdbr's `pkg_env`, so an upstream rename turns it into a silent no-op -- and a silent
+no-op restores exactly the silent truncation it exists to prevent. A fix whose failure mode
+is invisible is not a fix.
+
+`.msigdbr_assert_ortholog_coverage()` now checks the *result* and ignores how the mapping
+was produced. It fetches the same collection with `species = "Homo sapiens"` (a path msigdbr
+skips the ortholog branch for entirely, so it can neither be poisoned nor poison, and costs
+one cached read) and compares unique gene counts. Below a 0.45 floor it errors.
+
+The floor is measured. Legitimate coverage, `Mus musculus` / `db_species = "HS"`: H 1.002,
+CP:KEGG_LEGACY 0.959, CP:REACTOME 0.940, GO:MF 0.904, GO:CC 0.897, GO:BP 0.878, C7 0.819,
+C3 TFT:GTRD 0.597. Truncated: Reactome 0.32, GO:BP 0.24. 0.45 sits in the gap. A threshold
+tight enough to grade ortholog *quality* would fire on legitimate collections; this one only
+catches catastrophic loss.
+
+Error rather than warning, because the bug's danger is that it yields plausible numbers -- a
+warning in a pipeline log is indistinguishable from success.
+
+Verified end-to-end: with the cache clear disabled, `gsdb_msigdb()` errors ("dropped 7,793
+of 11,448 genes ... 32% retained") instead of returning 1817 truncated sets.
+
+### Documentation sweep
+
+Everything user-facing described the pre-package world. Rewritten and verified:
+
+| File | Before | After |
+|---|---|---|
+| `README.md` | 534 lines of `source()`-era toolkit | 184 |
+| `MIGRATION.md` | obsolete submodule branch strategy | the real script -> package guide |
+| `docs/API_REFERENCE.md` | 947 lines duplicating roxygen | 92-line index |
+| `docs/WORKFLOWS.md` | 396 lines of `source()` recipes | 108 |
+| `docs/GSEA-workflow/` | 3739 lines, clusterProfiler-era, project-specific | archived to `docs/_internal/legacy-pre-package/` |
+
+The archive is deliberate: those documents are the written record of the pipeline the golden
+baselines were captured against, so they explain several design choices. Their README states
+plainly that their examples describe the superseded API.
+
+**Every documented code path was executed** against the installed package and real DE data:
+21/21. That caught two errors that would have shipped -- `de_md_plot()` takes a limma `fit`
+plus `coef` rather than a DE table, and `gsdb_info()` takes a database *name*. Documentation
+that has not been run is a guess.
+
+Released as **v0.3.1** (tagged, pushed to origin and hub) so the documented install line
+carries the guard; `babelgene` joined `Suggests`, which the regression tests skip on.
+
+One blemish left in history: a backtick in the commit message for `449e120` hit shell
+substitution, so it reads "the silent lowercase  break". Fixing it needs a force-push to
+rewrite pushed history, which is not worth it for a typo.
+
+### The re-run
+
+Authorized explicitly after the auto-mode classifier -- correctly -- refused a bare
+"proceed" for it. Prepared: `bulkiRNA` 0.3.1 installed into a container library
+(`.rlib-bulkirna`), both master tables backed up as
+`master_{gsea_table,unified}.pre-msigdbr-fix.20260811-193204.csv`.
+
+Baseline row counts in `master_gsea_table.csv` (12 contrasts x 6 collections):
+GO_BP 29412, Reactome 8124, GO_MF 4548, GO_CC 3756, KEGG 1548, Hallmark 600 = 47,988 MSigDB
+rows. The 1,488 rows from other scripts (MitoPathways 636, CoReSh 492, MitoXplorer 264,
+TransportDB 96) survive, because `append_master_table()` replaces per database.
+
+Expectations to check against: Hallmark holds at 50 per contrast (it ran first, so it was
+never truncated), Reactome rises from 677 to ~1050, and GO_BP/GO_CC/GO_MF/KEGG all rise.
+`padj` moves for every collection except Hallmark.
