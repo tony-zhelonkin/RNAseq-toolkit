@@ -19,7 +19,8 @@ for the floating current release.}
 }
 \description{
 Writes the genome build, the requested Ensembl release, the \strong{resolved}
-biomaRt archive release, and the full \code{sessionInfo()}. The resolved archive
+biomaRt archive release, the bulkiRNA and hard-dependency versions, resolved
+reference-data snapshots, and the full \code{sessionInfo()}. The resolved archive
 matters because \code{sessionInfo()} records only the biomaRt \emph{package} version --
 not which remote Ensembl release the annotation actually came from, which is
 the thing that changes an analysis underneath you.

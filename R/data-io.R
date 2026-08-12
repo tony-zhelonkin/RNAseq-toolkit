@@ -225,7 +225,8 @@ read_metadata <- function(path,
 #' Record session provenance to a text file
 #'
 #' Writes the genome build, the requested Ensembl release, the **resolved**
-#' biomaRt archive release, and the full `sessionInfo()`. The resolved archive
+#' biomaRt archive release, the bulkiRNA and hard-dependency versions, resolved
+#' reference-data snapshots, and the full `sessionInfo()`. The resolved archive
 #' matters because `sessionInfo()` records only the biomaRt *package* version --
 #' not which remote Ensembl release the annotation actually came from, which is
 #' the thing that changes an analysis underneath you.
@@ -261,6 +262,87 @@ write_session_provenance <- function(path, genome_build = NULL,
       else paste0(archives$version[1], " (", archives$date[1], ")")
     }, error = function(e) paste0("unavailable \u2014 ", conditionMessage(e)))
     lines <- c(lines, paste0("Ensembl archive release (resolved): ", arch))
+  }
+
+  desc <- suppressWarnings(tryCatch(
+    utils::packageDescription("bulkiRNA"),
+    error = function(e) e
+  ))
+  if (inherits(desc, "error") || !is.list(desc)) {
+    detail <- if (inherits(desc, "error")) conditionMessage(desc) else
+      "package metadata could not be read"
+    lines <- c(
+      lines,
+      paste0("bulkiRNA version: unavailable \u2014 ", detail),
+      paste0("Imports: unavailable \u2014 ", detail)
+    )
+  } else {
+    package_version <- desc[["Version"]]
+    if (is.null(package_version) || is.na(package_version) ||
+        !nzchar(package_version)) {
+      package_version <- "unavailable \u2014 Version is missing from package metadata"
+    }
+    lines <- c(lines, paste0("bulkiRNA version: ", package_version))
+
+    imports_field <- desc[["Imports"]]
+    if (is.null(imports_field) || is.na(imports_field) ||
+        !nzchar(imports_field)) {
+      lines <- c(lines, "Imports: none declared")
+    } else {
+      imports <- trimws(strsplit(imports_field, ",", fixed = TRUE)[[1L]])
+      imports <- sub("[[:space:]]*\\(.*\\)[[:space:]]*$", "", imports)
+      imports <- unique(imports[nzchar(imports)])
+      import_versions <- vapply(imports, function(package) {
+        tryCatch(
+          as.character(utils::packageVersion(package)),
+          error = function(e) paste0("unavailable \u2014 ", conditionMessage(e))
+        )
+      }, character(1L))
+      lines <- c(lines, "Imports:",
+                 paste0("  ", imports, ": ", unname(import_versions)))
+    }
+  }
+
+  registry_path <- system.file("extdata", "METADATA.yaml",
+                               package = "bulkiRNA")
+  registry_version <- if (!nzchar(registry_path)) {
+    "unavailable \u2014 METADATA.yaml is missing"
+  } else {
+    registry_lines <- tryCatch(
+      readLines(registry_path, warn = FALSE),
+      error = function(e) e
+    )
+    if (inherits(registry_lines, "error")) {
+      paste0("unavailable \u2014 ", conditionMessage(registry_lines))
+    } else {
+      version_line <- grep("^version:[[:space:]]*", registry_lines,
+                           value = TRUE)
+      if (!length(version_line)) {
+        "unavailable \u2014 top-level version key is missing"
+      } else {
+        value <- sub("^version:[[:space:]]*", "", version_line[[1L]])
+        value <- trimws(sub("[[:space:]]+#.*$", "", value))
+        first <- substr(value, 1L, 1L)
+        last <- substr(value, nchar(value), nchar(value))
+        if (nchar(value) >= 2L && first %in% c("\"", "'") && first == last) {
+          value <- substr(value, 2L, nchar(value) - 1L)
+        }
+        if (nzchar(value)) value else
+          "unavailable \u2014 top-level version key is empty"
+      }
+    }
+  }
+  lines <- c(lines, paste0("Bundled reference registry version: ",
+                           registry_version))
+
+  refs <- .ref_resolutions()
+  if (!nrow(refs)) {
+    lines <- c(lines, "Reference data: none resolved this session")
+  } else {
+    snapshot <- ifelse(is.na(refs$snapshot), "caller-supplied", refs$snapshot)
+    lines <- c(lines, "Reference data:",
+               paste0("  ", refs$source, ": ", snapshot,
+                      " (", refs$path, ")"))
   }
 
   lines <- c(lines, "", "--- sessionInfo ---",

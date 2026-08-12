@@ -101,11 +101,43 @@ test_that(".aggregate_duplicate_ids is a no-op without duplicates", {
 })
 
 test_that("write_session_provenance writes sessionInfo and creates parents", {
+  .clear_ref_resolutions()
   f <- file.path(tempdir(), "prov-subdir", "provenance.txt")
   unlink(dirname(f), recursive = TRUE)
   expect_equal(write_session_provenance(f, genome_build = "mm10"), f)
 
   lines <- readLines(f)
   expect_true(any(grepl("Genome build: mm10", lines)))
+  expect_true(any(grepl("^bulkiRNA version: ", lines)))
+  expect_true(any(grepl("^  dplyr: ", lines)))
+  expect_true(any(grepl(
+    "^Bundled reference registry version: 1\\.0\\.0$", lines
+  )))
+  expect_true(any(grepl(
+    "^Reference data: none resolved this session$", lines
+  )))
   expect_true(any(grepl("--- sessionInfo ---", lines)))
+})
+
+test_that("write_session_provenance records resolved snapshot tags", {
+  .clear_ref_resolutions()
+  on.exit(.clear_ref_resolutions(), add = TRUE)
+  root <- withr::local_tempdir()
+  source_dir <- file.path(root, "coresh")
+  snapshot <- file.path(source_dir, "coresh_snapshot_test")
+  dir.create(snapshot, recursive = TRUE)
+  linked <- suppressWarnings(
+    file.symlink(snapshot, file.path(source_dir, "current"))
+  )
+  if (!isTRUE(linked)) {
+    skip("This filesystem does not support symbolic links")
+  }
+  withr::local_envvar(c(REFCACHE_ROOT = root))
+
+  .ref_path("coresh")
+  f <- tempfile(fileext = ".txt")
+  write_session_provenance(f)
+
+  lines <- readLines(f)
+  expect_true(any(grepl("coresh: coresh_snapshot_test", lines, fixed = TRUE)))
 })
