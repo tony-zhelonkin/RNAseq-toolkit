@@ -49,6 +49,8 @@ matrix path.
 | `gs_split()` | split by a column |
 | `gs_leading_edge()` | leading-edge genes |
 | `gs_write()` `gs_read()` | round-trip tables together with provenance |
+| `gs_to_master()` | serialize to the versioned master-table schema; returns a tibble, writes nothing |
+| `gs_validate_master()` | check a master table against the schema, reporting every problem at once |
 
 A `gs_result` is a tibble. `dplyr` verbs, `rbind()`, `summary()` and `as_tibble()` all work
 on it, and `[` carries its attributes through.
@@ -81,7 +83,11 @@ Each renderer takes a `gs_result` or `gs_matrix` and returns a `ggplot`.
 ## Utilities
 
 `theme_bulki()` · `gs_save()` (a plot with the table behind it) · `format_pathway_name()` ·
-`write_session_provenance()` · `ensure_dir()`
+`write_session_provenance()` · `ensure_dir()` · `bulkirna_check_deps()`
+
+`bulkirna_check_deps()` reports the optional-dependency closure — presence, version, and the
+correct install command — grouped by feature area (`de`, `annotation`, `scoring`, `network`,
+`plots`, `io`). `error = TRUE` makes it a preflight suitable for a CI or image smoke test.
 
 ## Network modules (need `gatom` and `mwcsr`)
 

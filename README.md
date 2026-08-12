@@ -23,6 +23,14 @@ The hard dependencies are small: `msigdbr`, `fgsea`, `ggplot2`, `dplyr` and a ha
 base-adjacent packages. `limma`, `edgeR`, `GSVA`, `gatom`, `org.*.eg.db`, `pheatmap` and
 `plotly` sit in `Suggests`, so install each one when you reach the feature that uses it.
 
+To see the whole optional set at once — what is present, which version, and the exact command
+for anything missing:
+
+```r
+bulkirna_check_deps("all")                 # or "de", "annotation", "scoring", "network", ...
+bulkirna_check_deps("de", error = TRUE)    # stops when something is missing; for CI
+```
+
 ---
 
 ## Quick start
@@ -52,6 +60,18 @@ gs_write(res, "results/gsea", name = "hallmark")   # tables + provenance
 gs_read("results/gsea", name = "hallmark")
 ```
 
+To hand results to a downstream master table, `gs_to_master()` serializes them to a versioned
+schema and `gs_validate_master()` checks one that already exists. Both work on tables, not
+files, so where the table lives stays your decision:
+
+```r
+master <- gs_to_master(res, db = db, universe = names(ranks))
+gs_validate_master(master)     # every problem at once, or invisible(df)
+```
+
+The validator earns its keep on the failure that is otherwise invisible: a derived column
+NA-filled beside a finite `padj`, which is what a column allowlist plus `rbind()` produces.
+
 ---
 
 ## How it fits together
@@ -63,7 +83,7 @@ compute functions return data, and renderers turn that data into plots.
 |---|---|---|
 | **Providers** | `gsdb_msigdb()` `gsdb_load()` `gsdb_from_file()` `gsdb_register()` `gsdb_list()` `gsdb_info()` | `gs_db` |
 | **Compute** | `gs_test()` `gs_score()` | `gs_result`, `gs_matrix` |
-| **Result ops** | `gs_filter()` `gs_top()` `gs_split()` `gs_leading_edge()` `gs_read()` `gs_write()` | `gs_result` |
+| **Result ops** | `gs_filter()` `gs_top()` `gs_split()` `gs_leading_edge()` `gs_read()` `gs_write()` `gs_to_master()` `gs_validate_master()` | `gs_result`, `tibble` |
 | **Renderers** | `gs_plot_dot()` `gs_plot_bar()` `gs_plot_heatmap()` `gs_plot_running()` | `ggplot` |
 
 `gs_test()` reads its input and picks the matching method: a named numeric vector of ranks
@@ -98,7 +118,12 @@ alike.
 
 `theme_bulki()` (publication ggplot2 theme) · `gs_save()` (a plot with the table behind it)
 · `format_pathway_name()` (biological capitalisation from a ~400-term dictionary) ·
-`write_session_provenance()` · `ensure_dir()`
+`write_session_provenance()` · `ensure_dir()` · `bulkirna_check_deps()`
+
+`write_session_provenance()` records the `bulkiRNA` version, every hard-dependency version,
+the bundled registry version, and any shared reference-data snapshot resolved this session —
+the package version is the unit of reproducibility, so it is stated outright rather than
+inferred from `sessionInfo()`.
 
 ### Network modules
 
@@ -110,7 +135,7 @@ from CRAN.
 
 ## Legacy names
 
-20 of the 61 exports are shims for the old script-library API. Each one works, warns once,
+20 of the 64 exports are shims for the old script-library API. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`
@@ -163,7 +188,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache \
 Two gates guard every commit:
 
 ```r
-devtools::test(".")                     # 810 pass / 0 fail
+devtools::test(".")                     # 915 pass / 0 fail
 ```
 ```bash
 Rscript tests/golden/verify_golden.R    # 20/20, exit 0
