@@ -11,7 +11,7 @@ A data frame with one row per non-development \code{Suggests} package.
 }
 \description{
 Keeps the feature and repository metadata used by \code{\link[=bulkirna_check_deps]{bulkirna_check_deps()}}
-in one place. \code{babelgene} and \code{pheatmap} remain here while they remain in
-\code{Suggests}, even though package code does not currently call them.
+in one place. \code{babelgene} supports \code{msigdbr} ortholog mapping and the
+corresponding cache regression tests.
 }
 \keyword{internal}

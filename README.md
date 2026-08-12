@@ -2,7 +2,7 @@
 
 Bulk RNA-seq differential expression and gene-set analysis, as an installed R package.
 
-**Version:** 0.3.1 · **License:** MIT · **Author:** Anton Zhelonkin
+**Version:** 0.4.0 · **License:** MIT · **Author:** Anton Zhelonkin
 
 This package succeeds `RNAseq-toolkit`, a folder of scripts each project `source()`d from a
 submodule. There is now one installed copy and one line to reach it: `library(bulkiRNA)`.
@@ -13,15 +13,15 @@ The old function names still work — see [Legacy names](#legacy-names).
 ## Install
 
 ```r
-remotes::install_github("tony-zhelonkin/bulkiRNA@v0.3.1")
+remotes::install_github("tony-zhelonkin/bulkiRNA@v0.4.0")
 ```
 
 Pin a ref. The package lives on tagged releases and on the `feat/bulkirna-package` branch,
-so `@v0.3.1` or `@feat/bulkirna-package` both resolve.
+so `@v0.4.0` or `@feat/bulkirna-package` both resolve.
 
 The hard dependencies are small: `msigdbr`, `fgsea`, `ggplot2`, `dplyr` and a handful of
-base-adjacent packages. `limma`, `edgeR`, `GSVA`, `gatom`, `org.*.eg.db`, `pheatmap` and
-`plotly` sit in `Suggests`, so install each one when you reach the feature that uses it.
+base-adjacent packages. `limma`, `edgeR`, `GSVA`, `gatom`, `org.*.eg.db` and `plotly` sit
+in `Suggests`, so install each one when you reach the feature that uses it.
 
 To see the whole optional set at once — what is present, which version, and the exact command
 for anything missing:

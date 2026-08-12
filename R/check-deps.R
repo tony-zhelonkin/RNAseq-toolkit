@@ -1,19 +1,22 @@
 #' Registry of optional dependencies
 #'
 #' Keeps the feature and repository metadata used by [bulkirna_check_deps()]
-#' in one place. `babelgene` and `pheatmap` remain here while they remain in
-#' `Suggests`, even though package code does not currently call them.
+#' in one place. `babelgene` supports `msigdbr` ortholog mapping and the
+#' corresponding cache regression tests.
 #'
 #' @return A data frame with one row per non-development `Suggests` package.
 #' @keywords internal
 .bulkirna_optional_deps <- function() {
   package <- c(
     "edgeR", "limma",
-    "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db", "babelgene",
+    "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db",
+    # msigdbr uses babelgene internally for ortholog mapping;
+    # test-gsdb-msigdb.R skips on it.
+    "babelgene",
     "biomaRt", "homologene",
     "GSVA",
     "gatom", "mwcsr", "igraph",
-    "patchwork", "pheatmap", "plotly",
+    "patchwork", "plotly",
     "readxl", "yaml"
   )
   feature <- c(
@@ -21,7 +24,7 @@
     rep("annotation", 6L),
     "scoring",
     rep("network", 3L),
-    rep("plots", 3L),
+    rep("plots", 2L),
     rep("io", 2L)
   )
   repository <- c(
@@ -30,7 +33,7 @@
     "Bioconductor", "CRAN",
     "Bioconductor",
     "Bioconductor", "CRAN", "CRAN",
-    "CRAN", "CRAN", "CRAN",
+    "CRAN", "CRAN",
     "CRAN", "CRAN"
   )
   install <- ifelse(

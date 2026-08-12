@@ -15,7 +15,7 @@ test_that("all covers the optional union and excludes development packages", {
   expected <- c(
     "edgeR", "limma", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db",
     "babelgene", "biomaRt", "homologene", "GSVA", "gatom", "mwcsr",
-    "igraph", "patchwork", "pheatmap", "plotly", "readxl", "yaml"
+    "igraph", "patchwork", "plotly", "readxl", "yaml"
   )
 
   expect_identical(all$package, expected)
