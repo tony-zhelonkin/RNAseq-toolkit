@@ -960,3 +960,41 @@ Headlines:
   `source(.../GSEA/GSEA_processing/run_gsea.R)`, and `annotate-bulk-rnaseq-data` pins
   RNAseq-toolkit v0.2.0. The high-level bulkiRNA skill is a rewrite of those two, not a new
   skill. Edit the `scbio-docker/toolkits/` copy — it is ahead of the Meta-Aging checkout.
+
+---
+
+## 15. The four architecture decisions, settled (2026-08-12)
+
+The seams surfaced by the CoReSh survey and the Phase 3 re-orientation were put to the
+integrator as four questions. All four are now decided and have a durable home:
+**[../../adr/](../../adr/README.md)** — a new directory, because `plans/` records what we
+were about to do and these record what we chose and why.
+
+| ADR | Decision | Implementation |
+|---|---|---|
+| **001** | The **package version** is the unit of reproducibility. An image tag only promises which tool versions it contains; analysis repos carry their own lock. | provenance must emit the version closure; `Version` may not move without a tag |
+| **002** | **`bulkiRNA` owns the master-table schema and validator**, not the file. `neg_log_padj = -log10(pmax(padj, .Machine$double.xmin))`. | T1 — `gs_to_master()`, `gs_validate_master()`, versioned schema in `inst/extdata/` |
+| **003** | **`Suggests` stays**; no packages move. Add a bulk preflight and `Remotes`. | T2 — `bulkirna_check_deps()` |
+| **004** | **Two reference-data tiers only**: bundled (no fetchable source) or refcache (has one). One resolver; provenance records the resolved snapshot tag. | T3 — `.ref_path()` |
+
+### What these change in the existing plan
+
+- **C0 is revised.** `gs_to_master()` goes **into the package**, not into
+  `02_analysis/helpers/de_gsea_helpers.R`. One tested implementation retires all three
+  drifted ones, and the saturation convention stops being a rule that three files each
+  remember differently.
+- **`Sys.getenv("CORESH_CHUNKS")` in the CoReSh plan §4 is superseded** by `.ref_path()`.
+  T3 must land before `gsdb_coresh()`.
+- **Phase 3 is no longer the only thing that can move.** T1–T3 need no rebuild, and T2 is
+  what makes the eventual rebuild *verifiable* — `bulkirna_check_deps("all")` as a
+  post-build smoke test, instead of grepping for the five missing packages by hand.
+- **`download_gatom_references()` is on notice.** Its replacement is `sources/gatom.sh` in
+  the refcache repo, which is a separate repo and needs its own go-ahead.
+
+### Delegation
+
+T1–T3 are delegated to **codex (`gpt-5.6-sol`)** via `codex exec`, run sequentially — they
+all touch `NAMESPACE`, and parallel runs would collide on it. **Codex never runs R**: there
+is no R on this host, and the container gates are integrator-owned. Each handback is gated
+by `devtools::document()`, `devtools::test()` and `Rscript tests/golden/verify_golden.R`
+before it is committed.

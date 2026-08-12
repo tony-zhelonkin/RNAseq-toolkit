@@ -176,6 +176,33 @@ Raw source files stay in `data/references/` in the git checkout and are
 `.Rbuildignore`d. Anything requiring them (`rebuild = TRUE`) must fail with an
 explicit "source checkout required" message rather than a missing-file error.
 
+### Two tiers, and only two ([ADR-004](docs/_internal/adr/ADR-004-reference-data-tiers.md))
+
+**If it can be re-fetched from a versioned source, it is refcache. If it cannot, it
+is bundled. Size is the tiebreaker, not the criterion.**
+
+| Tier | Where | Versioned by |
+|---|---|---|
+| **Bundled** — no API, no fetchable source | `inst/extdata/`, registered in `METADATA.yaml` | the package version |
+| **refcache** — has a fetchable versioned source | `$REFCACHE_ROOT/<source>/current` | the snapshot tag |
+
+Large refcache-backed data resolves through **one** internal helper, `.ref_path()`:
+
+```r
+.ref_path("coresh")   # explicit arg -> $REFCACHE_ROOT/coresh/current -> error
+```
+
+Three rules, all of them things we got wrong at least once:
+
+1. **No new environment variable per source.** `Sys.getenv("CORESH_CHUNKS")` is exactly
+   how three mechanisms became three. `REFCACHE_ROOT` is the only one.
+2. **No host path in the package** — not in a default, not in an example. `/data2/...`
+   is one deployment, bound in at run time.
+3. **Resolving `current` must report the tag it landed on**, and callers must put that
+   tag in their provenance. Freshness is the right default for a shared cache; a
+   *silent* change of bytes under a re-run is not. Do not prevent the drift — make it
+   impossible for the drift to be silent.
+
 ## 11a. The `gs_db` provider contract
 
 **Frozen. B1 implements it; B2, B3 and B4 consume it.** Every `gsdb_*` provider

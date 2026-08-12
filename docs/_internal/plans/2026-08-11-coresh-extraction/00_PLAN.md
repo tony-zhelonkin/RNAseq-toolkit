@@ -320,7 +320,7 @@ function is only worth writing once the image can deliver it.
 
 | Step | Work | Gate |
 |---|---|---|
-| **C0** | Settle the `neg_log_padj` convention and one derived-column contract; lift `gs_to_master()` into `de_gsea_helpers.R`. | Decision recorded here |
+| **C0** | ~~lift `gs_to_master()` into `de_gsea_helpers.R`~~ → **superseded by [ADR-002](../../adr/ADR-002-master-table-schema.md)**: the versioned schema, `gs_to_master()` and `gs_validate_master()` go **into the package**. `neg_log_padj = -log10(pmax(padj, .Machine$double.xmin))`. | `devtools::test()` green; the validator rejects the ten-column projection |
 | **C1** | Fix `08_coresh_derived_gsea.R`'s allowlist as part of its Phase 4 migration — drop the projection. Re-run and diff. | 492 CoReSh rows carry finite `neg_log_padj` |
 | **C2** | Discharge the `gesecaCpp` question (§5) on a fixture chunk. | Equivalence numbers recorded, or the guard written |
 | **C3** | Port the 269-line engine into `R/coresh-*.R` with the §4 surface, plus tests that skip without the chunk tree. | `devtools::test()` green, `verify_golden.R` exit 0, `R CMD check` clean of `:::` |
@@ -333,14 +333,29 @@ container with `/data2/users/shared/refcache/coresh/current/preprocessed_chunks`
 
 ---
 
-## 8. Open decisions for the integrator
+## 8. Decisions — settled 2026-08-12 unless marked open
 
-1. **`neg_log_padj` convention** — `pmax(padj, .Machine$double.xmin)` (recommended, matches
-   the migrated script and the renderer) or the cap at 16.
-2. **`nPermSimple` and `minGSSize`** — `1.12` uses 1000/10, `08` uses 100000/15. One default.
-   100000 is the safer statistic and the slower run.
-3. **Scope** — `gsdb_coresh()` in `bulkiRNA` (recommended) or a sibling package.
-4. **Whether the `coresh` GitHub package is a real dependency**, given no script calls it.
-5. **Whether C5/C6 wait** on the wider SciAgent-toolkit refactor. That repo is a separate
-   submodule, currently 26 commits ahead of `origin/dev` and dirty, so the skill rewrites
-   need their own go-ahead.
+1. **`neg_log_padj` convention** — ✅ **settled: `-log10(pmax(padj, .Machine$double.xmin))`.**
+   Information-preserving, and already what two of three call sites do. The cap at 16 is
+   retired. Now owned by [ADR-002](../../adr/ADR-002-master-table-schema.md).
+2. **`nPermSimple` and `minGSSize`** — ⬜ **open.** `1.12` uses 1000/10, `08` uses 100000/15.
+   One default. 100000 is the safer statistic and the slower run.
+3. **Scope** — ✅ **settled: `gsdb_coresh()` lives in `bulkiRNA`.** Its output is a `gs_db`,
+   so it enters at the provider layer and bends nothing.
+4. **Whether the `coresh` GitHub package is a real dependency** — ⬜ **open**, given no
+   script calls it.
+5. **Whether C5/C6 wait** on the wider SciAgent-toolkit refactor — ⬜ **open.** That repo is
+   a separate submodule, currently 26 commits ahead of `origin/dev` and dirty, so the skill
+   rewrites need their own go-ahead. Note also that **nested submodules are forbidden**, so
+   Phase 3 is a hard prerequisite: a skill must reach an *installed* `bulkiRNA`.
+
+### Added by the 2026-08-12 ADR pass
+
+6. **Chunk-tree resolution** — ✅ `Sys.getenv("CORESH_CHUNKS")` in §4 is **superseded** by the
+   single `.ref_path("coresh", ...)` resolver: explicit argument →
+   `$REFCACHE_ROOT/coresh/current` → an error naming the `refcache.sh` command. See
+   [ADR-004](../../adr/ADR-004-reference-data-tiers.md). It must land before C4, and it means
+   CoReSh needs **no new environment variable** and no host path anywhere in the package.
+7. **Provenance** — ✅ whatever reads the chunk tree must record the **resolved snapshot tag**
+   (e.g. `syn66227307_20260721`), not merely the fact that it followed `current`. That is how
+   a re-run whose numbers move becomes explicable rather than mysterious.
