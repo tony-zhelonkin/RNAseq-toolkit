@@ -998,3 +998,58 @@ all touch `NAMESPACE`, and parallel runs would collide on it. **Codex never runs
 is no R on this host, and the container gates are integrator-owned. Each handback is gated
 by `devtools::document()`, `devtools::test()` and `Rscript tests/golden/verify_golden.R`
 before it is committed.
+
+---
+
+## 16. v0.4.0, and Phase 3 staged (2026-08-12)
+
+### The release
+
+`v0.4.0`, tagged and pushed to `origin` and `hub`. Three new exports, so minor rather than
+patch. Verified to install from GitHub into a scratch library: 64 exports, and — the check
+`devtools` cannot make — the schema CSV resolves through `system.file()` from an *installed*
+package, `gs_to_master()` returns its 14 columns, and the validator reports zero problems.
+
+`pheatmap` left `Suggests`; `babelgene` stayed with a comment. The correction worth recording:
+**`babelgene` was never dead.** `msigdbr` calls it internally for ortholog mapping and
+`test-gsdb-msigdb.R:53,115` skip on it, so a search for direct `babelgene::` calls finds
+nothing and concludes wrongly. Those are the tests guarding the §12 cache bug. The comment
+exists so the next reader does not repeat the finding.
+
+### Phase 3 — staged, not built
+
+Branch `feat/bulkirna-v0.4.0` in `scbio-docker`, commit `0672cb1`. **Not pushed, not built.**
+
+| Change | Detail |
+|---|---|
+| `docker/base/R/install_core.R:148` | `"tony-zhelonkin/bulkiRNA@v0.4.0"` in `github_packages` |
+| `install_gh_pkg()` | now splits `owner/repo@ref`; **no `GH_PKG_NAME` entry needed** |
+| preflight | writes `/opt/settings/bulkirna_optional_deps.csv` after the GitHub installs |
+| `VERSION` | `v0.5.12` → `v0.5.13`, plus a `docs/changelog.md` entry |
+
+Three findings from doing it:
+
+- **The plan's prescription was incomplete.** A `GH_PKG_NAME` entry fixes the derived package
+  name but not `install_gh_pkg()`'s `install_git` fallback, which builds its URL with
+  `sprintf("https://github.com/%s", slug)` — for a ref-suffixed slug that is not a URL, so the
+  fallback would fail for a reason unrelated to the network. Teaching the function about refs
+  fixes both paths and makes the `GH_PKG_NAME` entry unnecessary, since with the ref stripped
+  the repo and package names match.
+- **The five-missing-`Suggests` sub-decision is moot.** `install_core.R:117,122,125` already
+  install `homologene`, `babelgene`, `FactoMineR`, `factoextra`, `org.Hs.eg.db` and
+  `org.Mm.eg.db`. Only `gatom` and `mwcsr` are genuinely absent, and they are optional.
+  `pheatmap` is installed image-wide at `:74`, so dropping it from `Suggests` costs consumers
+  nothing.
+- **The preflight must not write to `install_failures.csv`.** That file means "requested and
+  failed", `AGENTS.md:82` tells the reader to check it after every build, and its "no failures"
+  line is a real signal — earned after seven absent packages hid for two releases. Optional
+  packages that are *expected* to be absent would put permanent rows in it and retire the
+  signal. Separate artifact; a `bulkiRNA` that will not load is still a genuine failure and
+  still recorded there.
+
+### What is left in Phase 3
+
+The rebuild, which runs long on the owner's shared infrastructure, and pushing the branch.
+Both are the owner's to trigger. Open question surfaced by the preflight: whether to add
+`gatom` and `mwcsr` to the image so the network-module features work out of the box, or leave
+them to on-demand install.
