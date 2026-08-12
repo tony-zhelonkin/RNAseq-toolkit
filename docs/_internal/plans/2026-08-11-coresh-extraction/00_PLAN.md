@@ -265,7 +265,9 @@ first:
 
 1. **Reproduce the p-value through public `fgsea::geseca()`** and prove equivalence on a
    fixture chunk, the same way `B2-fgsea-equivalence.R` discharged the clusterProfiler
-   question. If the numbers match, the hazard is gone permanently.
+   question. If the numbers match, the hazard is gone permanently. The skill's own SKILL.md
+   describes CoReSh as "a thin R wrapper around `fgsea::geseca`", so the public entry point
+   is very likely sufficient and the `:::` call is a shortcut rather than a necessity.
 2. **Keep `:::` behind a guard** — a version assertion plus `exists()`, erroring with a
    named workaround, in the shape of `.msigdbr_assert_ortholog_coverage()`. Correct but
    permanently fragile.
