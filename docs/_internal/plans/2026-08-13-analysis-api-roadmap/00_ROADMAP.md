@@ -79,10 +79,10 @@ capability. Six steps, in order.
 
 | Step | Work | Gate |
 |---|---|---|
-| **S1** | **Write the stability contract.** Three tiers: `stable` (the 24 frozen plus anything a migrated consumer depends on), `experimental` (the 5 `coresh_*`, the 3 gene-id functions — may change without a major bump), `deprecated` (the 20 shims, with a removal version). Publish it as a vignette and a machine-readable table, and make `bulkirna_api()` return it. | A test asserts every export carries exactly one tier, so a new export cannot be added without classifying it |
+| **S1** | ✅ **done 2026-08-13.** `bulkirna_api()` ships the contract as a table. **Write the stability contract.** Three tiers: `stable` (the 24 frozen plus anything a migrated consumer depends on), `experimental` (the 5 `coresh_*`, the 3 gene-id functions — may change without a major bump), `deprecated` (the 20 shims, with a removal version). Publish it as a vignette and a machine-readable table, and make `bulkirna_api()` return it. | A test asserts every export carries exactly one tier, so a new export cannot be added without classifying it |
 | **S2** | **Name audit on the 13 unprefixed exports.** Decide per name: keep as a deliberate top-level verb, or move under a prefix with a shim. `download_gatom_references` → `gatom_download_refs` is the clear one, because it already belongs to a family whose other five members are prefixed. `ensure_dir` is a utility that probably should not be exported at all. | Every decision recorded with a reason in the contract vignette; no silent renames |
 | **S3** | **Argument-name consistency audit.** One spelling per concept across all 52 live exports: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and fails on a known-bad spelling; one shared `.species()` resolver |
-| **S4** | **Set the deprecation clock.** The 20 shims exist because 64 call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay — but with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
+| **S4** | ✅ **done with S1** — `removed_in` is `1.0.0` for all 20 shims, stated in `MIGRATION.md`. **Set the deprecation clock.** The 20 shims exist because 64 call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay — but with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
 | **S5** | **Return-type and error-message consistency.** Every compute function returns a tibble; every renderer returns a ggplot; every validation error names the fix. Mostly true already — this step is the audit that proves it and the tests that keep it true. | Tests assert the class of every export's return on the shipped fixture |
 | **S6** | **`R CMD check` stays at zero notes, and vignettes build.** One vignette per live layer: gene sets, DE, GATOM, CoReSh. Each runnable on the shipped fixture with no network and no refcache. | `rcmdcheck` in the image, 0/0/0, vignettes built |
 
@@ -98,11 +98,11 @@ Small, and it is the acceptance test for Phase 8. See
 
 | Step | Work | Gate |
 |---|---|---|
-| **G1** | Route `coresh_match(pvalues = TRUE)` to `fgsea::geseca()` — `center = FALSE`, `scale = FALSE`, `make.unique()`d rownames, stored `totalVar` kept for `pct_var`, `log2err` carried into the result. Restore p-value ordering in `coresh_search()`. Delete the guard. | p-values on real chunks; agreement with `gesecaCpp` within summed `log2err` on ≥7 of 8 datasets; both rankings reproduce the vignette's shape |
+| **G1** | ✅ **done 2026-08-13.** Route `coresh_match(pvalues = TRUE)` to `fgsea::geseca()` — `center = FALSE`, `scale = FALSE`, `make.unique()`d rownames, stored `totalVar` kept for `pct_var`, `log2err` carried into the result. Restore p-value ordering in `coresh_search()`. Delete the guard. | p-values on real chunks; agreement with `gesecaCpp` within summed `log2err` on ≥7 of 8 datasets; both rankings reproduce the vignette's shape |
 | **G2** | `coresh_loadings()` and `coresh_sets()` — the rest of C3. | Set names and memberships match DC_hum_verse's existing GMT |
 | **G3** | `gsdb_coresh()` (C4), on `.ref_path("coresh")`, recording the snapshot tag. | Byte-level agreement on set contents |
 | **G4** | `gs_coregulation()` — GESECA as a first-class verb on any expression matrix, returning a `gs_result` with `stat_type = "pct_var"`. **Its own verb, not a `gs_test()` method**: it takes a matrix where `gs_test()` takes ranks, and a shared signature would lie about the input. | Existing `gs_plot_*` renderers work unchanged; a golden baseline added |
-| **G5** | The end-to-end reference run: `HALLMARK_HYPOXIA` against the mouse and human compendia, compared against the web UI at <https://alserglab.wustl.edu/coresh>. | Top accessions agree with the web UI. Two independent implementations agreeing beats any unit test |
+| **G5** | 🟡 **half done** — the `pct_var` sweep ran and validated against GEO; the web-UI comparison is outstanding. The end-to-end reference run: `HALLMARK_HYPOXIA` against the mouse and human compendia, compared against the web UI at <https://alserglab.wustl.edu/coresh>. | Top accessions agree with the web UI. Two independent implementations agreeing beats any unit test |
 
 **G5 is the real gate.** Everything else is internally consistent by construction; only G5 can
 tell us the port is correct rather than merely self-consistent.
@@ -183,3 +183,92 @@ are exactly the kind of work that a moving surface invalidates; doing them while
 an audit with no consumer proves nothing. G5 is the step that turns "the names are consistent"
 into "someone ran a real analysis through them and the answer matched an independent
 implementation".
+
+---
+
+## 7. S1 and G1 as executed (2026-08-13)
+
+Two stages, each written by a delegated agent in an isolated clone, gated here, and read by an
+independent reviewer. Package state: **1212 tests passing, golden 20/20, `R CMD check` 0/0/0,
+73 exports.**
+
+### S1 — the contract exists
+
+`bulkirna_api()` returns one row per export with `name`, `layer`, `lifecycle`, `frozen`,
+`superseded_by`, `removed_in`. 45 stable, 8 experimental, 20 deprecated, 24 frozen, all shims
+removed in `1.0.0`.
+
+**The two-axis design was the right call and the numbers prove it:** 20 of the 24
+signature-frozen names are also deprecated, so a single tier column would have had to lie about
+one or the other. `frozen ∖ deprecated` is exactly `{build_dge, download_gatom_references,
+ensure_dir, format_pathway_name}` — the four original toolkit names that remain the real API.
+
+The load-bearing test compares the registry against the `NAMESPACE` in both directions at test
+time, so an export cannot be added without classifying it. The reviewer verified this is not
+satisfiable vacuously, and flagged that `getNamespaceExports()` would break it under
+`load_all(export_all = TRUE)`; it now parses `NAMESPACE`, matching
+`test-namespace-hygiene.R`.
+
+**Two defects worth recording.** The hardcoded `superseded_by` strings for the message-only
+shims were being written unconditionally, so a shim later gaining a machine-readable target
+would have drifted from its own warning in silence — now a build failure. And two shims named
+`gs_db` and `gs_result` as replacements, **neither of which is exported**: callers were being
+sent to functions they cannot reach. `list_to_term2gene` now names `gsdb_register()`;
+`empty_gsea_tibble` admits there is no exported constructor, in the manner `save_gsea_log`
+already used.
+
+### G1 — the p-value path works
+
+`coresh_match(pvalues = TRUE)` routes to `fgsea::geseca()`. `pct_var` still divides by the
+stored `totalVar` and is unchanged. `log2err` is now a column. `coresh_search()` ranks by
+ascending `p_value` when p-values are requested. No `:::` anywhere.
+
+**The RNG finding, which cost the most to diagnose.** `geseca()` takes no seed and draws its
+internal C++ seeds from R's RNG, and `BiocParallel::bplapply()` switches `RNGkind()` to
+`"L'Ecuyer-CMRG"` inside the task — **even with `SerialParam()`**, so this is not about cores at
+all. `set.seed(seed)` alone therefore gives different answers inside and outside a parallel
+call. `.coresh_with_seed()` pins the generator as well as the seed and restores the caller's
+state. Verified on real data: 1,000 datasets, `n_cores` 1 and 4, identical p-values.
+
+**The defect the test suite could not find.** 0.7% of real datasets carry `NA` Entrez ids — 11
+of 1,500, one of them 9,998 rows of 10,000. `geseca()` rejects `NA` rownames and
+`make.unique()` handles them erratically, returning `NA` for the first and the string `"NA.1"`
+for the second. The full suite passed before this surfaced; only the compendium sweep found it.
+**A unit test on a hand-built fixture cannot discover what real data contains**, which is the
+argument for G5 running early rather than last.
+
+Five further defects came from the review, none of which fire on the happy path: an unguarded
+`[[1L]]` where `geseca()` can return no rows, a duplicated query id silently decoupling
+`pct_var` from `p_value`, locale-dependent tie-breaking, `.Random.seed` left behind in a fresh
+session, and a per-dataset warning when restoring a caller's legacy `sample.kind`. Three tests
+were also weaker than they looked; the ranking one now scales `totalVar`, which moves `pct_var`
+without touching the GESECA input and so forces the two orderings to disagree.
+
+### G5, half done — and it is the strongest evidence we have
+
+`HALLMARK_HYPOXIA`, 200 genes, against the **whole human compendium: 44,253 datasets in 87
+seconds** on 12 cores, matching upstream's claimed scale. Then the check the vignette itself
+prescribes, GEO titles for the top 10:
+
+| rank | accession | title |
+|---|---|---|
+| 1 | GSE131379 | Hypoxia effects on the transcriptome of HeLa cells |
+| 2 | GSE198308 | SRSF6-GFP HeLa under normoxic and hypoxic conditions |
+| 3 | GSE59449 | MCF7 breast epithelial cells in normoxic and hypoxic conditions |
+| 4 | GSE239892 | Von Hippel Lindau tumor suppressor controls m6A-dependent expression |
+| 5 | GSE196274 | Regulation of HIF1α signaling in ER positive breast cancer |
+| 6 | GSE179327 | mRNA transcriptome of hypoxia with shSETDB1 in HeLa |
+| 10 | GSE71401 | Tumor hypoxia causes DNA hypermethylation by reducing TET activity |
+
+**Seven of the top ten are explicitly hypoxia or HIF experiments**, with VHL — the canonical HIF
+degradation pathway — at rank 4. That is the port validated against biology rather than against
+itself.
+
+**Outstanding:** the same query through the web UI at <https://alserglab.wustl.edu/coresh>,
+compared accession by accession. It needs a browser, so it is the owner's step.
+
+### Left as they were
+
+The mouse sweep, and the `snapshot` field reading `coresh` rather than the tag in one test run —
+an artifact of the scratch symlink used for that run, not of `.ref_path()`, which reported
+`syn66227307_20260721` correctly whenever pointed at a real refcache layout.
