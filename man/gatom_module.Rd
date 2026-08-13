@@ -35,9 +35,9 @@ same four columns).}
 \item{verbose}{Logical(1); report graph and module sizes.}
 }
 \value{
-The module as an \code{igraph}, with attributes \code{k_gene}, \code{k_met},
-\code{seed}, \code{solver}, \code{species}, \code{graph_nodes}, \code{graph_edges}, \code{n_nodes} and
-\code{n_edges}.
+The module as an \code{igraph}, with attributes \code{solution_weight},
+\code{k_gene}, \code{k_met}, \code{seed}, \code{solver}, \code{species}, \code{graph_nodes},
+\code{graph_edges}, \code{n_nodes} and \code{n_edges}.
 }
 \description{
 Runs the three-call GATOM pipeline -- \code{makeMetabolicGraph()} (with

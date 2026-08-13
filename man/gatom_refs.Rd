@@ -20,7 +20,8 @@ gatom_refs(
 \code{\link[=download_gatom_references]{download_gatom_references()}} into \code{dir} (default
 \code{"00_data/references/gatom"}) before resolving.}
 
-\item{network}{Character(1) network flavour; only \code{"kegg"} is supported.}
+\item{network}{Character(1) network flavour, either \code{"kegg"} or
+\code{"combined"}.}
 }
 \value{
 An object of class \code{gatom_refs}: a list with \code{network}, \code{met_db},

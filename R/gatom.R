@@ -56,7 +56,8 @@ NULL
 #' @param download Logical(1); if `TRUE`, missing files are fetched with
 #'   [download_gatom_references()] into `dir` (default
 #'   `"00_data/references/gatom"`) before resolving.
-#' @param network Character(1) network flavour; only `"kegg"` is supported.
+#' @param network Character(1) network flavour, either `"kegg"` or
+#'   `"combined"`.
 #' @return An object of class `gatom_refs`: a list with `network`, `met_db`,
 #'   `org_anno`, `species` and `files`.
 #' @examples
@@ -69,9 +70,11 @@ NULL
 gatom_refs <- function(species = "Homo sapiens", dir = NULL,
                        download = FALSE, network = "kegg") {
   sp <- .gatom_species(species)
-  if (!identical(network, "kegg")) {
-    stop("`network` must be \"kegg\"; got \"", network, "\". Other GATOM ",
-         "networks are not wired into `gatom_refs()` yet.", call. = FALSE)
+  if (!is.character(network) || length(network) != 1L || is.na(network) ||
+        !network %in% c("kegg", "combined")) {
+    stop("`network` must be one of \"kegg\", \"combined\"; got ",
+         paste0("\"", paste(network, collapse = "\", \""), "\"."),
+         call. = FALSE)
   }
   if (!is.null(dir) && (!is.character(dir) || length(dir) != 1L)) {
     stop("`dir` must be a single directory path or NULL.", call. = FALSE)
@@ -82,8 +85,8 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
 
   default_dir <- "00_data/references/gatom"
   wanted <- c(
-    network  = "network.kegg.rds",
-    met_db   = "met.kegg.db.rds",
+    network  = sprintf("network.%s.rds", network),
+    met_db   = sprintf("met.%s.db.rds", network),
     org_anno = sprintf("org.%s.eg.gatom.anno.rds", sp$short)
   )
 
@@ -92,7 +95,7 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
     download_gatom_references(
       dest_dir = dl_dir,
       species = sp$download,
-      networks = "kegg"
+      networks = network
     )
   }
 
@@ -110,7 +113,8 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
       paste(sprintf("`%s`", missing), collapse = ", "), ".\n",
       "Searched: ", paste(search_dirs, collapse = ", "), ".\n",
       "Fetch them with download_gatom_references(species = \"",
-      sp$download, "\", dest_dir = \"", dir %||% default_dir,
+      sp$download, "\", networks = \"", network, "\", dest_dir = \"",
+      dir %||% default_dir,
       "\"), then pass that directory as `dir`.",
       call. = FALSE
     )
@@ -298,6 +302,11 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
   )
 }
 
+.gatom_solution_weight <- function(solution) {
+  weight <- solution$weight
+  if (is.null(weight)) NA_real_ else as.numeric(weight)
+}
+
 #' Build, score and solve a GATOM module
 #'
 #' Runs the three-call GATOM pipeline -- `makeMetabolicGraph()` (with
@@ -320,9 +329,9 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #' @param seed Integer(1) RNG seed set before solving.
 #' @param solver Character(1): `"rnc"` (default), `"rmwcs"` or `"annealing"`.
 #' @param verbose Logical(1); report graph and module sizes.
-#' @return The module as an `igraph`, with attributes `k_gene`, `k_met`,
-#'   `seed`, `solver`, `species`, `graph_nodes`, `graph_edges`, `n_nodes` and
-#'   `n_edges`.
+#' @return The module as an `igraph`, with attributes `solution_weight`,
+#'   `k_gene`, `k_met`, `seed`, `solver`, `species`, `graph_nodes`,
+#'   `graph_edges`, `n_nodes` and `n_edges`.
 #' @examples
 #' \dontrun{
 #' refs <- gatom_refs("Homo sapiens")
@@ -396,8 +405,11 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
   set.seed(seed)
   gs <- gatom::scoreGraph(g, k.gene = k_gene, k.met = k_met)
   set.seed(seed)
-  m <- mwcsr::solve_mwcsp(solver_obj, gs)$graph
+  solution <- mwcsr::solve_mwcsp(solver_obj, gs)
+  m <- solution$graph
 
+  # This name matches the downstream results-table column and avoids ambiguity.
+  attr(m, "solution_weight") <- .gatom_solution_weight(solution)
   attr(m, "k_gene") <- k_gene
   attr(m, "k_met") <- k_met
   attr(m, "seed") <- seed

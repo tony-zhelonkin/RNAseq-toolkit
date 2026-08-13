@@ -165,8 +165,11 @@ test_that("gatom_de() validates its inputs", {
 
 test_that("gatom_refs() validates species", {
   expect_error(gatom_refs("Rattus norvegicus"), "`species` must be one of")
-  expect_error(gatom_refs("Homo sapiens", network = "rhea"),
-               "`network` must be")
+  expect_error(
+    gatom_refs("Homo sapiens", network = "rhea"),
+    "`network` must be one of \"kegg\", \"combined\"",
+    fixed = TRUE
+  )
   expect_error(gatom_refs("Homo sapiens", dir = c("a", "b")), "`dir` must be")
   expect_error(gatom_refs("Homo sapiens", download = NA), "`download` must be")
 })
@@ -195,6 +198,26 @@ test_that("gatom_refs() finds files in an explicit dir", {
   expect_output(print(refs), "gatom_refs")
 })
 
+test_that("gatom_refs() resolves the combined network filenames", {
+  d <- tempfile("gatomrefs"); dir.create(d)
+  on.exit(unlink(d, recursive = TRUE), add = TRUE)
+  saveRDS(list(marker = "combined-network"),
+          file.path(d, "network.combined.rds"))
+  saveRDS(list(marker = "combined-metdb"),
+          file.path(d, "met.combined.db.rds"))
+  saveRDS(list(marker = "anno"), file.path(d, "org.Hs.eg.gatom.anno.rds"))
+
+  refs <- gatom_refs("Homo sapiens", dir = d, network = "combined")
+
+  expect_identical(refs$network$marker, "combined-network")
+  expect_identical(refs$met_db$marker, "combined-metdb")
+  expect_identical(
+    unname(basename(refs$files)),
+    c("network.combined.rds", "met.combined.db.rds",
+      "org.Hs.eg.gatom.anno.rds")
+  )
+})
+
 # ---- guards and argument validation on the pipeline entry points ----------
 
 test_that("gatom_module() validates its arguments before touching gatom", {
@@ -212,6 +235,12 @@ test_that("gatom_module() validates its arguments before touching gatom", {
   expect_error(gatom_module(de, fake_refs, seed = NA), "`seed` must be")
   expect_error(gatom_module(de, fake_refs, solver = "cplex"),
                "`solver` must be one of")
+})
+
+test_that("GATOM solution weights have a stable numeric representation", {
+  solution_weight <- bulkiRNA:::.gatom_solution_weight
+  expect_identical(solution_weight(list(weight = 12.5)), 12.5)
+  expect_identical(solution_weight(list()), NA_real_)
 })
 
 test_that("gatom_genes() rejects non-igraph input", {
@@ -284,6 +313,8 @@ test_that("the full GATOM pipeline runs and is seed-stable", {
   expect_identical(attr(m, "k_gene"), 50)
   expect_identical(attr(m, "seed"), 42)
   expect_identical(attr(m, "solver"), "rnc")
+  expect_type(attr(m, "solution_weight"), "double")
+  expect_length(attr(m, "solution_weight"), 1L)
   expect_identical(attr(m, "n_nodes"), igraph::vcount(m))
   expect_identical(attr(m, "n_edges"), igraph::ecount(m))
 
