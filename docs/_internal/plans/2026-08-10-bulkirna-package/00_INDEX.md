@@ -1084,3 +1084,48 @@ there was nothing to catch. That is the outcome to want from a check that costs 
 Phase 4's remaining consumer migrations, `10_gatom_modules.R` among them, which the image can
 now actually run. And C5/C6, which needed an *installed* `bulkiRNA` because nested submodules
 are forbidden — though those wait on the SciAgent-toolkit refactor for separate reasons.
+
+---
+
+## 18. Phase 4 — two scripts now, in `14839-DM-cGAS` (2026-08-12)
+
+### `08_coresh_derived_gsea.R` — migrated, and C1 discharged
+
+Full account in [../2026-08-11-coresh-extraction/00_PLAN.md §9](../2026-08-11-coresh-extraction/00_PLAN.md).
+The short version: both column allowlists deleted, 708 CoReSh rows all carrying finite
+`neg_log_padj` against 492 rows carrying none, and a stale `load_or_compute()` cache found
+underneath — cached results four days older than the GMT they claimed to describe, which is
+why the table listed nine sets that no longer existed and omitted 27 that did.
+
+### `05_gsea_msigdb_run.R` — off its local `gs_to_master()`
+
+The script carried its own copy, written before the package had one, with a note to lift it
+when 06 and 08 migrated. It now calls `bulkiRNA::gs_to_master()`.
+
+Proven equivalent before the swap, not after: both implementations were run over all twelve
+cached results and compared column by column. **72,408 rows, identical on every value of every
+column.** Re-running the script then left both master tables byte-identical in row count,
+per-database breakdown and key uniqueness.
+
+Two things the package function leaves to its caller, and the script now does explicitly:
+`pathway_name` formatting, and `database`/`contrast`, which come from the `gs_result`'s own
+columns rather than from arguments.
+
+Also fixed a message that read `nrow(gt)` and called it "MSigDB rows". The file also holds
+CoReSh, MitoPathways, MitoXplorer and TransportDB rows, so it overstated this script's output
+by 1,716. It now reports 72,408 — the same number the equivalence check covered, which is a
+free cross-check that the two agree on what the script produced.
+
+### Phase 4 remaining
+
+`06_gsea_custom_run.R`, `12_gsea_viz.R`, `10_gatom_modules.R` in this project — the last of
+which `v0.5.13` can run now that `gatom` and `mwcsr` are installed. Then STING-JR (42 refs),
+then DC-nexus.
+
+**One thing to decide first, given §9's finding:** whether to survey the other `load_or_compute()`
+stages for the same staleness. The cache key is the filename, so any stage whose input changed
+without its name changing carries the same exposure. `05`'s caches are newer than their inputs,
+so it is clean; nothing else has been checked.
+
+`14839-DM-cGAS` stays uncommitted, now with `master_*.pre-coresh-c1.20260812-225911.csv`
+backups beside the tables. Committing there remains the owner's call.
