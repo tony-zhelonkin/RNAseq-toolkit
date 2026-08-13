@@ -4,12 +4,20 @@
 \alias{.coresh_score_file}
 \title{Score one CoReSh chunk file}
 \usage{
-.coresh_score_file(path, queries)
+.coresh_score_file(path, queries, pvalues, sample_size, seed, eps)
 }
 \arguments{
 \item{path}{Chunk file path.}
 
 \item{queries}{Validated named list of Entrez vectors.}
+
+\item{pvalues}{Logical. Calculate GESECA p-values.}
+
+\item{sample_size}{Positive whole number passed to \code{\link[=coresh_match]{coresh_match()}}.}
+
+\item{seed}{Whole-number RNG seed passed to \code{\link[=coresh_match]{coresh_match()}}.}
+
+\item{eps}{Positive numeric tolerance passed to \code{\link[=coresh_match]{coresh_match()}}.}
 }
 \value{
 A search-shaped tibble without ranks.

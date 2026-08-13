@@ -9,7 +9,10 @@ coresh_search(
   chunk_dir = NULL,
   species = "human",
   n_cores = 4L,
-  pvalues = FALSE
+  pvalues = FALSE,
+  sample_size = 21L,
+  seed = 1L,
+  eps = 1e-300
 )
 }
 \arguments{
@@ -23,12 +26,28 @@ length at least three.}
 \item{n_cores}{Positive whole number. \code{1} uses base R and does not require
 BiocParallel.}
 
-\item{pvalues}{Logical. Must currently be \code{FALSE}.}
+\item{pvalues}{Logical. Calculate GESECA p-values and rank by ascending
+\code{p_value} instead of descending \code{pct_var}.}
+
+\item{sample_size}{Positive whole number passed to the GESECA multilevel
+estimator as \code{sampleSize}.}
+
+\item{seed}{Whole-number RNG seed reset immediately before every dataset's
+GESECA call. The generator is also pinned, so results do not depend on the
+number of cores or the caller's \code{RNGkind()}.}
+
+\item{eps}{Positive numeric tolerance passed to the GESECA multilevel
+estimator.}
 }
 \value{
 A tibble with columns \code{query_name}, \code{gse}, \code{gpl}, \code{pct_var},
-\code{p_value}, \code{size}, and \code{rank}, ordered by descending \code{pct_var} within
-query. Its \code{provenance} attribute records the reference snapshot.
+\code{p_value}, \code{log2err}, \code{size}, and \code{rank}, ordered within query by ascending
+\code{p_value} when requested and descending \code{pct_var} otherwise. \code{log2err} is
+\code{Inf} for sets beyond the estimator's reliable resolution and is reported
+rather than hidden. Because the same seed is reset for every dataset,
+p-values are not independent across the compendium; multiple-testing
+correction across them is invalid and \code{p_value} is for ranking. The
+\code{provenance} attribute records the reference snapshot.
 }
 \description{
 Scores each named Entrez query against every dataset for one species. With

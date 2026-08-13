@@ -20,9 +20,10 @@ test_that("coresh_match computes pct_var from stored totalVar", {
   # not selected. The scaled query profile is therefore c(1, 2).
   expected <- sum(c(1, 2)^2) / 2 / 10 * 100
   expect_identical(names(out),
-                   c("gse", "gpl", "pct_var", "p_value", "size"))
+                   c("gse", "gpl", "pct_var", "p_value", "log2err", "size"))
   expect_equal(out$pct_var, expected)
   expect_identical(out$p_value, NA_real_)
+  expect_identical(out$log2err, NA_real_)
   expect_identical(out$size, 2L)
 })
 
@@ -31,35 +32,120 @@ test_that("coresh_match returns the zero row for an absent query", {
 
   expect_equal(out$pct_var, 0)
   expect_identical(out$p_value, NA_real_)
+  expect_identical(out$log2err, NA_real_)
   expect_identical(out$size, 0L)
 })
 
-test_that("the p-value path stops, before any chunk is read", {
-  expect_error(
-    coresh_match(NULL, integer(), pvalues = TRUE),
-    "not wired up yet",
-    fixed = TRUE
+fake_coresh_signal_object <- function(gse = "GSE_SIGNAL", strength = 0.5) {
+  n_genes <- 80L
+  n_samples <- 8L
+  query_size <- 8L
+  E <- outer(
+    seq_len(n_genes),
+    seq_len(n_samples),
+    function(i, j) 0.25 * sin(i * 1.7 + j * 0.9) +
+      0.25 * cos(i * j * 0.31)
   )
-  # A non-existent chunk_dir: the stop must come from `pvalues`, not from
-  # resolving a directory, so the argument is rejected before any I/O.
-  expect_error(
-    coresh_search(list(), chunk_dir = tempfile(), pvalues = TRUE),
-    "not wired up yet",
-    fixed = TRUE
+  latent <- c(-1.5, -1, -0.5, -0.25, 0.25, 0.5, 1, 1.5)
+  E[seq_len(query_size), ] <- E[seq_len(query_size), ] + matrix(
+    rep(strength * latent, each = query_size),
+    nrow = query_size
   )
-  err <- tryCatch(
-    coresh_match(NULL, integer(), pvalues = TRUE),
-    error = conditionMessage
+  E1024 <- round(E * 1024)
+  ids <- seq.int(1001L, length.out = n_genes)
+  ids[[n_genes]] <- ids[[1L]]
+  list(
+    gseId = gse,
+    gplId = "GPL_SIGNAL",
+    E1024 = E1024,
+    rownames = ids,
+    totalVar = sum(E^2)
   )
-  expect_match(err, "fgsea::geseca()", fixed = TRUE)
-  expect_match(err, "pvalues = FALSE", fixed = TRUE)
-  # The message must not repeat the withdrawn claim about `sampleSize`.
-  expect_false(grepl("does not honour", err, fixed = TRUE))
-  expect_false(grepl("gesecaCpp", err, fixed = TRUE))
+}
+
+test_that("coresh_match computes reproducible GESECA p-values", {
+  obj <- fake_coresh_signal_object()
+  query <- obj$rownames[seq_len(8L)]
+
+  without <- coresh_match(obj, query, pvalues = FALSE)
+  first <- coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+  again <- coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+  different <- coresh_match(obj, query, pvalues = TRUE, seed = 29L)
+
+  expect_identical(names(first), names(without))
+  expect_equal(first$pct_var, without$pct_var)
+  expect_true(is.finite(first$p_value))
+  expect_gt(first$p_value, 0)
+  expect_lte(first$p_value, 1)
+  expect_true(is.finite(first$log2err) || is.infinite(first$log2err))
+  expect_identical(first$p_value, again$p_value)
+  expect_false(isTRUE(all.equal(first$p_value, different$p_value)))
+})
+
+test_that("coresh_match handles missing and duplicate Entrez row names", {
+  obj <- fake_coresh_signal_object()
+  obj$rownames[[10L]] <- NA_integer_
+  query <- obj$rownames[seq_len(8L)]
+
+  without <- coresh_match(obj, query, pvalues = FALSE)
+  with <- coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+
+  expect_equal(with$pct_var, without$pct_var)
+  expect_true(is.finite(with$p_value))
+  expect_gt(with$pct_var, 0)
+  expect_identical(with$size, 8L)
+})
+
+test_that("coresh_match handles an almost entirely unmapped background", {
+  obj <- fake_coresh_signal_object()
+  query_rows <- seq_len(2L)
+  background_rows <- rep(3:80, length.out = 9998L)
+  obj$E1024 <- obj$E1024[c(query_rows, background_rows), , drop = FALSE]
+  obj$rownames <- rep(NA_integer_, 10000L)
+  obj$rownames[query_rows] <- seq.int(1001L, length.out = 2L)
+  obj$totalVar <- sum((obj$E1024 / 1024)^2)
+  query <- obj$rownames[query_rows]
+
+  # Modelled on a real dataset with 9,998 unmapped rows out of 10,000.
+  without <- coresh_match(obj, query, pvalues = FALSE)
+  with <- coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+
+  expect_equal(with$pct_var, without$pct_var)
+  expect_true(is.finite(with$p_value))
+  expect_gt(with$pct_var, 0)
+  expect_identical(with$size, 2L)
+})
+
+test_that("coresh_match sample_size controls estimator precision", {
+  obj <- fake_coresh_signal_object()
+  query <- obj$rownames[seq_len(8L)]
+
+  small <- coresh_match(
+    obj, query, pvalues = TRUE, sample_size = 21L, seed = 17L
+  )
+  large <- coresh_match(
+    obj, query, pvalues = TRUE, sample_size = 101L, seed = 17L
+  )
+
+  expect_lte(large$log2err, small$log2err)
+})
+
+test_that("coresh_match leaves an absent query untested with pvalues", {
+  out <- coresh_match(
+    fake_coresh_signal_object(), 999999L, pvalues = TRUE
+  )
+
+  expect_equal(out$pct_var, 0)
+  expect_identical(out$p_value, NA_real_)
+  expect_identical(out$log2err, NA_real_)
+  expect_identical(out$size, 0L)
 })
 
 test_that("coresh_match validates its supported arguments", {
   obj <- fake_coresh_object()
+  expect_identical(formals(coresh_match)$sample_size, 21L)
+  expect_identical(formals(coresh_match)$seed, 1L)
+  expect_identical(formals(coresh_match)$eps, 1e-300)
   expect_error(coresh_match(obj, c(10, 20)), "integer vector")
   expect_error(coresh_match(obj, integer()), "non-empty")
   expect_error(coresh_match(obj, 10L, pvalues = NA), "`pvalues`")
@@ -148,16 +234,111 @@ test_that("coresh_search ranks pct_var descending without optional engines", {
     pvalues = FALSE
   )
   expect_identical(names(out), c(
-    "query_name", "gse", "gpl", "pct_var", "p_value", "size", "rank"
+    "query_name", "gse", "gpl", "pct_var", "p_value", "log2err", "size",
+    "rank"
   ))
   expect_identical(out$gse, c("GSE_HIGH", "GSE_LOW"))
   expect_identical(out$rank, 1:2)
   expect_true(all(is.na(out$p_value)))
+  expect_true(all(is.na(out$log2err)))
   expect_identical(attr(out, "provenance")$species, "hsa")
+})
+
+test_that("coresh_search ranks p-values and reproduces a fixed seed", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunks <- withr::local_tempdir()
+  file.create(file.path(chunks, "001_full_objects.qs2"))
+  file.create(file.path(chunks, "002_full_objects.qs2"))
+
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) {
+      if (grepl("001_", basename(path), fixed = TRUE)) {
+        list(
+          fake_coresh_signal_object("GSE_MEDIUM", strength = 0.35),
+          fake_coresh_signal_object("GSE_HIGH", strength = 0.65)
+        )
+      } else {
+        list(fake_coresh_signal_object("GSE_LOW", strength = 0.2))
+      }
+    },
+    .package = "bulkiRNA"
+  )
+  query <- seq.int(1001L, length.out = 8L)
+
+  first <- coresh_search(
+    list(signal = query), chunks, n_cores = 1L, pvalues = TRUE, seed = 17L
+  )
+  again <- coresh_search(
+    list(signal = query), chunks, n_cores = 1L, pvalues = TRUE, seed = 17L
+  )
+  variance <- coresh_search(
+    list(signal = query), chunks, n_cores = 1L, pvalues = FALSE, seed = 17L
+  )
+
+  expect_identical(first$p_value, again$p_value)
+  expect_identical(names(first), names(variance))
+  expect_identical(first$rank, seq_len(nrow(first)))
+  expect_identical(variance$rank, seq_len(nrow(variance)))
+  expect_equal(first$p_value, sort(first$p_value))
+  expect_equal(variance$pct_var, sort(variance$pct_var, decreasing = TRUE))
+})
+
+test_that("coresh_search p-values do not depend on parallel scheduling", {
+  skip_on_os("windows")
+  skip_if_not_installed("BiocParallel")
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunks <- withr::local_tempdir()
+  file.create(file.path(chunks, "001_full_objects.qs2"))
+  file.create(file.path(chunks, "002_full_objects.qs2"))
+
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) {
+      strength <- if (grepl("001_", basename(path), fixed = TRUE)) 0.35 else 0.6
+      list(fake_coresh_signal_object(basename(path), strength = strength))
+    },
+    .package = "bulkiRNA"
+  )
+  query <- seq.int(1001L, length.out = 8L)
+
+  serial <- coresh_search(
+    list(signal = query), chunks, n_cores = 1L, pvalues = TRUE, seed = 23L
+  )
+  parallel <- coresh_search(
+    list(signal = query), chunks, n_cores = 2L, pvalues = TRUE, seed = 23L
+  )
+
+  serial <- serial[order(serial$gse), ]
+  parallel <- parallel[order(parallel$gse), ]
+  expect_identical(serial$p_value, parallel$p_value)
+})
+
+test_that("coresh_match and coresh_search use identical p-value RNG", {
+  skip_on_os("windows")
+  skip_if_not_installed("BiocParallel")
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunks <- withr::local_tempdir()
+  file.create(file.path(chunks, "001_full_objects.qs2"))
+
+  obj <- fake_coresh_signal_object()
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) list(obj),
+    .package = "bulkiRNA"
+  )
+  query <- seq.int(1001L, length.out = 8L)
+
+  direct <- coresh_match(obj, query, pvalues = TRUE, seed = 23L)
+  searched <- coresh_search(
+    list(signal = query), chunks, n_cores = 2L, pvalues = TRUE, seed = 23L
+  )
+
+  expect_identical(direct$p_value, searched$p_value)
 })
 
 test_that("coresh_search names invalid queries and validates controls", {
   chunks <- withr::local_tempdir()
+  expect_identical(formals(coresh_search)$sample_size, 21L)
+  expect_identical(formals(coresh_search)$seed, 1L)
+  expect_identical(formals(coresh_search)$eps, 1e-300)
   expect_error(
     coresh_search(list(short_query = c(1L, 2L)), chunks, n_cores = 1L),
     "short_query"
@@ -166,6 +347,18 @@ test_that("coresh_search names invalid queries and validates controls", {
   expect_error(
     coresh_search(list(q = c(1L, 2L, 3L)), chunks, n_cores = 0),
     "`n_cores`"
+  )
+  expect_error(
+    coresh_search(list(q = c(1L, 2L, 3L)), chunks, sample_size = 0),
+    "`sample_size`"
+  )
+  expect_error(
+    coresh_search(list(q = c(1L, 2L, 3L)), chunks, seed = Inf),
+    "`seed`"
+  )
+  expect_error(
+    coresh_search(list(q = c(1L, 2L, 3L)), chunks, eps = 0),
+    "`eps`"
   )
   expect_error(
     coresh_search(list(q = c(1L, 2L, 3L)), chunks, species = "rat"),
@@ -218,6 +411,8 @@ test_that("coresh_validate reports every preflight failure without stopping", {
   coresh_row <- out[out$check == "package: coresh", ]
   expect_identical(coresh_row$ok, requireNamespace("coresh", quietly = TRUE))
   expect_match(coresh_row$detail, "no R code or callable functions", fixed = TRUE)
+  expect_match(coresh_row$detail, "Not required", fixed = TRUE)
+  expect_match(coresh_row$detail, "fgsea::geseca()", fixed = TRUE)
   expect_false(out$ok[out$check == "chunk files"])
   expect_match(
     out$detail[out$check == "chunk files"],

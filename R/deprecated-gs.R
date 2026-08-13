@@ -142,11 +142,11 @@ filter_by_size <- function(result, min_size = 5, max_size = 500) {
 
 #' Deprecated: convert a named gene-set list to TERM2GENE format
 #'
-#' Superseded by [gs_db()] (the sets themselves) plus the internal
-#' `.gsdb_as_t2g()` converter, which this shim chains together. Set names with
-#' no genes are dropped and genes are de-duplicated within a set, per the
-#' [gs_db()] contract; the old function preserved empty/duplicate rows
-#' verbatim.
+#' Superseded by [gsdb_register()], which accepts a named list of gene sets and
+#' returns a registered `gs_db`. This shim additionally converts that database
+#' to the old TERM2GENE shape. Set names with no genes are dropped and genes
+#' are de-duplicated within a set; the old function preserved empty/duplicate
+#' rows verbatim.
 #'
 #' @param geneset_list Named list where names are pathway IDs and values are
 #'   character vectors of genes.
@@ -161,7 +161,7 @@ list_to_term2gene <- function(
     gs_col = "gs_name",
     gene_col = "gene_symbol"
 ) {
-  .Deprecated("gs_db")
+  .Deprecated("gsdb_register")
   if (!is.list(geneset_list) || is.null(names(geneset_list))) {
     stop("geneset_list must be a named list")
   }
@@ -314,19 +314,24 @@ convert_human_to_mouse <- function(T2G, drop_unmapped = TRUE, verbose = TRUE) {
 
 #' Deprecated: an empty normalized GSEA tibble
 #'
-#' Superseded by [gs_result()]. The old function returned a zero-row tibble
-#' in `normalize_gsea_results()`'s bespoke schema (`pathway_id`,
+#' A `gs_result` comes back from [gs_test()]; filter one to zero rows when an
+#' empty result is needed. There is no exported constructor, by design. The
+#' old function returned a zero-row tibble in `normalize_gsea_results()`'s
+#' bespoke schema (`pathway_id`,
 #' `pathway_name`, `database`, `contrast`, `NES`, `pvalue`, `padj`,
 #' `set_size`, `leading_edge_size`, `gene_ratio`, `core_enrichment`,
 #' `genes_full_set`, `direction`, `neg_log_padj`); this shim instead returns a
-#' zero-row [gs_result()], the schema `gs_test()` now produces directly. The
+#' zero-row `gs_result`, the schema `gs_test()` now produces directly. The
 #' column set is therefore genuinely different, not aliased -- that is the
 #' point of "superseded by", not "identical to".
 #'
-#' @return A zero-row [gs_result()].
+#' @return A zero-row `gs_result`.
 #' @export
 empty_gsea_tibble <- function() {
-  .Deprecated("gs_result")
+  .Deprecated(msg = paste(
+    "`empty_gsea_tibble()` is deprecated. gs_test() returns a gs_result;",
+    "filter its result to zero rows when an empty result is needed. There is",
+    "no exported constructor, by design."))
   core <- .gs_empty_core()
   core$database <- character(0)
   core$contrast <- character(0)

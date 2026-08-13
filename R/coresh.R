@@ -48,24 +48,22 @@
   as.integer(x)
 }
 
-#' Stop on the not-yet-wired CoReSh p-value path
-#'
-#' An earlier version of this message asserted that `fgsea::geseca()` ignores
-#' `sampleSize`. That was measured on a null matrix, where the p-value comes
-#' from the pre-permutation screen and the multilevel estimator never
-#' escalates, so the test could not have shown an effect. It does honour it.
-#'
-#' @return Nothing; always errors.
-#' @keywords internal
-.coresh_pvalues_unavailable <- function() {
-  stop(
-    "`pvalues = TRUE` is not wired up yet. The GESECA p-value comes from ",
-    "`fgsea::geseca()`, which is public and sufficient, so this is ",
-    "scheduled work rather than an open question. Use `pvalues = FALSE` for ",
-    "the `pct_var` screen, which is exact arithmetic and needs no ",
-    "permutation at all.",
-    call. = FALSE
-  )
+# `geseca()` takes no seed and draws its internal seeds from R's RNG, while
+# `bplapply()` changes the generator, so pinning the seed alone is not enough.
+.coresh_with_seed <- function(seed, expr) {
+  old_kind <- RNGkind()
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
+    get(".Random.seed", envir = .GlobalEnv)
+  } else {
+    NULL
+  }
+  on.exit({
+    RNGkind(old_kind[1L], old_kind[2L], old_kind[3L])
+    if (!is.null(old_seed)) assign(".Random.seed", old_seed, envir = .GlobalEnv)
+  }, add = TRUE)
+  set.seed(seed, kind = "Mersenne-Twister", normal.kind = "Inversion",
+           sample.kind = "Rejection")
+  force(expr)
 }
 
 #' Resolve a CoReSh species directory
@@ -194,6 +192,7 @@
     gpl = character(),
     pct_var = numeric(),
     p_value = numeric(),
+    log2err = numeric(),
     size = integer(),
     rank = integer()
   )
@@ -257,20 +256,25 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
 #' Score one dataset for a CoReSh query
 #'
 #' Computes the percentage of stored total variance explained by the query's
-#' shared profile. P-value calculation is retained in the signature but is not
-#' available until the owner decides whether to adopt fgsea's unexported
-#' GESECA entry point.
+#' shared profile and, optionally, its GESECA p-value.
 #'
 #' @param obj One CoReSh dataset object with fields `gseId`, `gplId`, `E1024`,
 #'   `rownames`, and `totalVar`.
 #' @param query A non-empty integer vector of Entrez IDs.
-#' @param pvalues Logical. Must currently be `FALSE`.
-#' @param sample_size Positive whole number reserved for the future p-value
-#'   path.
-#' @param seed Whole-number seed reserved for the future p-value path.
-#' @param eps Positive numeric tolerance reserved for the future p-value path.
-#' @return A one-row tibble with `gse`, `gpl`, `pct_var`, `p_value`, and
-#'   `size`. `p_value` is currently always `NA_real_`.
+#' @param pvalues Logical. Calculate a GESECA p-value.
+#' @param sample_size Positive whole number passed to the GESECA multilevel
+#'   estimator as `sampleSize`.
+#' @param seed Whole-number RNG seed reset immediately before the GESECA call.
+#'   The generator is also pinned, so results do not depend on the number of
+#'   cores or the caller's `RNGkind()`.
+#' @param eps Positive numeric tolerance passed to the GESECA multilevel
+#'   estimator.
+#' @return A one-row tibble with `gse`, `gpl`, `pct_var`, `p_value`, `log2err`,
+#'   and `size`. `log2err` is `Inf` for sets beyond the estimator's
+#'   reliable resolution and is reported rather than hidden. Because the same
+#'   seed is reset for every dataset, p-values are not independent across the
+#'   compendium; multiple-testing correction across them is invalid and
+#'   `p_value` is for ranking.
 #' @examples
 #' obj <- list(
 #'   gseId = "GSE1", gplId = "GPL1",
@@ -282,7 +286,6 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
 coresh_match <- function(obj, query, pvalues = FALSE,
                          sample_size = 21L, seed = 1L, eps = 1e-300) {
   .coresh_logical_scalar(pvalues, "pvalues")
-  if (pvalues) .coresh_pvalues_unavailable()
 
   .coresh_validate_object(obj)
   if (!is.integer(query) || !length(query) || anyNA(query)) {
@@ -308,6 +311,7 @@ coresh_match <- function(obj, query, pvalues = FALSE,
       gpl = as.character(obj$gplId),
       pct_var = 0,
       p_value = NA_real_,
+      log2err = NA_real_,
       size = 0L
     ))
   }
@@ -315,11 +319,45 @@ coresh_match <- function(obj, query, pvalues = FALSE,
   E <- obj$E1024 / 1024
   profile <- colSums(E[query_idx, , drop = FALSE])
   query_var <- sum(profile^2)
+  p_value <- NA_real_
+  log2err <- NA_real_
+  if (pvalues) {
+    rn <- as.character(obj$rownames)
+    missing <- is.na(rn)
+    if (any(missing)) {
+      rn[missing] <- paste0("unmapped_", seq_len(sum(missing)))
+    }
+    rownames(E) <- make.unique(rn)
+    query_rows <- rownames(E)[query_idx]
+
+    # Match upstream's literal seed for every dataset. Reusing its permutation
+    # stream gives common-random-number precision for comparisons and, because
+    # it is reset per call, makes chunk scheduling irrelevant. The resulting
+    # cross-dataset p-values are correlated, as documented in the return value.
+    geseca_result <- .coresh_with_seed(
+      seed,
+      fgsea::geseca(
+        pathways = list(query = query_rows),
+        E = E,
+        minSize = 1L,
+        maxSize = k,
+        center = FALSE,
+        scale = FALSE,
+        sampleSize = sample_size,
+        eps = eps,
+        nproc = 1L
+      )
+    )
+    p_value <- as.numeric(geseca_result$pval[[1L]])
+    log2err <- as.numeric(geseca_result$log2err[[1L]])
+  }
+
   tibble::tibble(
     gse = as.character(obj$gseId),
     gpl = as.character(obj$gplId),
     pct_var = query_var / k / obj$totalVar * 100,
-    p_value = NA_real_,
+    p_value = p_value,
+    log2err = log2err,
     size = as.integer(k)
   )
 }
@@ -328,9 +366,13 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #'
 #' @param path Chunk file path.
 #' @param queries Validated named list of Entrez vectors.
+#' @param pvalues Logical. Calculate GESECA p-values.
+#' @param sample_size Positive whole number passed to [coresh_match()].
+#' @param seed Whole-number RNG seed passed to [coresh_match()].
+#' @param eps Positive numeric tolerance passed to [coresh_match()].
 #' @return A search-shaped tibble without ranks.
 #' @keywords internal
-.coresh_score_file <- function(path, queries) {
+.coresh_score_file <- function(path, queries, pvalues, sample_size, seed, eps) {
   chunk <- .coresh_read_chunk(path)
   if (!is.list(chunk) || !length(chunk)) {
     stop("CoReSh chunk did not contain a non-empty object list: ", path, ".",
@@ -341,11 +383,16 @@ coresh_match <- function(obj, query, pvalues = FALSE,
       chunk,
       coresh_match,
       query = queries[[query_name]],
-      pvalues = FALSE
+      pvalues = pvalues,
+      sample_size = sample_size,
+      seed = seed,
+      eps = eps
     ) |>
       dplyr::bind_rows()
     scored$query_name <- query_name
-    scored[c("query_name", "gse", "gpl", "pct_var", "p_value", "size")]
+    scored[c(
+      "query_name", "gse", "gpl", "pct_var", "p_value", "log2err", "size"
+    )]
   })
   dplyr::bind_rows(rows)
 }
@@ -362,10 +409,23 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
 #' @param n_cores Positive whole number. `1` uses base R and does not require
 #'   BiocParallel.
-#' @param pvalues Logical. Must currently be `FALSE`.
+#' @param pvalues Logical. Calculate GESECA p-values and rank by ascending
+#'   `p_value` instead of descending `pct_var`.
+#' @param sample_size Positive whole number passed to the GESECA multilevel
+#'   estimator as `sampleSize`.
+#' @param seed Whole-number RNG seed reset immediately before every dataset's
+#'   GESECA call. The generator is also pinned, so results do not depend on the
+#'   number of cores or the caller's `RNGkind()`.
+#' @param eps Positive numeric tolerance passed to the GESECA multilevel
+#'   estimator.
 #' @return A tibble with columns `query_name`, `gse`, `gpl`, `pct_var`,
-#'   `p_value`, `size`, and `rank`, ordered by descending `pct_var` within
-#'   query. Its `provenance` attribute records the reference snapshot.
+#'   `p_value`, `log2err`, `size`, and `rank`, ordered within query by ascending
+#'   `p_value` when requested and descending `pct_var` otherwise. `log2err` is
+#'   `Inf` for sets beyond the estimator's reliable resolution and is reported
+#'   rather than hidden. Because the same seed is reset for every dataset,
+#'   p-values are not independent across the compendium; multiple-testing
+#'   correction across them is invalid and `p_value` is for ranking. The
+#'   `provenance` attribute records the reference snapshot.
 #' @examples
 #' \dontrun{
 #' hits <- coresh_search(
@@ -376,9 +436,9 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #' }
 #' @export
 coresh_search <- function(queries, chunk_dir = NULL, species = "human",
-                          n_cores = 4L, pvalues = FALSE) {
+                          n_cores = 4L, pvalues = FALSE,
+                          sample_size = 21L, seed = 1L, eps = 1e-300) {
   .coresh_logical_scalar(pvalues, "pvalues")
-  if (pvalues) .coresh_pvalues_unavailable()
 
   if (!is.list(queries) || !length(queries) || is.null(names(queries))) {
     stop("`queries` must be a non-empty named list of integer Entrez vectors.",
@@ -401,12 +461,29 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
     }
   }
   n_cores <- .coresh_positive_integer(n_cores, "n_cores")
+  sample_size <- .coresh_positive_integer(sample_size, "sample_size")
+  if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) ||
+      !is.finite(seed) || seed != floor(seed)) {
+    stop("`seed` must be one finite whole number.", call. = FALSE)
+  }
+  if (!is.numeric(eps) || length(eps) != 1L || is.na(eps) ||
+      !is.finite(eps) || eps <= 0) {
+    stop("`eps` must be one finite positive number.", call. = FALSE)
+  }
   code <- .coresh_species_code(species)
   resolved <- .coresh_chunk_dir(chunk_dir, species)
   paths <- .coresh_chunk_files(resolved)
 
   if (n_cores == 1L) {
-    pieces <- lapply(paths, .coresh_score_file, queries = queries)
+    pieces <- lapply(
+      paths,
+      .coresh_score_file,
+      queries = queries,
+      pvalues = pvalues,
+      sample_size = sample_size,
+      seed = seed,
+      eps = eps
+    )
   } else {
     .require_pkg(
       "BiocParallel",
@@ -418,6 +495,10 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
       paths,
       .coresh_score_file,
       queries = queries,
+      pvalues = pvalues,
+      sample_size = sample_size,
+      seed = seed,
+      eps = eps,
       BPPARAM = param
     )
   }
@@ -425,14 +506,20 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
   unranked <- dplyr::bind_rows(pieces)
   ranked <- lapply(query_names, function(query_name) {
     part <- unranked[unranked$query_name == query_name, , drop = FALSE]
-    part <- part[order(-part$pct_var, na.last = TRUE), , drop = FALSE]
+    ordering <- if (pvalues) {
+      order(part$p_value, -part$pct_var, part$gse, part$gpl, na.last = TRUE)
+    } else {
+      order(-part$pct_var, part$gse, part$gpl, na.last = TRUE)
+    }
+    part <- part[ordering, , drop = FALSE]
     part$rank <- seq_len(nrow(part))
     part
   }) |>
     dplyr::bind_rows()
   if (!nrow(ranked)) ranked <- .coresh_empty_search()
   ranked <- ranked[c(
-    "query_name", "gse", "gpl", "pct_var", "p_value", "size", "rank"
+    "query_name", "gse", "gpl", "pct_var", "p_value", "log2err", "size",
+    "rank"
   )]
   attr(ranked, "provenance") <- .coresh_provenance(
     resolved, code, length(paths)
@@ -563,9 +650,8 @@ coresh_validate <- function(chunk_dir = NULL, species = "human") {
   fixes <- c(
     qs2 = 'Install with install.packages("qs2").',
     coresh = paste(
-      "coresh 0.1.0 is not installed and in any case ships no R code or",
-      "callable functions; use `pvalues = FALSE` while the internal-call",
-      "decision is pending."
+      "Not required: coresh 0.1.0 ships no R code or callable functions;",
+      "CoReSh p-values use `fgsea::geseca()` directly."
     ),
     BiocParallel = 'Install with BiocManager::install("BiocParallel").',
     org.Hs.eg.db = 'Install with BiocManager::install("org.Hs.eg.db").',
@@ -579,8 +665,8 @@ coresh_validate <- function(chunk_dir = NULL, species = "human") {
       )
       detail <- paste0(
         "Installed (version ", version, "), but coresh 0.1.0 ships no R ",
-        "code or callable functions; use `pvalues = FALSE` while the ",
-        "internal-call decision is pending."
+        "code or callable functions and is not required; CoReSh p-values ",
+        "use `fgsea::geseca()` directly."
       )
     } else if (installed[[pkg]]) {
       detail <- paste0("Installed (version ",

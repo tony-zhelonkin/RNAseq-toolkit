@@ -20,9 +20,9 @@ character vectors of genes.}
 Data frame in TERM2GENE format with columns \code{gs_col}, \code{gene_col}.
 }
 \description{
-Superseded by \code{\link[=gs_db]{gs_db()}} (the sets themselves) plus the internal
-\code{.gsdb_as_t2g()} converter, which this shim chains together. Set names with
-no genes are dropped and genes are de-duplicated within a set, per the
-\code{\link[=gs_db]{gs_db()}} contract; the old function preserved empty/duplicate rows
-verbatim.
+Superseded by \code{\link[=gsdb_register]{gsdb_register()}}, which accepts a named list of gene sets and
+returns a registered \code{gs_db}. This shim additionally converts that database
+to the old TERM2GENE shape. Set names with no genes are dropped and genes
+are de-duplicated within a set; the old function preserved empty/duplicate
+rows verbatim.
 }

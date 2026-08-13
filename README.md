@@ -118,7 +118,8 @@ alike.
 
 `theme_bulki()` (publication ggplot2 theme) · `gs_save()` (a plot with the table behind it)
 · `format_pathway_name()` (biological capitalisation from a ~400-term dictionary) ·
-`write_session_provenance()` · `ensure_dir()` · `bulkirna_check_deps()`
+`write_session_provenance()` · `ensure_dir()` · `bulkirna_check_deps()` ·
+`bulkirna_api()` (machine-readable lifecycle and signature-freeze registry)
 
 `write_session_provenance()` records the `bulkiRNA` version, every hard-dependency version,
 the bundled registry version, and any shared reference-data snapshot resolved this session —
@@ -135,7 +136,7 @@ from CRAN.
 
 ## Legacy names
 
-20 of the 64 exports are shims for the old script-library API. Each one works, warns once,
+20 of the 73 exports are shims for the old script-library API. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`

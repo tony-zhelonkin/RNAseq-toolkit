@@ -3,6 +3,12 @@
 The package version is the unit of reproducibility (ADR-001), so the changes
 below get a version of their own: they moved numbers in a consumer project.
 
+## API
+
+* `bulkirna_api()` adds a machine-readable registry of all public functions,
+  keeping lifecycle status and the historical signature freeze as independent
+  axes.
+
 ## GATOM
 
 * `gatom_module()` gains a final argument, `gene2reaction_extra`. It reaches

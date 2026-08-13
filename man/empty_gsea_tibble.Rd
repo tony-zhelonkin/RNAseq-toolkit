@@ -7,15 +7,17 @@
 empty_gsea_tibble()
 }
 \value{
-A zero-row \code{\link[=gs_result]{gs_result()}}.
+A zero-row \code{gs_result}.
 }
 \description{
-Superseded by \code{\link[=gs_result]{gs_result()}}. The old function returned a zero-row tibble
-in \code{normalize_gsea_results()}'s bespoke schema (\code{pathway_id},
+A \code{gs_result} comes back from \code{\link[=gs_test]{gs_test()}}; filter one to zero rows when an
+empty result is needed. There is no exported constructor, by design. The
+old function returned a zero-row tibble in \code{normalize_gsea_results()}'s
+bespoke schema (\code{pathway_id},
 \code{pathway_name}, \code{database}, \code{contrast}, \code{NES}, \code{pvalue}, \code{padj},
 \code{set_size}, \code{leading_edge_size}, \code{gene_ratio}, \code{core_enrichment},
 \code{genes_full_set}, \code{direction}, \code{neg_log_padj}); this shim instead returns a
-zero-row \code{\link[=gs_result]{gs_result()}}, the schema \code{gs_test()} now produces directly. The
+zero-row \code{gs_result}, the schema \code{gs_test()} now produces directly. The
 column set is therefore genuinely different, not aliased -- that is the
 point of "superseded by", not "identical to".
 }

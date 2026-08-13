@@ -2,6 +2,20 @@
 
 For projects that `source()`d the toolkit from a submodule.
 
+## API stability contract
+
+`bulkirna_api()` returns the machine-readable public surface. Every export has a `lifecycle`:
+
+- `stable` follows semantic versioning; incompatible changes require a major release after
+  any applicable deprecation cycle.
+- `experimental` may change or disappear without a major version bump.
+- `deprecated` remains callable and warns, but is scheduled for removal in **v1.0.0**.
+
+The separate `frozen` column records the 24 signatures inherited from the script library. A
+frozen name is not necessarily recommended: all 20 deprecated shims are frozen so their old
+calls remain reproducible until removal. `superseded_by` may describe a sequence or technique,
+and says plainly when part of an old behaviour has no replacement.
+
 ## 1. Replace the sourcing
 
 ```r
@@ -19,31 +33,32 @@ GSEA now runs through `fgsea` directly, so `clusterProfiler` leaves the dependen
 
 ## 2. Every old name still works
 
-All 20 legacy functions are exported. Each warns once through `.Deprecated()` and names its
-replacement, so a project runs after step 1 alone. Step 4 covers the two changes that reach
-further.
+All 20 legacy functions are exported through v0.x and are scheduled for removal in v1.0.0.
+Each warns once through `.Deprecated()` and names its migration path, so a project runs after
+step 1 alone. A migration path may use several functions, and two deliberately note behaviour
+with no successor. Step 4 covers the two changes that reach further.
 
 | Old | New |
 |---|---|
 | `run_gsea()` | `gs_ranks()` + `gs_test()` |
 | `run_gsea_analysis()` | `gs_ranks()` + `gsdb_msigdb()` + `gs_test()` + `gs_plot_*()` |
 | `normalize_gsea_results()` | drop it — `gs_test()` already returns a tibble |
-| `empty_gsea_tibble()` | `gs_result()` |
+| `empty_gsea_tibble()` | `gs_test()`; filter its result to zero rows for an empty `gs_result`; there is no exported constructor, by design |
 | `load_reference_db()` | `gsdb_load()` |
 | `list_reference_dbs()` | `gsdb_list()` |
 | `parse_gmx()` | `gsdb_from_file()` |
-| `parse_mitoxplorer()` | `gsdb_load("mitoxplorer")` |
-| `list_to_term2gene()` | `gs_db()` |
-| `filter_by_size()` | `min_size=` / `max_size=` on the provider or on `gs_test()` |
-| `convert_human_to_mouse()` | `gsdb_msigdb(species=)` — name the species you want |
+| `parse_mitoxplorer()` | `gsdb_load("mitoxplorer")`, or `gsdb_from_file()` for an arbitrary file |
+| `list_to_term2gene()` | `gsdb_register()` |
+| `filter_by_size()` | `min_size=` / `max_size=` on `gsdb_msigdb()`, `gsdb_load()` or `gsdb_from_file()` |
+| `convert_human_to_mouse()` | `gsdb_msigdb(species = "Mus musculus", db_species = "HS")` |
 | `gsea_dotplot()`, `gsea_dotplot_facet()` | `gs_plot_dot()` |
 | `gsea_barplot()` | `gs_plot_bar()` |
 | `gsea_running_sum_plot()` | `gs_plot_running()` |
-| `plot_all_gsea_results()` | the `gs_plot_*()` renderers |
+| `plot_all_gsea_results()` | `gs_plot_dot()`, `gs_plot_bar()`, `gs_plot_running()` and `gs_save()` |
 | `create_standard_volcano()` | `de_volcano()` |
 | `create_MD_plot()` | `de_md_plot()` |
 | `custom_minimal_theme_with_grid()` | `theme_bulki()` |
-| `save_gsea_log()` | `gs_write()` |
+| `save_gsea_log()` | `gs_save()` for the plot/table artifact; the free-text log has no replacement |
 
 ## 3. The typical rewrite
 

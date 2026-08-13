@@ -19,24 +19,29 @@ coresh_match(
 
 \item{query}{A non-empty integer vector of Entrez IDs.}
 
-\item{pvalues}{Logical. Must currently be \code{FALSE}.}
+\item{pvalues}{Logical. Calculate a GESECA p-value.}
 
-\item{sample_size}{Positive whole number reserved for the future p-value
-path.}
+\item{sample_size}{Positive whole number passed to the GESECA multilevel
+estimator as \code{sampleSize}.}
 
-\item{seed}{Whole-number seed reserved for the future p-value path.}
+\item{seed}{Whole-number RNG seed reset immediately before the GESECA call.
+The generator is also pinned, so results do not depend on the number of
+cores or the caller's \code{RNGkind()}.}
 
-\item{eps}{Positive numeric tolerance reserved for the future p-value path.}
+\item{eps}{Positive numeric tolerance passed to the GESECA multilevel
+estimator.}
 }
 \value{
-A one-row tibble with \code{gse}, \code{gpl}, \code{pct_var}, \code{p_value}, and
-\code{size}. \code{p_value} is currently always \code{NA_real_}.
+A one-row tibble with \code{gse}, \code{gpl}, \code{pct_var}, \code{p_value}, \code{log2err},
+and \code{size}. \code{log2err} is \code{Inf} for sets beyond the estimator's
+reliable resolution and is reported rather than hidden. Because the same
+seed is reset for every dataset, p-values are not independent across the
+compendium; multiple-testing correction across them is invalid and
+\code{p_value} is for ranking.
 }
 \description{
 Computes the percentage of stored total variance explained by the query's
-shared profile. P-value calculation is retained in the signature but is not
-available until the owner decides whether to adopt fgsea's unexported
-GESECA entry point.
+shared profile and, optionally, its GESECA p-value.
 }
 \examples{
 obj <- list(
