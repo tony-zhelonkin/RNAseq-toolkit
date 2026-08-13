@@ -232,9 +232,73 @@ test_that("gatom_module() validates its arguments before touching gatom", {
   expect_error(gatom_module(de[, 1:2], fake_refs), "missing column")
   expect_error(gatom_module(de, fake_refs, k_gene = -1), "`k_gene` must be")
   expect_error(gatom_module(de, fake_refs, k_met = 50), "`k_met` was supplied")
+  err <- tryCatch(
+    gatom_module(de, fake_refs,
+                 gene2reaction_extra = data.frame(gene = "1")),
+    error = function(e) conditionMessage(e)
+  )
+  expect_match(
+    err,
+    "`gene2reaction_extra` must be NULL or a data frame with `gene` and `reaction` columns",
+    fixed = TRUE
+  )
+  expect_match(err, "data.table::fread()", fixed = TRUE)
   expect_error(gatom_module(de, fake_refs, seed = NA), "`seed` must be")
   expect_error(gatom_module(de, fake_refs, solver = "cplex"),
                "`solver` must be one of")
+})
+
+test_that("gatom_module() passes extra mappings and preserves NULL omission", {
+  skip_if_not_installed("gatom")
+  skip_if_not_installed("mwcsr")
+  skip_if_not_installed("igraph")
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+
+  seen <- list()
+  graph <- igraph::make_graph(~ A - B)
+  testthat::local_mocked_bindings(
+    makeMetabolicGraph = function(..., gene2reaction.extra = NULL) {
+      seen[[length(seen) + 1L]] <<- list(value = gene2reaction.extra)
+      graph
+    },
+    scoreGraph = function(g, ...) g,
+    .package = "gatom"
+  )
+  testthat::local_mocked_bindings(
+    rnc_solver = function(...) NULL,
+    solve_mwcsp = function(solver, instance) {
+      list(graph = instance, weight = 1)
+    },
+    .package = "mwcsr"
+  )
+
+  fake_refs <- structure(
+    list(network = 1, met_db = 2, org_anno = 3,
+         species = "Homo sapiens", files = character()),
+    class = "gatom_refs"
+  )
+  de <- data.frame(ID = "IDO1", pval = 0.01, log2FC = 1, baseMean = 100)
+  extra <- data.frame(gene = "3620", reaction = "R01920")
+
+  with_extra <- gatom_module(de, fake_refs, gene2reaction_extra = extra)
+  omitted <- gatom_module(de, fake_refs)
+  explicit_null <- gatom_module(de, fake_refs, gene2reaction_extra = NULL)
+
+  expect_s3_class(with_extra, "igraph")
+  expect_identical(seen[[1L]]$value, extra)
+  expect_null(seen[[2L]]$value)
+  expect_null(seen[[3L]]$value)
+  expect_identical(omitted, explicit_null)
+})
+
+test_that("gatom_module() appends its optional mapping argument", {
+  fmls <- formals(gatom_module)
+  expect_identical(
+    names(fmls)[seq_len(8L)],
+    c("de", "refs", "k_gene", "k_met", "met_de", "seed", "solver", "verbose")
+  )
+  expect_identical(names(fmls)[[9L]], "gene2reaction_extra")
+  expect_null(fmls$gene2reaction_extra)
 })
 
 test_that("GATOM solution weights have a stable numeric representation", {

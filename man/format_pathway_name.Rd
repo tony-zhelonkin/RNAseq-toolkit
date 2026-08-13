@@ -22,7 +22,8 @@ A character vector of formatted names, the same length as \code{text}.
 Turns a database pathway identifier (\code{HALLMARK_TNFA_SIGNALING_VIA_NFKB})
 into a label fit for an axis (\verb{TNF-alpha Signaling via NF-kappaB}), while
 preserving biological abbreviations, roman numerals and chemical
-nomenclature.
+nomenclature. Function words are capitalized when sentence-initial and kept
+lowercase elsewhere.
 }
 \details{
 Underscores \strong{and} dots become spaces -- dots are hierarchy separators in

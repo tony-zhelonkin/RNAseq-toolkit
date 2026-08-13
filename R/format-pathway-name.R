@@ -3,7 +3,8 @@
 #' Turns a database pathway identifier (`HALLMARK_TNFA_SIGNALING_VIA_NFKB`)
 #' into a label fit for an axis (`TNF-alpha Signaling via NF-kappaB`), while
 #' preserving biological abbreviations, roman numerals and chemical
-#' nomenclature.
+#' nomenclature. Function words are capitalized when sentence-initial and kept
+#' lowercase elsewhere.
 #'
 #' Underscores **and** dots become spaces -- dots are hierarchy separators in
 #' some custom databases (MitoPathways
@@ -73,6 +74,9 @@ format_pathway_name <- function(text, use_formatting = TRUE,
 .gs_smart_capitalization <- function(text) {
   exceptions <- .gs_name_exceptions()
   multiword <- .gs_name_multiword()
+  # These exceptions alone change display form at the start of a label. Same
+  # source as the exceptions map, so the two cannot disagree.
+  function_words <- names(.gs_function_words())
   greek <- c(
     "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
     "iota", "lambda", "mu", "nu", "xi", "omicron", "pi", "rho", "sigma",
@@ -89,7 +93,8 @@ format_pathway_name <- function(text, use_formatting = TRUE,
     }
 
     words <- unlist(strsplit(s_lower, " "))
-    formatted <- vapply(words, function(word) {
+    formatted <- vapply(seq_along(words), function(i) {
+      word <- words[[i]]
       if (nchar(word) == 0L) return("")
 
       if (grepl("^<<", word)) {
@@ -97,7 +102,12 @@ format_pathway_name <- function(text, use_formatting = TRUE,
       }
 
       hit <- exceptions[tolower(names(exceptions)) == word]
-      if (length(hit) > 0L) return(hit[[1L]])
+      if (length(hit) > 0L) {
+        if (i == 1L && word %in% function_words) {
+          return(stringr::str_to_title(hit[[1L]]))
+        }
+        return(hit[[1L]])
+      }
 
       # Roman numerals
       if (grepl("^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$", word)) {
@@ -201,7 +211,8 @@ format_pathway_name <- function(text, use_formatting = TRUE,
 #' @return A named list.
 #' @keywords internal
 .gs_name_exceptions <- function() {
-  list(
+  c(
+    list(
     # NF-kappaB family
     "nf" = "NF", "nfkb" = "NF-kappaB", "nfkappab" = "NF-kappaB",
 
@@ -281,12 +292,28 @@ format_pathway_name <- function(text, use_formatting = TRUE,
     # Processes
     "autophagy" = "Autophagy", "apoptosis" = "Apoptosis",
     "necrosis" = "Necrosis", "ferroptosis" = "Ferroptosis",
-    "pyroptosis" = "Pyroptosis",
-
-    # Function words
-    "via" = "via", "and" = "and", "or" = "or", "of" = "of", "in" = "in",
-    "to" = "to", "by" = "by", "from" = "from", "the" = "the"
+    "pyroptosis" = "Pyroptosis"
+    ),
+    # Function words come from .gs_function_words() rather than being listed
+    # here, because .gs_smart_capitalization() needs the same set to decide what
+    # to capitalise sentence-initially. Two hand-kept copies of one list drift
+    # the moment somebody adds "with". as.list() matters: this is a list(), so
+    # splicing the character vector directly would bury all nine words in one
+    # unnamed element and every lookup for them would miss.
+    as.list(.gs_function_words())
   )
+}
+
+#' Function words kept lowercase mid-label
+#'
+#' The single source for both the exceptions map and the sentence-initial rule in
+#' `.gs_smart_capitalization()`.
+#'
+#' @return Named character vector mapping each function word to itself.
+#' @keywords internal
+.gs_function_words <- function() {
+  words <- c("via", "and", "or", "of", "in", "to", "by", "from", "the")
+  stats::setNames(words, words)
 }
 
 #' Wrap a label onto two or three lines

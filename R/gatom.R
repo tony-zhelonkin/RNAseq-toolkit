@@ -329,6 +329,9 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #' @param seed Integer(1) RNG seed set before solving.
 #' @param solver Character(1): `"rnc"` (default), `"rmwcs"` or `"annealing"`.
 #' @param verbose Logical(1); report graph and module sizes.
+#' @param gene2reaction_extra Optional data frame of additional gene-to-reaction
+#'   mappings with columns `gene` and `reaction`. Passed to
+#'   `gatom::makeMetabolicGraph()` as `gene2reaction.extra`.
 #' @return The module as an `igraph`, with attributes `solution_weight`,
 #'   `k_gene`, `k_met`, `seed`, `solver`, `species`, `graph_nodes`,
 #'   `graph_edges`, `n_nodes` and `n_edges`.
@@ -341,7 +344,8 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #' }
 #' @export
 gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
-                         seed = 42, solver = "rnc", verbose = FALSE) {
+                         seed = 42, solver = "rnc", verbose = FALSE,
+                         gene2reaction_extra = NULL) {
   .require_pkg("gatom", "gatom_module()", 'BiocManager::install("gatom")')
   .require_pkg("mwcsr", "gatom_module()")
   .require_pkg("igraph", "gatom_module()")
@@ -373,6 +377,13 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
          "needs metabolite data. Pass `met_de` or leave `k_met = NULL`.",
          call. = FALSE)
   }
+  if (!is.null(gene2reaction_extra) &&
+        (!is.data.frame(gene2reaction_extra) ||
+         !all(c("gene", "reaction") %in% names(gene2reaction_extra)))) {
+    stop("`gene2reaction_extra` must be NULL or a data frame with `gene` and ",
+         "`reaction` columns. Read the downloaded gene2reaction TSV with ",
+         "data.table::fread() and pass the resulting table.", call. = FALSE)
+  }
   if (!is.numeric(seed) || length(seed) != 1L || is.na(seed)) {
     stop("`seed` must be a single number; the MWCS solver is a heuristic ",
          "and unseeded runs are not reproducible.", call. = FALSE)
@@ -386,6 +397,7 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
     gene.de = as.data.frame(de),
     met.db = refs$met_db,          # required even when met.de is NULL
     met.de = met_de,
+    gene2reaction.extra = gene2reaction_extra,
     keepReactionsWithoutEnzymes = FALSE
   )
   n_g <- igraph::vcount(g)

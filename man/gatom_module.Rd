@@ -12,7 +12,8 @@ gatom_module(
   met_de = NULL,
   seed = 42,
   solver = "rnc",
-  verbose = FALSE
+  verbose = FALSE,
+  gene2reaction_extra = NULL
 )
 }
 \arguments{
@@ -33,6 +34,10 @@ same four columns).}
 \item{solver}{Character(1): \code{"rnc"} (default), \code{"rmwcs"} or \code{"annealing"}.}
 
 \item{verbose}{Logical(1); report graph and module sizes.}
+
+\item{gene2reaction_extra}{Optional data frame of additional gene-to-reaction
+mappings with columns \code{gene} and \code{reaction}. Passed to
+\code{gatom::makeMetabolicGraph()} as \code{gene2reaction.extra}.}
 }
 \value{
 The module as an \code{igraph}, with attributes \code{solution_weight},

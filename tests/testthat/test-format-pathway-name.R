@@ -51,6 +51,52 @@ test_that("TransportDB acronyms survive prefix stripping", {
   expect_equal(format_pathway_name("MITOPATHWAYS_OXPHOS"), "OXPHOS")
 })
 
+test_that("sentence-initial function words are capitalised", {
+  input <- paste0(
+    c("VIA", "AND", "OR", "OF", "IN", "TO", "BY", "FROM", "THE"),
+    "_SIGNALING"
+  )
+  expected <- paste(
+    c("Via", "And", "Or", "Of", "In", "To", "By", "From", "The"),
+    "Signaling"
+  )
+
+  expect_equal(format_pathway_name(input), expected)
+})
+
+test_that("position does not change deliberate lowercase forms", {
+  expect_equal(format_pathway_name("BETA_OXIDATION"), "beta Oxidation")
+  expect_equal(
+    format_pathway_name("CIS-REGULATORY_ELEMENT"),
+    "cis-Regulatory Element"
+  )
+  expect_equal(format_pathway_name("MTOR_SIGNALING"), "mTOR Signaling")
+})
+
+test_that("function words remain lowercase within a label", {
+  expect_equal(
+    format_pathway_name("SIGNALING_VIA_THE_CELL"),
+    "Signaling via the Cell"
+  )
+})
+
+test_that("sentence-initial function words are capitalised vectorially", {
+  input <- c(
+    "THE_ATP-BINDING_CASSETTE_(ABC)_SUPERFAMILY",
+    "FROM_BETA-OXIDATION_TO_MTOR_SIGNALING",
+    "CELL_SIGNALING_BY_CIS-REGULATORY_ELEMENTS"
+  )
+
+  expect_equal(
+    format_pathway_name(input),
+    c(
+      "The Atp-Binding Cassette (Abc) Superfamily",
+      "From beta-Oxidation to mTOR Signaling",
+      "Cell Signaling by cis-Regulatory Elements"
+    )
+  )
+})
+
 test_that("the function is vectorised and length-preserving", {
   x <- c("HALLMARK_APOPTOSIS", "KEGG_RIBOSOME", "GOBP_AUTOPHAGY")
   out <- format_pathway_name(x)
