@@ -48,18 +48,22 @@
   as.integer(x)
 }
 
-#' Stop on the unresolved CoReSh p-value path
+#' Stop on the not-yet-wired CoReSh p-value path
+#'
+#' An earlier version of this message asserted that `fgsea::geseca()` ignores
+#' `sampleSize`. That was measured on a null matrix, where the p-value comes
+#' from the pre-permutation screen and the multilevel estimator never
+#' escalates, so the test could not have shown an effect. It does honour it.
 #'
 #' @return Nothing; always errors.
 #' @keywords internal
 .coresh_pvalues_unavailable <- function() {
   stop(
-    "`pvalues = TRUE` is unavailable: coresh 0.1.0 ships no R code; ",
-    "fgsea::geseca() does not honour `sampleSize` and rejects CoReSh chunk ",
-    "rownames; fgsea::gesecaSimple() floors p-values at about `1/nperm`; ",
-    "the published GESECA p-value therefore needs fgsea's unexported ",
-    "`gesecaCpp`, and adopting that internal call is a pending owner ",
-    "decision. Use `pvalues = FALSE` for the supported `pct_var` path.",
+    "`pvalues = TRUE` is not wired up yet. The GESECA p-value comes from ",
+    "`fgsea::geseca()`, which is public and sufficient, so this is ",
+    "scheduled work rather than an open question. Use `pvalues = FALSE` for ",
+    "the `pct_var` screen, which is exact arithmetic and needs no ",
+    "permutation at all.",
     call. = FALSE
   )
 }

@@ -1273,3 +1273,32 @@ all with finite `neg_log_padj`. Figures regenerated: **484 PDFs, 120 running-sum
 0 new.**
 
 Package state: 942 tests passing, golden 20/20, 64 exports. Every gate green.
+
+---
+
+## 21. Phases 8-11: the analysis-API roadmap (2026-08-13)
+
+This plan covers Phases 0-7 — getting the GSEA layer out of the scripts and into a versioned
+package. The owner has now named the destination beyond that: a thin uniform API that carries
+his methodological preferences as defaults, so an agent implementing an analysis inherits them
+instead of reading four previous projects and guessing.
+
+Two new documents own that work:
+
+- [../2026-08-13-analysis-api-roadmap/00_ROADMAP.md](../2026-08-13-analysis-api-roadmap/00_ROADMAP.md)
+  — Phase 8 GESECA and finishing CoReSh, Phase 9 TF and pathway activity, Phase 10 WGCNA,
+  Phase 11 the uniform surface. Includes what each existing ADR now has to carry, the case for
+  a fifth, and the tradeoffs of not doing any of it.
+- [../2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md](../2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md)
+  — the canonical reference implementation for each capability, with paths, conventions,
+  parameter choices and their reasoning, and the defects not to carry forward. Read it before
+  designing an API.
+
+**Position after this session:** Phase 3 done; Phase 4 done for `14839-DM-cGAS` with STING-JR
+and DC-nexus remaining; CoReSh C0-C2 done and C3 half done; Phases 5-6 blocked on the
+SciAgent-toolkit refactor; Phases 8-11 planned and unstarted. `v0.5.0` tagged. Package state:
+**1060 tests passing, golden 20/20, 72 exports.**
+
+**Start at G1.** It removes a guard, redirects one argument to `fgsea::geseca()`, and closes a
+decision that should never have been opened — see §12 of the CoReSh plan for the measurement
+that corrected it.

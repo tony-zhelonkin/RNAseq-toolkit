@@ -34,26 +34,28 @@ test_that("coresh_match returns the zero row for an absent query", {
   expect_identical(out$size, 0L)
 })
 
-test_that("the p-value path stops with the measured limitations", {
+test_that("the p-value path stops, before any chunk is read", {
   expect_error(
     coresh_match(NULL, integer(), pvalues = TRUE),
-    "coresh 0.1.0 ships no R code",
+    "not wired up yet",
     fixed = TRUE
   )
+  # A non-existent chunk_dir: the stop must come from `pvalues`, not from
+  # resolving a directory, so the argument is rejected before any I/O.
   expect_error(
     coresh_search(list(), chunk_dir = tempfile(), pvalues = TRUE),
-    "does not honour `sampleSize`",
+    "not wired up yet",
     fixed = TRUE
   )
   err <- tryCatch(
     coresh_match(NULL, integer(), pvalues = TRUE),
     error = conditionMessage
   )
-  expect_match(err, "fgsea::gesecaSimple()", fixed = TRUE)
-  expect_match(err, "1/nperm", fixed = TRUE)
-  expect_match(err, "unexported", fixed = TRUE)
-  expect_match(err, "pending owner decision", fixed = TRUE)
+  expect_match(err, "fgsea::geseca()", fixed = TRUE)
   expect_match(err, "pvalues = FALSE", fixed = TRUE)
+  # The message must not repeat the withdrawn claim about `sampleSize`.
+  expect_false(grepl("does not honour", err, fixed = TRUE))
+  expect_false(grepl("gesecaCpp", err, fixed = TRUE))
 })
 
 test_that("coresh_match validates its supported arguments", {

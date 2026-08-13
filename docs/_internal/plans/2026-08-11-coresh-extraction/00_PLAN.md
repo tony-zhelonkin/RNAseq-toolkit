@@ -1,6 +1,6 @@
 # CoReSh: extraction plan, and the package-versus-skill decision
 
-**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 half done, C4 next, C5/C6 blocked
+**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 half done, C4 next, C5/C6 blocked. §10/§11's p-value conclusion is **corrected by §12** — read §12 first.
 **Parent:** [../2026-08-10-bulkirna-package/00_INDEX.md](../2026-08-10-bulkirna-package/00_INDEX.md) — this
 document is Phase 4's CoReSh branch, and it also opens the Phase 5 (skills) question.
 
@@ -610,3 +610,58 @@ only validated its own value would imply the rules changed with it.
 The set-building layer — `coresh_loadings()` and `coresh_sets()`, from
 `extract_gene_loadings.R` — is not written. `gsdb_coresh()` (C4) sits on top of it, so
 both remain open. `.ref_path()` is already in place, so decision 6 is satisfied.
+
+---
+
+## 12. Correction (2026-08-13): the p-value path is public after all
+
+**§10 and §11 reached the wrong conclusion, on a measurement I did not make.** The claim was
+that `fgsea::geseca()` "does not honour `sampleSize`", and from that followed "the only route
+to the published p-value is `fgsea:::gesecaCpp`, and adopting that internal call is a pending
+owner decision".
+
+The premise is false. `geseca()` honours `sampleSize`; its multilevel estimator's precision
+tracks it exactly as documented:
+
+| `sampleSize` | `log2err` across three seeds |
+|---|---|
+| 21 | 3.04, 3.12, 3.09 |
+| 101 | 1.41, 1.39, 1.40 |
+| 501 | 0.625, 0.629, 0.629 |
+
+My earlier test used a **null matrix only**, where the p-value comes from the pre-permutation
+screen and the multilevel estimator never escalates, so `sampleSize` cannot show an effect.
+The identical five-seed series I reported at `sampleSize = 21` and `101` was real and was
+evidence of nothing.
+
+The owner's pointer is what prompted the recheck: GESECA is a first-class fgsea method —
+`R/geseca-multilevel.R`, `R/geseca-simple.R`, `R/geseca-utils.R`, `R/geseca-plot.R`,
+`src/geseca.cpp`, plus a tutorial vignette. `gesecaCpp` is one internal helper inside a fully
+public method, and the vendored kernel reached past the front door for convenience.
+
+**Agreement, measured properly.** On real chunks at `sampleSize = 21`, `fgsea:::gesecaCpp`
+and `fgsea::geseca()` agreed within their summed `log2err` in **7 of 8 datasets**;
+`|log2(ratio)|` reached 2.55 against a median summed bound of 1.53. Two Monte-Carlo
+estimators of one quantity agree within their stated error, not to equality — which is the
+comparison §10 should have made instead of expecting identical values.
+
+**What stands from §10 and §11, unaffected:**
+
+- `pctVar` uses the stored `obj$totalVar` and needs no fgsea call. Verified bit-identical to
+  hand computation on 12 of 12 real datasets.
+- `alserglab/coresh` v0.1.0 exports nothing; C5's validator and documented R path are broken.
+- `gesecaSimple()` floors p near `1/nperm` and cannot express CoReSh's magnitudes. It is
+  still useful as an independent cross-check at moderate p.
+- Chunk Entrez rownames are not unique. `make.unique()` before calling `geseca()`; index by
+  `match()` everywhere else.
+
+**What changes.** §5's option 2 is dead rather than deferred; **no `:::` enters the package
+and no owner decision is owed.** `coresh_match(pvalues = TRUE)` routes to `fgsea::geseca()`
+with `center = FALSE`, `scale = FALSE`, uniquified rownames and `log2err` carried into the
+result. The guard that currently stops that path, and the message naming three dead ends, are
+both removed.
+
+The work is scheduled as **G1** in
+[../2026-08-13-analysis-api-roadmap/00_ROADMAP.md](../2026-08-13-analysis-api-roadmap/00_ROADMAP.md),
+§3, which also opens `gs_coregulation()` as a first-class verb — GESECA takes a matrix and no
+contrast, so it complements DE-driven GSEA rather than competing with it.

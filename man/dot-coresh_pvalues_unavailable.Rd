@@ -2,7 +2,7 @@
 % Please edit documentation in R/coresh.R
 \name{.coresh_pvalues_unavailable}
 \alias{.coresh_pvalues_unavailable}
-\title{Stop on the unresolved CoReSh p-value path}
+\title{Stop on the not-yet-wired CoReSh p-value path}
 \usage{
 .coresh_pvalues_unavailable()
 }
@@ -10,6 +10,9 @@
 Nothing; always errors.
 }
 \description{
-Stop on the unresolved CoReSh p-value path
+An earlier version of this message asserted that \code{fgsea::geseca()} ignores
+\code{sampleSize}. That was measured on a null matrix, where the p-value comes
+from the pre-permutation screen and the multilevel estimator never
+escalates, so the test could not have shown an effect. It does honour it.
 }
 \keyword{internal}
