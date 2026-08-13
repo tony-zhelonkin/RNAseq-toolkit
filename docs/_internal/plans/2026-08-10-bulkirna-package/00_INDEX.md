@@ -1053,3 +1053,34 @@ The rebuild, which runs long on the owner's shared infrastructure, and pushing t
 Both are the owner's to trigger. Open question surfaced by the preflight: whether to add
 `gatom` and `mwcsr` to the image so the network-module features work out of the box, or leave
 them to on-demand install.
+
+---
+
+## 17. Phase 3 complete (2026-08-12)
+
+`scdock-r-dev:v0.5.13` built in 150m 2s. Zero `ERROR` lines, zero `FAILED:` lines,
+`/data1` steady at 471G free.
+
+The gatom question from §16 was answered by installing both: `mwcsr` first, since `gatom`
+calls its solvers. `mwcsr` compiled its native code cleanly at `-std=gnu++17`, which works
+because of the `Makevars.site` fix that shipped in v0.5.12.
+
+### Verified in the built image
+
+| Check | Result |
+|---|---|
+| `/opt/settings/install_failures.csv` | header only — the signal `AGENTS.md:82` relies on is intact |
+| `/opt/settings/bulkirna_optional_deps.csv` | 16 rows, all `installed = TRUE` |
+| `library(bulkiRNA)` | 0.4.0, 64 exports |
+| `system.file("extdata", "master-schema-v1.csv")` | resolves from the installed package, 15 rows |
+| `bulkirna_check_deps("all")` | 16/16 present |
+| `gatom` / `mwcsr` | 1.8.4 / 0.1.12 |
+
+The preflight replaced a manual grep on its first real run, and it caught nothing because
+there was nothing to catch. That is the outcome to want from a check that costs seconds.
+
+### What Phase 3 unblocks
+
+Phase 4's remaining consumer migrations, `10_gatom_modules.R` among them, which the image can
+now actually run. And C5/C6, which needed an *installed* `bulkiRNA` because nested submodules
+are forbidden — though those wait on the SciAgent-toolkit refactor for separate reasons.

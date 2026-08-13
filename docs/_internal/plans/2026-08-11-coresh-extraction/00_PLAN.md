@@ -1,6 +1,6 @@
 # CoReSh: extraction plan, and the package-versus-skill decision
 
-**Date:** 2026-08-11 · **Status:** plan of record, nothing implemented
+**Date:** 2026-08-11 · **Status:** plan of record; C0 implemented, C1 next, C5/C6 blocked
 **Parent:** [../2026-08-10-bulkirna-package/00_INDEX.md](../2026-08-10-bulkirna-package/00_INDEX.md) — this
 document is Phase 4's CoReSh branch, and it also opens the Phase 5 (skills) question.
 
@@ -100,7 +100,8 @@ The query-side pair (`1.11` vs `07_coresh_search.R`) agrees on every constant �
 `TOP_N = 5`, `n_top = 50`, `min_size = 15`, `max_size = 500`, `jaccard = 0.8`,
 `MIN_QUERY_SIZE = 3` — differing only in hardcoded-versus-`CONFIG`, human/`hsa` versus
 mouse/`mmu`, and skip-versus-stop on missing chunks. **Agreed constants are safe package
-defaults.** `nPermSimple` and `minGSSize` disagree and need a deliberate call.
+defaults.** `nPermSimple` and `minGSSize` disagreed; the call is now made — 100000 and 10
+(§8.2).
 
 Line accounting across the 1,404 surveyed lines: **~265 (19%) genuinely project-specific,
 ~1,139 (81%) generic machinery**, and the 269-line `lib/` is 0% project-specific.
@@ -122,8 +123,10 @@ Line accounting across the 1,404 surveyed lines: **~265 (19%) genuinely project-
   can remove it without notice. See §5.
 - The bridge documents a "drop sets >90% overlap with the query" rule that no code
   implements (`coresh-to-gsea-bridge.md:113`).
-- `validate_coresh_install.R:25-29` requires the `coresh` package, which no script ever
-  calls — the engine reimplements the kernel. Decide whether that dependency is real.
+- `validate_coresh_install.R:25-29` requires the `coresh` package. **That validator is
+  right, and this bullet was wrong to doubt it** — see §8.4. Analysis scripts reimplement the
+  kernel, but the skill's documented R path calls `coreshMatch()` and `queryGSE()` from the
+  package, so the dependency is real.
 
 ---
 
@@ -325,29 +328,57 @@ function is only worth writing once the image can deliver it.
 | **C2** | Discharge the `gesecaCpp` question (§5) on a fixture chunk. | Equivalence numbers recorded, or the guard written |
 | **C3** | Port the 269-line engine into `R/coresh-*.R` with the §4 surface, plus tests that skip without the chunk tree. | `devtools::test()` green, `verify_golden.R` exit 0, `R CMD check` clean of `:::` |
 | **C4** | Add `gsdb_coresh()` and prove it against DC-nexus's existing GMT — the same set names and memberships from the same queries. | Byte-level agreement on set contents |
-| **C5** | Rewrite the skill against the package; delete `scripts/`. | `sciagent validate`, `tests/run-all.sh` |
-| **C6** | Rewrite `bulk-rnaseq-gsea` (and `annotate-bulk-rnaseq-data`) onto `library(bulkiRNA)`; fix the four cross-links. | Link-integrity test passes |
+| **C5** | 🚫 **Blocked** on the SciAgent-toolkit refactor (§8.5). Rewrite the skill against the package; delete `scripts/`. | `sciagent validate`, `tests/run-all.sh` |
+| **C6** | 🚫 **Blocked**, same reason. Rewrite `bulk-rnaseq-gsea` (and `annotate-bulk-rnaseq-data`) onto `library(bulkiRNA)`; fix the four cross-links. | Link-integrity test passes |
 
 C0 and C1 are cheap and unblock Phase 4. C3 needs the chunk tree mounted, so it needs a
 container with `/data2/users/shared/refcache/coresh/current/preprocessed_chunks` available.
 
 ---
 
-## 8. Decisions — settled 2026-08-12 unless marked open
+## 8. Decisions — all settled as of 2026-08-12
 
 1. **`neg_log_padj` convention** — ✅ **settled: `-log10(pmax(padj, .Machine$double.xmin))`.**
    Information-preserving, and already what two of three call sites do. The cap at 16 is
    retired. Now owned by [ADR-002](../../adr/ADR-002-master-table-schema.md).
-2. **`nPermSimple` and `minGSSize`** — ⬜ **open.** `1.12` uses 1000/10, `08` uses 100000/15.
-   One default. 100000 is the safer statistic and the slower run.
+2. **`nPermSimple` and `minGSSize`** — ✅ **settled: `nPermSimple = 100000`, `minGSSize = 10`.**
+   The safer statistic on the permutation side, the more inclusive threshold on the set-size
+   side, so neither script's value carries over wholesale: `1.12` keeps its `minGSSize`, `08`
+   keeps its `nPermSimple`. Cost is runtime, which is the right thing to spend. Small sets stay
+   testable, and `padj` is what protects against reading too much into them.
 3. **Scope** — ✅ **settled: `gsdb_coresh()` lives in `bulkiRNA`.** Its output is a `gs_db`,
    so it enters at the provider layer and bends nothing.
-4. **Whether the `coresh` GitHub package is a real dependency** — ⬜ **open**, given no
-   script calls it.
-5. **Whether C5/C6 wait** on the wider SciAgent-toolkit refactor — ⬜ **open.** That repo is
-   a separate submodule, currently 26 commits ahead of `origin/dev` and dirty, so the skill
-   rewrites need their own go-ahead. Note also that **nested submodules are forbidden**, so
-   Phase 3 is a hard prerequisite: a skill must reach an *installed* `bulkiRNA`.
+4. **Whether the `coresh` GitHub package is a real dependency** — ✅ **settled: yes.**
+   [`alserglab/coresh`](https://github.com/alserglab/coresh), used enough already that the
+   question was mine, not the owner's. **My "no script calls it" was wrong**: it came from
+   grepping analysis scripts only. `coresh-signature-search/SKILL.md:101` does
+   `library(coresh)` and documents `coreshMatch()` as the R-package path for anything past one
+   query, and `DC_hum_verse/docs/coresh-plan/.../consumer_quickstart.md:11` names
+   `coresh::queryGSE()` as the call that silently returns nothing when misused. The skill
+   inlines `coreshMatch()` only because the upstream vignette defines it inline.
+
+   Three consequences:
+
+   - **C3 shrinks.** Where `coresh` exports the primitive, `bulkiRNA` calls it rather than
+     re-typing a 20-line body that has already been re-typed three times. Porting the engine
+     means porting the orchestration — chunk iteration, Entrez conversion, result assembly —
+     not the scoring kernel.
+   - **It also weakens C2.** The `fgsea:::gesecaCpp` call is upstream's own, inside
+     `coreshMatch()`. Calling `coresh::coreshMatch()` moves that `:::` out of our namespace and
+     out of `R CMD check`'s reach. The equivalence question stays worth answering, but it stops
+     blocking a clean check.
+   - **`Remotes:` is needed after all.** §16 concluded otherwise because at that point nothing
+     in `Suggests` was GitHub-only. `coresh` is, so `Remotes: alserglab/coresh` lands in
+     `DESCRIPTION` with it, and the preflight row carries the `remotes::install_github()`
+     command rather than a CRAN or Bioconductor one. It is not installed in `v0.5.13`; whether
+     the image should carry it is a Phase 3 follow-up, not a blocker, since the guard degrades
+     to a clear message.
+5. **Whether C5/C6 wait** on the wider SciAgent-toolkit refactor — ✅ **settled: they wait.**
+   That refactor is still in flight, so the skill rewrites are blocked and stay blocked until
+   the owner says otherwise. Phase 3 has now discharged the *technical* prerequisite — nested
+   submodules are forbidden, and a skill can now reach an installed `bulkiRNA` in
+   `scdock-r-dev:v0.5.13` — so what remains is sequencing against the other track, not
+   capability.
 
 ### Added by the 2026-08-12 ADR pass
 
