@@ -1283,12 +1283,18 @@ package. The owner has now named the destination beyond that: a thin uniform API
 his methodological preferences as defaults, so an agent implementing an analysis inherits them
 instead of reading four previous projects and guessing.
 
-Two new documents own that work:
+Four documents own that work. **The sequencing was revised the same day**: stabilize the
+current surface first, complete one CoReSh/GESECA run at full fidelity, and park the rest.
 
 - [../2026-08-13-analysis-api-roadmap/00_ROADMAP.md](../2026-08-13-analysis-api-roadmap/00_ROADMAP.md)
-  — Phase 8 GESECA and finishing CoReSh, Phase 9 TF and pathway activity, Phase 10 WGCNA,
-  Phase 11 the uniform surface. Includes what each existing ADR now has to carry, the case for
-  a fifth, and the tradeoffs of not doing any of it.
+  — **Phase 8 stabilize the surface** (stability contract, name and argument audits, deprecation
+  clock, vignettes) and **Phase 9 one standard CoReSh and GESECA run**. Includes what each ADR
+  now has to carry and the tradeoffs of the alternatives.
+- [../2026-08-13-analysis-api-roadmap/02_CORESH_METHOD.md](../2026-08-13-analysis-api-roadmap/02_CORESH_METHOD.md)
+  — what CoReSh's score is, traced to `fgsea:::calcGesecaScores`, why the PCA compression is
+  lossless for it, and exactly what running the authors' intended analysis still needs.
+- [../2026-08-13-analysis-api-roadmap/03_DEFERRED.md](../2026-08-13-analysis-api-roadmap/03_DEFERRED.md)
+  — TF activity, PROGENy and WGCNA, parked by decision with the survey findings kept intact.
 - [../2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md](../2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md)
   — the canonical reference implementation for each capability, with paths, conventions,
   parameter choices and their reasoning, and the defects not to carry forward. Read it before
@@ -1296,9 +1302,15 @@ Two new documents own that work:
 
 **Position after this session:** Phase 3 done; Phase 4 done for `14839-DM-cGAS` with STING-JR
 and DC-nexus remaining; CoReSh C0-C2 done and C3 half done; Phases 5-6 blocked on the
-SciAgent-toolkit refactor; Phases 8-11 planned and unstarted. `v0.5.0` tagged. Package state:
+SciAgent-toolkit refactor; Phase 8 (stabilize) and Phase 9 (one CoReSh/GESECA run) planned and
+unstarted, with the activity and network layers parked. `v0.5.0` tagged. Package state:
 **1060 tests passing, golden 20/20, 72 exports.**
 
-**Start at G1.** It removes a guard, redirects one argument to `fgsea::geseca()`, and closes a
-decision that should never have been opened — see §12 of the CoReSh plan for the measurement
-that corrected it.
+`R CMD check` on `v0.5.0` is **0 errors, 0 warnings, 0 notes**, so Phase 8 is a contract job
+rather than a repair job: the surface is technically sound and rhetorically unfinished. 72
+exports, 20 of them deprecated shims with no removal date, and nothing anywhere saying which
+names are safe to build on.
+
+**Start at S1, the stability contract, then G1.** G1 removes a guard, redirects one argument to
+`fgsea::geseca()`, and closes a decision that should never have been opened — see §12 of the
+CoReSh plan for the measurement that corrected it.

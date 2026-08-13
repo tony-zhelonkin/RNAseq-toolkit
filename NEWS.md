@@ -43,7 +43,7 @@ produced that way are one unrepeatable draw — the same input scored 165.85 and
 then 169.32 in a single session. Modules recomputed through `gatom_module()`
 will differ from such caches. The new values are the reproducible ones.
 
-# Earlier releases
+# bulkiRNA 0.4.0 and earlier
 
-Releases up to and including `v0.4.0` predate this file. See the git tags and
-`MIGRATION.md` for the legacy-name shims and the 24 frozen exports.
+These releases predate this file. See the git tags and `MIGRATION.md` for the
+legacy-name shims and the 24 frozen exports.
