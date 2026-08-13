@@ -1129,3 +1129,101 @@ so it is clean; nothing else has been checked.
 
 `14839-DM-cGAS` stays uncommitted, now with `master_*.pre-coresh-c1.20260812-225911.csv`
 backups beside the tables. Committing there remains the owner's call.
+
+---
+
+## 19. Phase 4 complete for `14839-DM-cGAS` (2026-08-13)
+
+The remaining three scripts migrated, delegated to `codex gpt-5.6-sol` as three parallel
+fan-outs, each in an isolated scratch copy with the package source as read-only reference. I
+gated every one by running it in `scdock-r-dev:v0.5.13`. Running codex with write access and no
+approval gate against the live project was refused, correctly — the scratch-copy-then-apply shape
+is the one to keep.
+
+### `06_gsea_custom_run.R`
+
+`gsdb_register()` around the existing phase-04 checkpoints rather than `gsdb_load()`, so the
+bundled snapshot cannot silently replace the ids that key existing master rows. Both allowlists
+gone. **1,008 custom rows, exactly the previous count**, all with finite `neg_log_padj`,
+`gene_ratio` and `leading_edge_size`; MSigDB and CoReSh rows untouched.
+
+**One defect I caught in review.** The draft formatted `pathway_id` into `pathway_name`, copying
+05. That is right for MSigDB and wrong here: the custom collections ship a real `TERM2NAME`
+description, which `gs_test()` already carries through from the `gs_db`. `TRANSPORTDB_AAAP` would
+have gone from "The Amino Acid/Auxin Permease (AAAP) Family" to "Aaap" — 84 sets relabelled with
+their own prefixes. Formatting `pathway_name` instead fixes it.
+
+**A divergence that remains, and is worth a decision.** 33 of the 84 custom names still changed,
+and every one is pure capitalisation — case-insensitively identical, nothing substantive. The
+package's `format_pathway_name()` is deliberately smarter than the toolkit's ("Metabolism of
+Lipids", "Fe-S Cluster" rather than "Metabolism Of Lipids", "Fe-s Cluster"), with one real bug:
+a sentence-initial small word stays lowercase, so 9 names now begin "the" instead of "The".
+Narrow fix, wide blast radius — it would move display names in every project and may move golden
+baselines, so it is the owner's call rather than something to slip in here.
+
+### `12_gsea_viz.R`
+
+Off all seven toolkit `source()` calls and `enrichplot`. A documented local
+`master_to_gs_result()` adapter feeds `gs_plot_dot()` and `gs_plot_bar()` from the master table.
+`get_db_plot_params()` and `smart_wrap()` were sourced but never called — verified against the
+pre-migration file before deleting the dependency.
+
+**The first draft dropped the running-sum figures**, on the reasoning that `gs_plot_running()`
+needs ranks and set membership that master rows cannot supply. Both halves true, conclusion
+wrong: `.grs_ranks()` and `.grs_sets()` take explicit arguments, so ranks rebuild from the DE
+table and the `gs_db` rebuilds per database. That omission would have destroyed **120 figures**,
+and `CONFIG$figures$running_sum_ylim` was added on 2 July precisely to make those curves
+comparable. Sent back as a correction. After it: **484 PDFs, byte-for-byte the same inventory as
+before — 0 missing, 0 new** — with the 120 running-sum figures intact.
+
+### `10_gatom_modules.R`, and the finding that matters most
+
+The first attempt **stopped without editing** and reported two package gaps. Both were real; I
+verified each against the source, closed them in `8a442eb`, and relaunched. It then found a
+third and again stopped rather than working around it. That is the behaviour the briefs asked
+for and it held three times out of three.
+
+The gaps: `gatom_refs()` accepted only `"kegg"` while the config asks for `["kegg", "combined"]`;
+`gatom_module()` computed the solver's objective weight and discarded it; and it cannot pass
+`gene2reaction.extra`, which the combined network needs — so combined stays a direct
+`gatom::` call, and threading that argument through is the next package task.
+
+**The first gate was hollow and I nearly accepted it.** The script exited 0 having printed
+`cache hit: gatom_results.rds`, so the migrated code never ran. Moving the cache aside and
+recomputing exposed the real result: **every `kegg` cell changed, and every `combined` cell was
+bit-identical.** Since combined is the unmigrated path, the cause is `gatom_module()` itself.
+
+It is the seeding. `gatom_module()` seeds before `scoreGraph()`; the script only seeded before
+solving. Two runs of the script's own sequence, same input, same session:
+
+```
+scoreGraph unseeded (the script): 165.8478, then 169.3227   -> not reproducible
+both seeded (the package)       : 169.3227, then 169.3227   -> reproducible
+```
+
+**`gatom::scoreGraph()` is stochastic, and this project's GATOM modules were never reproducible.**
+The cached 165.85 was one draw. The migration does not introduce variance, it removes it, and the
+new numbers are the ones that repeat. Pre-migration caches preserved as
+`gatom_*.pre-migration-20260812.rds`. 24/24 modules non-empty, 24 rows in `master_unified.csv`.
+
+That makes four instances in this refactor of a number nobody could have known was wrong by
+reading the code, and the second where the evidence only appeared because a cache was forced to
+recompute.
+
+### Staleness survey, discharged
+
+§18 left open whether other `load_or_compute()` stages carried CoReSh's staleness. Checked:
+they do not. `analysis_config.yaml` is newer than every GSEA cache, but its `thresholds.gsea_*`
+values and its whole `databases:` block are **unchanged** since those caches were built, so the
+newer mtime is drift in the TE and integration sections. The TE GMTs are newer than the TE
+caches, but they are that stage's own **outputs**, not its inputs.
+
+So CoReSh was singular for a specific reason: its GMT is a genuine cross-stage input, written by
+phase 07 and read by phase 08, and phase 07 was re-run afterwards. The pattern to watch is a
+cache whose input is another stage's generated artifact — not one whose input is the config.
+
+### Phase 4 state
+
+`14839-DM-cGAS` is done: all five GSEA-path scripts on the package. Next are STING-JR (42 refs)
+and DC-nexus. The project tree remains uncommitted, with backups beside every table and object
+this pass rewrote. Committing there is the owner's call.
