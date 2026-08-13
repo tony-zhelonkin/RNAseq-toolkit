@@ -8,7 +8,7 @@ bulkirna_check_deps(features = "all", quiet = FALSE, error = FALSE)
 }
 \arguments{
 \item{features}{\code{"all"}, or one or more of \code{"de"}, \code{"annotation"},
-\code{"scoring"}, \code{"network"}, \code{"plots"}, and \code{"io"}.}
+\code{"scoring"}, \code{"network"}, \code{"coresh"}, \code{"plots"}, and \code{"io"}.}
 
 \item{quiet}{Logical. If \code{FALSE}, print the report and return it invisibly.
 If \code{TRUE}, do not print and return it visibly.}

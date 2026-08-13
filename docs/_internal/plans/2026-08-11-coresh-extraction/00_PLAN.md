@@ -522,3 +522,84 @@ working without it.
   `qs2` 0.2.2 pulls `stringfish`.
 - **Chunk Entrez rownames are not unique.** Whatever `bulkiRNA` does with a chunk must index by
   `match()`, never by name lookup.
+
+---
+
+## 11. C3, first half (2026-08-13) — search layer and gene identifiers
+
+Two new files each, written by delegated agents in isolated clones and gated here.
+**C3 is not finished:** the set-building layer is still to come. What landed:
+
+| File | Exports |
+|---|---|
+| `R/coresh.R` | `coresh_chunks()`, `coresh_match()`, `coresh_search()`, `coresh_convergence()`, `coresh_validate()` |
+| `R/gene-ids.R` | `gene_to_entrez()`, `entrez_to_gene()`, `filter_confounder_genes()` |
+
+Exports go from 64 to 72. Gates: **1061 tests pass, 0 fail, 5 skip; golden 20/20.**
+`Suggests` gains `qs2` and `BiocParallel`, and the dependency registry gains a
+`"coresh"` feature so `bulkirna_check_deps("coresh")` names them.
+
+### The p-value premise collapsed, and the agent caught it
+
+The brief told the agent to call `coresh::coreshMatch()`, following §8.4 and §10. It
+refused, reporting that the function does not exist. It was right, and verification
+made it starker: `alserglab/coresh` at tag `v0.1.0` contains `DESCRIPTION`,
+`NAMESPACE` (`exportPattern("^[[:alpha:]]+")`), `README.md`, two licence files and one
+file `vignettes/coresh-local.Rmd`. **There is no `R/` directory, so the package
+exports nothing.** The vignette defines `coreshMatch()` inline and calls
+`fgsea:::gesecaCpp` itself. Three commits, all April 2025.
+
+So §8.4's "C3 shrinks — call the primitive rather than re-typing it" is void: there is
+no primitive. `coresh::queryGSE()`, which
+`DC_hum_verse/.../consumer_quickstart.md:11` names, does not exist either — a finding
+for C5, since the skill's documented R path cannot run as written and
+`validate_coresh_install.R` requires a package that provides nothing.
+
+That leaves the p-value with no public route at all. `fgsea::gesecaSimple()` is a plain
+`nperm` permutation test whose p-value floors at roughly `1/nperm`, so it cannot
+express the magnitudes CoReSh reports; `fgsea::geseca()` was already ruled out in §10.
+**The only route is the unexported `fgsea:::gesecaCpp`, and whether this package takes
+on that call is now an open decision for the owner** — §5 option 2, back from the dead
+because option 1 is measurably impossible rather than merely inelegant.
+
+Meanwhile `pvalues` stays in both signatures and errors immediately, before a chunk is
+read, with a message that states all three dead ends and points at `pvalues = FALSE`.
+`p_value` stays as an always-`NA_real_` column so wiring the path later changes no
+result shape. Both real consumers (`07_coresh_search.R:142`, `1.11:347`) already pass
+`pvalues = FALSE`, so nothing in flight is blocked.
+
+### Verified against the real chunk tree, not just the test suite
+
+Snapshot `syn66227307_20260721`, mouse, two chunk files, 1,000 datasets, indexed
+through `REFCACHE_ROOT` and `.ref_path()`.
+
+- `coresh_search()` returned 2,000 rows over two queries with contiguous per-query
+  ranks and provenance carrying the snapshot tag.
+- **`pct_var` is bit-identical to an independently hand-computed value in 12 of 12
+  datasets**, maximum absolute difference exactly 0, including the zero-overlap rows.
+  My first comparison disagreed and was wrong, not the code: `GSE10000` appears twice
+  under different platforms, and the check matched on `gse` alone.
+- `coresh_validate()` reported all eight checks, `coresh` among them, marked not
+  installed and annotated with the fact that installing it would not help.
+- `gene_to_entrez()` mapped mouse symbols to integers and warned that `Tmem173` does
+  not map — it is the retired alias of `Sting1`, so the warning is doing its job.
+
+### Two defects fixed in the ported rules
+
+- **The documented hemoglobin regex removes a growth factor.**
+  `^HB[ABDEG][0-9]*`, as written in `query-design.md`, matches `HBEGF` and `HBS1L`.
+  Anchored to `^HB[ABDEGMQZ][0-9]*$|^HB[ABDEGMQZ]-`, it excludes both, still matches
+  the mouse `Hba-a1` spelling, and gains mu, theta and zeta globin, which a filter
+  named after hemoglobin should not have been missing. A regression test pins it.
+- **The pseudogene rule was left unimplemented**, as briefed. `^[A-Z0-9]+P[0-9]+$`
+  matches `DUSP1` and `RANBP1`.
+
+`filter_confounder_genes()` has **no `species` argument**. Matching is
+case-insensitive, so one rule set covers `MT-ND1` and `mt-Nd1` alike; an argument that
+only validated its own value would imply the rules changed with it.
+
+### Still to do in C3, and C4
+
+The set-building layer — `coresh_loadings()` and `coresh_sets()`, from
+`extract_gene_loadings.R` — is not written. `gsdb_coresh()` (C4) sits on top of it, so
+both remain open. `.ref_path()` is already in place, so decision 6 is satisfied.

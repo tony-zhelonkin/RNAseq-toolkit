@@ -32,6 +32,7 @@ Imports:
 Suggests:
     AnnotationDbi,
     babelgene,
+    BiocParallel,
     biomaRt,
     edgeR,
     gatom,
@@ -44,6 +45,7 @@ Suggests:
     org.Mm.eg.db,
     patchwork,
     plotly,
+    qs2,
     readxl,
     testthat (>= 3.0.0),
     yaml

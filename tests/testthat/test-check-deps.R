@@ -15,7 +15,7 @@ test_that("all covers the optional union and excludes development packages", {
   expected <- c(
     "edgeR", "limma", "AnnotationDbi", "org.Hs.eg.db", "org.Mm.eg.db",
     "babelgene", "biomaRt", "homologene", "GSVA", "gatom", "mwcsr",
-    "igraph", "patchwork", "plotly", "readxl", "yaml"
+    "igraph", "qs2", "BiocParallel", "patchwork", "plotly", "readxl", "yaml"
   )
 
   expect_identical(all$package, expected)
@@ -142,4 +142,10 @@ test_that("the registry cannot silently drift from DESCRIPTION's Suggests", {
   reported <- bulkirna_check_deps("all", quiet = TRUE)$package
 
   expect_setequal(reported, expected)
+})
+
+test_that("the coresh feature names the packages the chunk reader needs", {
+  deps <- bulkirna_check_deps("coresh", quiet = TRUE)
+  expect_identical(deps$package, c("qs2", "BiocParallel"))
+  expect_identical(deps$repository, c("CRAN", "Bioconductor"))
 })

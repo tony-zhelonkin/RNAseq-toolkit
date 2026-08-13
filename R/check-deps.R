@@ -16,6 +16,9 @@
     "biomaRt", "homologene",
     "GSVA",
     "gatom", "mwcsr", "igraph",
+    # qs2 reads the CoReSh chunk tree; BiocParallel spreads the search over
+    # chunk files. Both are reached only through `coresh_*()`.
+    "qs2", "BiocParallel",
     "patchwork", "plotly",
     "readxl", "yaml"
   )
@@ -24,6 +27,7 @@
     rep("annotation", 6L),
     "scoring",
     rep("network", 3L),
+    rep("coresh", 2L),
     rep("plots", 2L),
     rep("io", 2L)
   )
@@ -33,6 +37,7 @@
     "Bioconductor", "CRAN",
     "Bioconductor",
     "Bioconductor", "CRAN", "CRAN",
+    "CRAN", "Bioconductor",
     "CRAN", "CRAN",
     "CRAN", "CRAN"
   )
@@ -84,7 +89,7 @@
 #' their own dependencies when called.
 #'
 #' @param features `"all"`, or one or more of `"de"`, `"annotation"`,
-#'   `"scoring"`, `"network"`, `"plots"`, and `"io"`.
+#'   `"scoring"`, `"network"`, `"coresh"`, `"plots"`, and `"io"`.
 #' @param quiet Logical. If `FALSE`, print the report and return it invisibly.
 #'   If `TRUE`, do not print and return it visibly.
 #' @param error Logical. Stop with a non-zero script exit when any requested
@@ -97,8 +102,8 @@
 #' @export
 bulkirna_check_deps <- function(features = "all", quiet = FALSE,
                                 error = FALSE) {
-  choices <- c("all", "de", "annotation", "scoring", "network", "plots",
-               "io")
+  choices <- c("all", "de", "annotation", "scoring", "network", "coresh",
+               "plots", "io")
   features <- match.arg(features, choices = choices, several.ok = TRUE)
 
   if (!is.logical(quiet) || length(quiet) != 1L || is.na(quiet)) {
