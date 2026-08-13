@@ -324,7 +324,7 @@ function is only worth writing once the image can deliver it.
 | Step | Work | Gate |
 |---|---|---|
 | **C0** | ~~lift `gs_to_master()` into `de_gsea_helpers.R`~~ → **superseded by [ADR-002](../../adr/ADR-002-master-table-schema.md)**: the versioned schema, `gs_to_master()` and `gs_validate_master()` go **into the package**. `neg_log_padj = -log10(pmax(padj, .Machine$double.xmin))`. | `devtools::test()` green; the validator rejects the ten-column projection |
-| **C1** | Fix `08_coresh_derived_gsea.R`'s allowlist as part of its Phase 4 migration — drop the projection. Re-run and diff. | 492 CoReSh rows carry finite `neg_log_padj` |
+| **C1** | ✅ **done 2026-08-12** — migrated `08_coresh_derived_gsea.R` onto `bulkiRNA` and dropped the projection. See §9. | ✅ 708 CoReSh rows, all carrying finite `neg_log_padj` |
 | **C2** | Discharge the `gesecaCpp` question (§5) on a fixture chunk. | Equivalence numbers recorded, or the guard written |
 | **C3** | Port the 269-line engine into `R/coresh-*.R` with the §4 surface, plus tests that skip without the chunk tree. | `devtools::test()` green, `verify_golden.R` exit 0, `R CMD check` clean of `:::` |
 | **C4** | Add `gsdb_coresh()` and prove it against DC-nexus's existing GMT — the same set names and memberships from the same queries. | Byte-level agreement on set contents |
@@ -390,3 +390,65 @@ container with `/data2/users/shared/refcache/coresh/current/preprocessed_chunks`
 7. **Provenance** — ✅ whatever reads the chunk tree must record the **resolved snapshot tag**
    (e.g. `syn66227307_20260721`), not merely the fact that it followed `current`. That is how
    a re-run whose numbers move becomes explicable rather than mysterious.
+
+---
+
+## 9. C1 as executed (2026-08-12)
+
+`08_coresh_derived_gsea.R` migrated onto `bulkiRNA` 0.4.0 in `scdock-r-dev:v0.5.13`:
+`parse_gmt()` → `gsdb_from_file()`, `clusterProfiler::GSEA()` → `gs_ranks()` + `gs_test()`,
+`normalize_gsea_results()` → `gs_to_master()`, and both allowlists deleted.
+
+### The gate, and more than the gate
+
+| | Before | After |
+|---|---|---|
+| CoReSh rows | 492 | **708** |
+| finite `neg_log_padj` | **0** | **708** |
+| finite `gene_ratio`, `leading_edge_size` | 0 | 708 |
+| max `neg_log_padj` | — | 37.55 |
+| columns (gsea / unified) | 14 / 13 | 14 / 15 |
+
+The 37.55 is worth a second look: it is above the retired cap of 16, so it also demonstrates
+the ADR-002 convention doing its job on real values rather than in a test.
+
+### The row count moved, and the reason was a second defect
+
+492 → 708 is not the allowlist. The old rows covered **41 of the GMT's 59 sets**, and nine of
+those 41 named sets that **are not in the GMT at all**.
+
+The cause is a stale `load_or_compute()` cache. `gsea_coresh_<contrast>.rds` is dated
+**Jun 18 15:39**; `coresh_derived_sets.gmt` is dated **Jun 22 00:14**. The cached GSEA results
+predate the gene sets they claim to describe by four days, and `load_or_compute()` invalidates
+on nothing but the filename. Every CoReSh master row written after 22 June, the 11 August
+rewrite included, was re-persisted from those objects. So the table simultaneously described
+nine sets that no longer existed and omitted 27 that did.
+
+**This generalises past CoReSh.** Any `load_or_compute()` cache whose input file changes
+without its key changing has the same exposure. Worth a survey of the other cached stages
+before trusting a number that came out of one.
+
+### Two fixes the migration forced, neither of them planned
+
+- **`gs_ranks()` does not drop empty gene names, and `build_ranked_vector()` did.** fgsea
+  rejects `""` in `names(stats)`, so the first migrated run threw on all twelve contrasts. The
+  script now cleans the DE table first, as `05_gsea_msigdb_run.R` already did.
+- **A failure must not be cached, and a total failure must not look like a null result.** That
+  first run went down the no-enrichment soft path: it purged all 492 CoReSh rows from both
+  master tables and **exited 0**. `load_or_compute()` had also cached the `NULL` from each
+  errored contrast, so the failure would have survived the fix that repaired it — the next run
+  would read the files, skip every contrast, and report the same clean nothing. The script now
+  deletes a failed contrast's cache entry and stops outright when every contrast errored,
+  leaving the master tables untouched.
+
+  This is the §0 lesson again, and the third time in this refactor: the empty result and the
+  broken run were indistinguishable from inside the script, so the broken run took the empty
+  result's path. Counting the errors is what separates them.
+
+### What was left alone
+
+The twelve pre-migration `gsea_coresh_<contrast>.rds` files are now unused but not deleted —
+they are the owner's data and the evidence for the staleness finding above. The project's
+`analysis_config.yaml` keeps `gsea_min_size: 15`; only the script's fallback moved to 10, to
+match the package default. `14839-DM-cGAS` remains uncommitted, with fresh
+`master_*.pre-coresh-c1.20260812-225911.csv` backups next to the tables.
