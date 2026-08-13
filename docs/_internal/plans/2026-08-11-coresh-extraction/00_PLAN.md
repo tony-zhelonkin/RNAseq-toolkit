@@ -1,6 +1,6 @@
 # CoReSh: extraction plan, and the package-versus-skill decision
 
-**Date:** 2026-08-11 · **Status:** plan of record; C0 implemented, C1 next, C5/C6 blocked
+**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 next, C5/C6 blocked
 **Parent:** [../2026-08-10-bulkirna-package/00_INDEX.md](../2026-08-10-bulkirna-package/00_INDEX.md) — this
 document is Phase 4's CoReSh branch, and it also opens the Phase 5 (skills) question.
 
@@ -263,6 +263,11 @@ master-append implementations):
 
 ## 5. The `fgsea:::gesecaCpp` hazard
 
+> ✅ **Settled 2026-08-13 by measurement — see §10.** Neither option below is what happened:
+> `pctVar` needs no fgsea entry point at all, and the p-value path delegates to
+> `coresh::coreshMatch()`. The options are kept because the reasoning that ranked them is what
+> the measurement tested.
+
 `coresh_batch.R:44` reaches into fgsea's internals for the GESECA p-value. Options, best
 first:
 
@@ -325,7 +330,7 @@ function is only worth writing once the image can deliver it.
 |---|---|---|
 | **C0** | ~~lift `gs_to_master()` into `de_gsea_helpers.R`~~ → **superseded by [ADR-002](../../adr/ADR-002-master-table-schema.md)**: the versioned schema, `gs_to_master()` and `gs_validate_master()` go **into the package**. `neg_log_padj = -log10(pmax(padj, .Machine$double.xmin))`. | `devtools::test()` green; the validator rejects the ten-column projection |
 | **C1** | ✅ **done 2026-08-12** — migrated `08_coresh_derived_gsea.R` onto `bulkiRNA` and dropped the projection. See §9. | ✅ 708 CoReSh rows, all carrying finite `neg_log_padj` |
-| **C2** | Discharge the `gesecaCpp` question (§5) on a fixture chunk. | Equivalence numbers recorded, or the guard written |
+| **C2** | ✅ **done 2026-08-13** — discharged on real chunk data. `pctVar` becomes package-owned arithmetic over the stored `totalVar`; p-values delegate to `coresh::coreshMatch()`, so no `:::` enters our namespace and §5's guard is dropped. See §10. | ✅ equivalence recorded: `pctVar` agrees to ≤1.03e-5 relative, cause fully accounted for |
 | **C3** | Port the 269-line engine into `R/coresh-*.R` with the §4 surface, plus tests that skip without the chunk tree. | `devtools::test()` green, `verify_golden.R` exit 0, `R CMD check` clean of `:::` |
 | **C4** | Add `gsdb_coresh()` and prove it against DC-nexus's existing GMT — the same set names and memberships from the same queries. | Byte-level agreement on set contents |
 | **C5** | 🚫 **Blocked** on the SciAgent-toolkit refactor (§8.5). Rewrite the skill against the package; delete `scripts/`. | `sciagent validate`, `tests/run-all.sh` |
@@ -452,3 +457,68 @@ they are the owner's data and the evidence for the staleness finding above. The 
 `analysis_config.yaml` keeps `gsea_min_size: 15`; only the script's fallback moved to 10, to
 match the package default. `14839-DM-cGAS` remains uncommitted, with fresh
 `master_*.pre-coresh-c1.20260812-225911.csv` backups next to the tables.
+
+---
+
+## 10. C2 as executed (2026-08-13) — the `gesecaCpp` question, discharged
+
+Run in `scdock-r-dev:v0.5.13` with the chunk tree mounted read-only. Resolved snapshot
+`syn66227307_20260721`, 85 mouse chunks, 500 datasets in `chunk_1`. Measured on both synthetic
+matrices with planted signal and real chunk data.
+
+**The answer splits by quantity, and the split is better than either §5 option.**
+
+### `pctVar` — the default screen, and the one that matters
+
+Formula-identical to `fgsea::geseca()`'s own `pctVar`. On synthetic matrices where both sides
+divide by the same total variance the two agree bit-for-bit. On real chunks they differ by at
+most **1.03e-5 relative**, and the cause is fully accounted for: `coreshMatch()` divides by the
+stored `obj$totalVar`, computed before the 1024-step quantization, while `geseca()` recomputes
+`sum(E^2)` from the quantized matrix. Stored versus recomputed, on four datasets:
+
+| GSE | stored `totalVar` | `sum(E^2)` | relative difference |
+|---|---|---|---|
+| GSE10000 | 22115.51873486 | 22115.74709606 | 1.033e-05 |
+| GSE10000 | 80427.45593222 | 80427.41750622 | 4.778e-07 |
+| GSE10001 | 11641.66123124 | 11641.77372837 | 9.663e-06 |
+| GSE100012 | 37353.52744422 | 37353.56605911 | 1.034e-06 |
+
+The stored value is the more faithful of the two, so the conclusion is not "call `geseca()`
+instead" but **"compute `pctVar` in-package from the stored `totalVar`"** — three arithmetic
+lines over `colSums()`, no fgsea entry point at all, public or internal. `pvalues = FALSE`
+therefore needs neither `fgsea:::` nor the `coresh` package.
+
+### `pval` — not reproducible as a value, and it does not need to be
+
+Option 1 fails here, for three separate reasons:
+
+- Both paths are Monte-Carlo estimates of the same tail and neither is deterministic. Across
+  five seeds at `sampleSize = 21` on a null matrix, `gesecaCpp` returned 0.4431 0.4658 0.3976
+  0.3976 0.3749 and `geseca()` returned 0.3337 0.3337 0.3576 0.3437 0.3397. With planted
+  signal both collapse to the same order of magnitude — 1e-28 to 1e-30 at boost 0.4, 1e-44 to
+  1e-53 at boost 1.0 — and neither series contains the other's values.
+- **`sampleSize` does not propagate through the public path.** `geseca()` returned an identical
+  five-seed series at `sampleSize = 21` and `101`, while `gesecaCpp`'s spread narrowed as
+  expected. The public function is not a wrapper over the internal one with the same estimator
+  controls.
+- **`geseca()` rejects every real chunk.** `checkGesecaArgs()` errors with "Duplicate
+  rownames(E) are not allowed"; chunk Entrez ids repeat. The kernel indexes by `match()` and
+  does not care. A `make.unique()` workaround is required before the public function will run
+  at all, which is a second reason not to route through it.
+
+### Resolution
+
+**`pctVar` in-package from the stored `totalVar`; p-values delegated to
+`coresh::coreshMatch()`.** That keeps the `:::` inside upstream's namespace, out of ours and out
+of `R CMD check`'s reach — which is what decision 4 already implied and this measurement now
+confirms. §5's option 2, a guarded `:::` in `bulkiRNA`, is **not needed and is dropped.** The
+`coresh` guard degrades to a clear message on the p-value path only, and the screen keeps
+working without it.
+
+### Two incidental findings
+
+- **`qs2` is absent from `scdock-r-dev:v0.5.13`.** Any chunk reader needs it, so it joins the
+  Phase 3 follow-up alongside `coresh` itself. Installed to a scratch library for this run;
+  `qs2` 0.2.2 pulls `stringfish`.
+- **Chunk Entrez rownames are not unique.** Whatever `bulkiRNA` does with a chunk must index by
+  `match()`, never by name lookup.
