@@ -1,6 +1,6 @@
 # CoReSh: extraction plan, and the package-versus-skill decision
 
-**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 next, C5/C6 blocked
+**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 half done, C4 next, C5/C6 blocked
 **Parent:** [../2026-08-10-bulkirna-package/00_INDEX.md](../2026-08-10-bulkirna-package/00_INDEX.md) — this
 document is Phase 4's CoReSh branch, and it also opens the Phase 5 (skills) question.
 
@@ -123,10 +123,11 @@ Line accounting across the 1,404 surveyed lines: **~265 (19%) genuinely project-
   can remove it without notice. See §5.
 - The bridge documents a "drop sets >90% overlap with the query" rule that no code
   implements (`coresh-to-gsea-bridge.md:113`).
-- `validate_coresh_install.R:25-29` requires the `coresh` package. **That validator is
-  right, and this bullet was wrong to doubt it** — see §8.4. Analysis scripts reimplement the
-  kernel, but the skill's documented R path calls `coreshMatch()` and `queryGSE()` from the
-  package, so the dependency is real.
+- `validate_coresh_install.R:25-29` requires the `coresh` package. **Corrected twice.** This
+  bullet first doubted the validator; §8.4 then defended it; §11 settles it. The validator
+  requires a package that exports nothing at all — `alserglab/coresh` v0.1.0 has no `R/`
+  directory — so neither `coreshMatch()` nor `queryGSE()` can be called from it, and the
+  skill's documented R path cannot run as written. That is a C5 defect.
 
 ---
 
@@ -331,7 +332,7 @@ function is only worth writing once the image can deliver it.
 | **C0** | ~~lift `gs_to_master()` into `de_gsea_helpers.R`~~ → **superseded by [ADR-002](../../adr/ADR-002-master-table-schema.md)**: the versioned schema, `gs_to_master()` and `gs_validate_master()` go **into the package**. `neg_log_padj = -log10(pmax(padj, .Machine$double.xmin))`. | `devtools::test()` green; the validator rejects the ten-column projection |
 | **C1** | ✅ **done 2026-08-12** — migrated `08_coresh_derived_gsea.R` onto `bulkiRNA` and dropped the projection. See §9. | ✅ 708 CoReSh rows, all carrying finite `neg_log_padj` |
 | **C2** | ✅ **done 2026-08-13** — discharged on real chunk data. `pctVar` becomes package-owned arithmetic over the stored `totalVar`; p-values delegate to `coresh::coreshMatch()`, so no `:::` enters our namespace and §5's guard is dropped. See §10. | ✅ equivalence recorded: `pctVar` agrees to ≤1.03e-5 relative, cause fully accounted for |
-| **C3** | Port the 269-line engine into `R/coresh-*.R` with the §4 surface, plus tests that skip without the chunk tree. | `devtools::test()` green, `verify_golden.R` exit 0, `R CMD check` clean of `:::` |
+| **C3** | 🟡 **half done 2026-08-13** — `R/coresh.R` (search layer) and `R/gene-ids.R` landed; the set-building layer, `coresh_loadings()` and `coresh_sets()`, is still to write. See §11. | ✅ 1061 tests pass, golden 20/20, no `:::` in the package; `pct_var` bit-identical to a hand-computed value on real chunks |
 | **C4** | Add `gsdb_coresh()` and prove it against DC-nexus's existing GMT — the same set names and memberships from the same queries. | Byte-level agreement on set contents |
 | **C5** | 🚫 **Blocked** on the SciAgent-toolkit refactor (§8.5). Rewrite the skill against the package; delete `scripts/`. | `sciagent validate`, `tests/run-all.sh` |
 | **C6** | 🚫 **Blocked**, same reason. Rewrite `bulk-rnaseq-gsea` (and `annotate-bulk-rnaseq-data`) onto `library(bulkiRNA)`; fix the four cross-links. | Link-integrity test passes |
@@ -353,7 +354,13 @@ container with `/data2/users/shared/refcache/coresh/current/preprocessed_chunks`
    testable, and `padj` is what protects against reading too much into them.
 3. **Scope** — ✅ **settled: `gsdb_coresh()` lives in `bulkiRNA`.** Its output is a `gs_db`,
    so it enters at the provider layer and bends nothing.
-4. **Whether the `coresh` GitHub package is a real dependency** — ✅ **settled: yes.**
+4. **Whether the `coresh` GitHub package is a real dependency** — ⚠️ **settled: yes, then
+   overturned by §11.** The package exists and is documented in the skill, but it exports
+   nothing: v0.1.0 has no `R/` directory. It cannot be a dependency of anything, and the
+   three consequences below are void. `bulkiRNA` neither imports nor suggests it, and no
+   `Remotes:` line was added. The paragraph stands as written because the reasoning is what
+   §11 tested.
+
    [`alserglab/coresh`](https://github.com/alserglab/coresh), used enough already that the
    question was mine, not the owner's. **My "no script calls it" was wrong**: it came from
    grepping analysis scripts only. `coresh-signature-search/SKILL.md:101` does
