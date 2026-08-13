@@ -9,6 +9,14 @@ below get a version of their own: they moved numbers in a consumer project.
   keeping lifecycle status and the historical signature freeze as independent
   axes.
 
+## CoReSh
+
+* `pvalues = TRUE` now works for CoReSh matching and search. Every CoReSh result
+  gains a `log2err` column; this shifts positional column indices for consumers
+  that do not select columns by name. Duplicate query Entrez IDs are now
+  de-duplicated once with a message so `size`, `pct_var`, and `p_value` describe
+  the same gene set.
+
 ## GATOM
 
 * `gatom_module()` gains a final argument, `gene2reaction_extra`. It reaches

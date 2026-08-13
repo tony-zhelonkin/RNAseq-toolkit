@@ -77,7 +77,9 @@ test_that("coresh_match computes reproducible GESECA p-values", {
   expect_true(is.finite(first$p_value))
   expect_gt(first$p_value, 0)
   expect_lte(first$p_value, 1)
-  expect_true(is.finite(first$log2err) || is.infinite(first$log2err))
+  # `Inf` is a legitimate value here, meaning the estimate is past reliable
+  # resolution, so assert only that the estimator reported a bound at all.
+  expect_false(is.na(first$log2err))
   expect_identical(first$p_value, again$p_value)
   expect_false(isTRUE(all.equal(first$p_value, different$p_value)))
 })
@@ -117,7 +119,9 @@ test_that("coresh_match handles an almost entirely unmapped background", {
 })
 
 test_that("coresh_match sample_size controls estimator precision", {
-  obj <- fake_coresh_signal_object()
+  # Keep the signal moderate so the smaller estimator does not saturate at
+  # infinite uncertainty before the precision comparison can be made.
+  obj <- fake_coresh_signal_object(strength = 0.15)
   query <- obj$rownames[seq_len(8L)]
 
   small <- coresh_match(
@@ -127,7 +131,51 @@ test_that("coresh_match sample_size controls estimator precision", {
     obj, query, pvalues = TRUE, sample_size = 101L, seed = 17L
   )
 
-  expect_lte(large$log2err, small$log2err)
+  expect_true(is.finite(small$log2err))
+  expect_lt(large$log2err, small$log2err)
+})
+
+test_that("coresh_match reports a dataset when GESECA cannot test its query", {
+  obj <- fake_coresh_signal_object(gse = "GSE_ALL_ROWS")
+  obj$gplId <- "GPL_ALL_ROWS"
+  obj$E1024 <- obj$E1024[seq_len(8L), , drop = FALSE]
+  obj$rownames <- obj$rownames[seq_len(8L)]
+  obj$totalVar <- sum((obj$E1024 / 1024)^2)
+
+  error <- tryCatch(
+    coresh_match(obj, obj$rownames, pvalues = TRUE, seed = 17L),
+    error = identity
+  )
+
+  expect_s3_class(error, "error")
+  expect_match(conditionMessage(error), "GSE_ALL_ROWS", fixed = TRUE)
+  expect_match(conditionMessage(error), "GPL_ALL_ROWS", fixed = TRUE)
+  expect_match(conditionMessage(error), "k = 8", fixed = TRUE)
+  expect_match(conditionMessage(error), "nrow(E) = 8", fixed = TRUE)
+  expect_false(grepl("subscript out of bounds", conditionMessage(error),
+                     fixed = TRUE))
+})
+
+test_that("coresh_match de-duplicates query Entrez IDs before scoring", {
+  obj <- fake_coresh_signal_object()
+  deduplicated <- obj$rownames[seq_len(8L)]
+  query <- c(deduplicated, deduplicated[[1L]])
+  messages <- character()
+
+  out <- withCallingHandlers(
+    coresh_match(obj, query, pvalues = TRUE, seed = 17L),
+    message = function(cnd) {
+      messages <<- c(messages, conditionMessage(cnd))
+      invokeRestart("muffleMessage")
+    }
+  )
+  expected <- coresh_match(obj, deduplicated, pvalues = TRUE, seed = 17L)
+
+  expect_length(messages, 1L)
+  expect_match(messages, "Dropped 1 duplicate Entrez ID", fixed = TRUE)
+  expect_identical(out$size, 8L)
+  expect_equal(out$pct_var, expected$pct_var)
+  expect_identical(out$p_value, expected$p_value)
 })
 
 test_that("coresh_match leaves an absent query untested with pvalues", {
@@ -253,12 +301,16 @@ test_that("coresh_search ranks p-values and reproduces a fixed seed", {
   testthat::local_mocked_bindings(
     .coresh_read_chunk = function(path) {
       if (grepl("001_", basename(path), fixed = TRUE)) {
-        list(
-          fake_coresh_signal_object("GSE_MEDIUM", strength = 0.35),
-          fake_coresh_signal_object("GSE_HIGH", strength = 0.65)
-        )
+        medium <- fake_coresh_signal_object("GSE_MEDIUM", strength = 0.35)
+        high <- fake_coresh_signal_object("GSE_HIGH", strength = 0.65)
+        # Stored totalVar changes pct_var but is not an input to GESECA, so
+        # these factors force the variance and p-value rankings to disagree.
+        high$totalVar <- high$totalVar * 1e6
+        list(medium, high)
       } else {
-        list(fake_coresh_signal_object("GSE_LOW", strength = 0.2))
+        low <- fake_coresh_signal_object("GSE_LOW", strength = 0.2)
+        low$totalVar <- low$totalVar / 1e6
+        list(low)
       }
     },
     .package = "bulkiRNA"
@@ -281,6 +333,134 @@ test_that("coresh_search ranks p-values and reproduces a fixed seed", {
   expect_identical(variance$rank, seq_len(nrow(variance)))
   expect_equal(first$p_value, sort(first$p_value))
   expect_equal(variance$pct_var, sort(variance$pct_var, decreasing = TRUE))
+  expect_false(identical(first$gse, variance$gse))
+})
+
+test_that("coresh_search reports duplicate query IDs only once", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunks <- withr::local_tempdir()
+  file.create(file.path(chunks, "001_full_objects.qs2"))
+  file.create(file.path(chunks, "002_full_objects.qs2"))
+
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) {
+      list(fake_coresh_signal_object(basename(path)))
+    },
+    .package = "bulkiRNA"
+  )
+  query <- c(seq.int(1001L, length.out = 8L), 1001L)
+  messages <- character()
+
+  out <- withCallingHandlers(
+    coresh_search(
+      list(signal = query), chunks, n_cores = 1L, pvalues = FALSE
+    ),
+    message = function(cnd) {
+      messages <<- c(messages, conditionMessage(cnd))
+      invokeRestart("muffleMessage")
+    }
+  )
+
+  expect_length(messages, 1L)
+  expect_match(messages, "Dropped 1 duplicate Entrez ID", fixed = TRUE)
+  expect_true(all(out$size == 8L))
+})
+
+test_that("coresh_match restores the caller's RNG state", {
+  obj <- fake_coresh_signal_object()
+  query <- obj$rownames[seq_len(8L)]
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  set.seed(90210L)
+  kind_before <- RNGkind()
+  seed_before <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  control <- runif(1L)
+  assign(".Random.seed", seed_before, envir = .GlobalEnv)
+
+  coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+
+  expect_identical(RNGkind(), kind_before)
+  expect_identical(
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE),
+    seed_before
+  )
+  expect_identical(runif(1L), control)
+})
+
+test_that("coresh_match restores an absent RNG seed", {
+  obj <- fake_coresh_signal_object()
+  query <- obj$rownames[seq_len(8L)]
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+  if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+    rm(".Random.seed", envir = .GlobalEnv)
+  }
+
+  coresh_match(obj, query, pvalues = TRUE, seed = 17L)
+
+  expect_false(exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+})
+
+test_that("coresh_match quietly restores a legacy sample kind", {
+  obj <- fake_coresh_signal_object()
+  query <- obj$rownames[seq_len(8L)]
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+  suppressWarnings(RNGkind(sample.kind = "Rounding"))
+  suppressWarnings(set.seed(90210L))
+  kind_before <- RNGkind()
+
+  expect_warning(
+    coresh_match(obj, query, pvalues = TRUE, seed = 17L),
+    NA
+  )
+  expect_identical(RNGkind(), kind_before)
 })
 
 test_that("coresh_search p-values do not depend on parallel scheduling", {

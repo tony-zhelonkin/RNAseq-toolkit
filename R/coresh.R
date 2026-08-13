@@ -52,14 +52,21 @@
 # `bplapply()` changes the generator, so pinning the seed alone is not enough.
 .coresh_with_seed <- function(seed, expr) {
   old_kind <- RNGkind()
-  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv,
+                         inherits = FALSE)) {
     get(".Random.seed", envir = .GlobalEnv)
   } else {
     NULL
   }
   on.exit({
-    RNGkind(old_kind[1L], old_kind[2L], old_kind[3L])
-    if (!is.null(old_seed)) assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    # A warning here describes the caller's legacy sampler, which we are
+    # restoring, rather than a sampler selected by bulkiRNA.
+    suppressWarnings(RNGkind(old_kind[1L], old_kind[2L], old_kind[3L]))
+    if (!is.null(old_seed)) {
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
   }, add = TRUE)
   set.seed(seed, kind = "Mersenne-Twister", normal.kind = "Inversion",
            sample.kind = "Rejection")
@@ -257,10 +264,16 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
 #'
 #' Computes the percentage of stored total variance explained by the query's
 #' shared profile and, optionally, its GESECA p-value.
+#' Query IDs are treated as a set: duplicates are removed once during argument
+#' validation, with a message. This deliberately differs from the upstream
+#' vignette because counting one gene twice inflates both the score and set size
+#' while GESECA tests unique matrix rows, making `pct_var` and `p_value` describe
+#' different sets.
 #'
 #' @param obj One CoReSh dataset object with fields `gseId`, `gplId`, `E1024`,
 #'   `rownames`, and `totalVar`.
-#' @param query A non-empty integer vector of Entrez IDs.
+#' @param query A non-empty integer vector of Entrez IDs. Duplicate IDs are
+#'   removed with a message before scoring.
 #' @param pvalues Logical. Calculate a GESECA p-value.
 #' @param sample_size Positive whole number passed to the GESECA multilevel
 #'   estimator as `sampleSize`.
@@ -291,6 +304,13 @@ coresh_match <- function(obj, query, pvalues = FALSE,
   if (!is.integer(query) || !length(query) || anyNA(query)) {
     stop("`query` must be a non-empty integer vector of Entrez IDs.",
          call. = FALSE)
+  }
+  deduplicated <- unique(query)
+  n_duplicates <- length(query) - length(deduplicated)
+  if (n_duplicates) {
+    query <- deduplicated
+    message("Dropped ", n_duplicates, " duplicate Entrez ID",
+            if (n_duplicates == 1L) "" else "s", " from `query`.")
   }
   .coresh_positive_integer(sample_size, "sample_size")
   if (!is.numeric(seed) || length(seed) != 1L || is.na(seed) ||
@@ -340,7 +360,7 @@ coresh_match <- function(obj, query, pvalues = FALSE,
         pathways = list(query = query_rows),
         E = E,
         minSize = 1L,
-        maxSize = k,
+        maxSize = min(k, nrow(E) - 1L),
         center = FALSE,
         scale = FALSE,
         sampleSize = sample_size,
@@ -348,6 +368,20 @@ coresh_match <- function(obj, query, pvalues = FALSE,
         nproc = 1L
       )
     )
+    if (!is.data.frame(geseca_result) || nrow(geseca_result) != 1L) {
+      result_description <- if (is.data.frame(geseca_result)) {
+        paste(nrow(geseca_result), "rows")
+      } else {
+        "a non-tabular result"
+      }
+      stop(
+        "GESECA returned ", result_description,
+        " for dataset gse=", sQuote(as.character(obj$gseId)),
+        ", gpl=", sQuote(as.character(obj$gplId)),
+        " (k = ", k, ", nrow(E) = ", nrow(E), ").",
+        call. = FALSE
+      )
+    }
     p_value <- as.numeric(geseca_result$pval[[1L]])
     log2err <- as.numeric(geseca_result$log2err[[1L]])
   }
@@ -402,9 +436,14 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #' Scores each named Entrez query against every dataset for one species. With
 #' more than one core, work is parallelized over chunk files so each worker
 #' holds only one chunk at a time.
+#' Query IDs are treated as sets: duplicates are removed once during argument
+#' validation, with one message per search. This deliberately differs from the
+#' upstream vignette because duplicate genes would inflate `pct_var` and `size`
+#' while GESECA tests unique matrix rows, so the reported score and p-value
+#' would describe different sets.
 #'
 #' @param queries A non-empty named list of integer Entrez vectors, each of
-#'   length at least three.
+#'   length at least three after duplicate IDs are removed.
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
 #' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
 #' @param n_cores Positive whole number. `1` uses base R and does not require
@@ -453,11 +492,25 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
     stop("`queries` names must be unique; duplicated query ",
          sQuote(duplicate), ".", call. = FALSE)
   }
+  n_duplicates <- 0L
   for (query_name in query_names) {
     query <- queries[[query_name]]
     if (!is.integer(query) || length(query) < 3L || anyNA(query)) {
       stop("Query ", sQuote(query_name), " must be an integer Entrez vector ",
            "of length at least 3 with no missing values.", call. = FALSE)
+    }
+    deduplicated <- unique(query)
+    n_duplicates <- n_duplicates + length(query) - length(deduplicated)
+    queries[[query_name]] <- deduplicated
+  }
+  if (n_duplicates) {
+    message("Dropped ", n_duplicates, " duplicate Entrez ID",
+            if (n_duplicates == 1L) "" else "s", " from `queries`.")
+  }
+  for (query_name in query_names) {
+    if (length(queries[[query_name]]) < 3L) {
+      stop("Query ", sQuote(query_name), " must contain at least 3 unique ",
+           "Entrez IDs after duplicates are removed.", call. = FALSE)
     }
   }
   n_cores <- .coresh_positive_integer(n_cores, "n_cores")
@@ -506,10 +559,13 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
   unranked <- dplyr::bind_rows(pieces)
   ranked <- lapply(query_names, function(query_name) {
     part <- unranked[unranked$query_name == query_name, , drop = FALSE]
+    # Radix ordering makes character tie-breaks independent of LC_COLLATE.
     ordering <- if (pvalues) {
-      order(part$p_value, -part$pct_var, part$gse, part$gpl, na.last = TRUE)
+      order(part$p_value, -part$pct_var, part$gse, part$gpl,
+            na.last = TRUE, method = "radix")
     } else {
-      order(-part$pct_var, part$gse, part$gpl, na.last = TRUE)
+      order(-part$pct_var, part$gse, part$gpl, na.last = TRUE,
+            method = "radix")
     }
     part <- part[ordering, , drop = FALSE]
     part$rank <- seq_len(nrow(part))
@@ -589,13 +645,15 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
 
   # A GSE can have more than one platform row for one query. Keep that
   # query's best row so it contributes once to both the count and the mean.
-  top <- top[order(top$gse, top$query_name, top$rank, -top$pct_var),
+  # Radix ordering makes platform tie-breaks independent of LC_COLLATE.
+  top <- top[order(top$gse, top$query_name, top$rank, -top$pct_var,
+                   method = "radix"),
              , drop = FALSE]
   top <- top[!duplicated(top[c("gse", "query_name")]), , drop = FALSE]
   groups <- split(seq_len(nrow(top)), top$gse)
   rows <- lapply(names(groups), function(gse) {
     part <- top[groups[[gse]], , drop = FALSE]
-    query_names <- sort(unique(part$query_name))
+    query_names <- sort(unique(part$query_name), method = "radix")
     tibble::tibble(
       gse = gse,
       n_queries = as.integer(length(query_names)),
@@ -607,7 +665,8 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
     dplyr::bind_rows()
   rows <- rows[rows$n_queries >= min_queries, , drop = FALSE]
   if (!nrow(rows)) return(empty)
-  rows[order(-rows$n_queries, rows$best_rank, rows$gse), , drop = FALSE]
+  rows[order(-rows$n_queries, rows$best_rank, rows$gse, method = "radix"),
+       , drop = FALSE]
 }
 
 #' Check whether CoReSh search prerequisites are available

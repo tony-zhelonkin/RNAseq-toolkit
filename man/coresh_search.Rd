@@ -17,7 +17,7 @@ coresh_search(
 }
 \arguments{
 \item{queries}{A non-empty named list of integer Entrez vectors, each of
-length at least three.}
+length at least three after duplicate IDs are removed.}
 
 \item{chunk_dir}{Optional explicit path to an \code{hsa} or \code{mmu} chunk directory.}
 
@@ -53,6 +53,11 @@ correction across them is invalid and \code{p_value} is for ranking. The
 Scores each named Entrez query against every dataset for one species. With
 more than one core, work is parallelized over chunk files so each worker
 holds only one chunk at a time.
+Query IDs are treated as sets: duplicates are removed once during argument
+validation, with one message per search. This deliberately differs from the
+upstream vignette because duplicate genes would inflate \code{pct_var} and \code{size}
+while GESECA tests unique matrix rows, so the reported score and p-value
+would describe different sets.
 }
 \examples{
 \dontrun{

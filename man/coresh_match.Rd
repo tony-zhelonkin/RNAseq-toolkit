@@ -17,7 +17,8 @@ coresh_match(
 \item{obj}{One CoReSh dataset object with fields \code{gseId}, \code{gplId}, \code{E1024},
 \code{rownames}, and \code{totalVar}.}
 
-\item{query}{A non-empty integer vector of Entrez IDs.}
+\item{query}{A non-empty integer vector of Entrez IDs. Duplicate IDs are
+removed with a message before scoring.}
 
 \item{pvalues}{Logical. Calculate a GESECA p-value.}
 
@@ -42,6 +43,11 @@ compendium; multiple-testing correction across them is invalid and
 \description{
 Computes the percentage of stored total variance explained by the query's
 shared profile and, optionally, its GESECA p-value.
+Query IDs are treated as a set: duplicates are removed once during argument
+validation, with a message. This deliberately differs from the upstream
+vignette because counting one gene twice inflates both the score and set size
+while GESECA tests unique matrix rows, making \code{pct_var} and \code{p_value} describe
+different sets.
 }
 \examples{
 obj <- list(
