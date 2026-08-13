@@ -1227,3 +1227,49 @@ cache whose input is another stage's generated artifact — not one whose input 
 `14839-DM-cGAS` is done: all five GSEA-path scripts on the package. Next are STING-JR (42 refs)
 and DC-nexus. The project tree remains uncommitted, with backups beside every table and object
 this pass rewrote. Committing there is the owner's call.
+
+## 20. The two open nicks, closed (2026-08-13)
+
+Both delegated to `codex gpt-5.6-sol` in scratch clones, both gated here. `483754c`.
+
+### `format_pathway_name()` capitalises sentence-initial function words
+
+Only the nine function words are affected. A Greek letter, a chemical prefix, a Roman numeral
+and a deliberately lowercase symbol like `mTOR` are all correct at the start of a label and stay
+as they are; mid-label the function words still lowercase, so the documented
+`TNF-alpha Signaling via NF-kappaB` is untouched. This is one of the frozen 24, and the freeze
+covers signatures, so a behaviour change is permitted — but it changes display names everywhere,
+which is why it waited for an explicit decision.
+
+**I broke it once while tidying.** The word list was duplicated between the exceptions map and
+the new rule, so I gave it one source in `.gs_function_words()` — and spliced a character vector
+into a `list()`, which buries all nine words in a single unnamed element. Every lookup for them
+missed, and mid-label `via` silently became `Via`. `as.list()` fixes it. It was caught by
+diffing against the previous implementation on real inputs, not by reading the change, which is
+worth remembering: the diff looked right.
+
+The golden `format_pathway_name` baseline did not move, as codex predicted from its four inputs.
+
+### `gatom_module(gene2reaction_extra = )`
+
+Optional, `NULL` by default, last in the formals, so no existing call changes — and codex added a
+test asserting the first eight formals keep their names and positions, which is a better freeze
+guard than the prose rule. It checked upstream's own default in `gatom`'s source rather than
+assuming. Verified against the real reference tree: the mapping takes the combined graph from
+7,608 to 8,179 edges, the wrapper reproduces the direct call's graph exactly, and a bad value is
+rejected with a message naming the fix. The combined network no longer needs to bypass the
+wrapper, though `10_gatom_modules.R` has not been rewritten onto it yet.
+
+Declined with reasoning: having `gatom_refs()` resolve and return the parsed table would change
+the shape of an object that already has consumers.
+
+### The consumer, settled
+
+`06` re-run and `12` re-run against the fixed package. **Zero custom labels now begin lowercase.**
+33 of 84 still differ from the pre-migration table, all capitalisation-only, and the package's
+form is the better one throughout — `TCA Cycle` for `Tca Cycle`, `ROS and Glutathione Metabolism`
+for `Ros And Glutathione Metabolism`, `Branched-Chain` for `Branched-chain`. 1,008 custom rows,
+all with finite `neg_log_padj`. Figures regenerated: **484 PDFs, 120 running-sum, 0 missing,
+0 new.**
+
+Package state: 942 tests passing, golden 20/20, 64 exports. Every gate green.
