@@ -446,6 +446,7 @@ test_that("coresh_search reports duplicate query IDs only once", {
 
   expect_length(messages, 1L)
   expect_match(messages, "Dropped 1 duplicate Entrez ID", fixed = TRUE)
+  expect_equal(nrow(out), 2L)
   expect_true(all(out$size == 8L))
 })
 
@@ -521,6 +522,8 @@ test_that("coresh_search p-values do not depend on parallel scheduling", {
 
   serial <- serial[order(serial$gse), ]
   parallel <- parallel[order(parallel$gse), ]
+  expect_gt(nrow(serial), 0L)
+  expect_true(all(is.finite(serial$p_value)))
   expect_identical(serial$p_value, parallel$p_value)
 })
 
@@ -536,6 +539,7 @@ test_that("coresh_match pins its RNG inside a BiocParallel task", {
     BPPARAM = BiocParallel::SerialParam()
   )[[1L]]
 
+  expect_true(is.finite(parent$p_value))
   expect_identical(parent$p_value, nested$p_value)
 })
 

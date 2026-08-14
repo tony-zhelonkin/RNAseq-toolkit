@@ -2,6 +2,7 @@ test_that("a named numeric vector dispatches to fgsea and returns a gs_result", 
   res <- gs_test(fake_ranks(), fake_gs_db(), contrast = "KO-WT",
                  min_size = 5, max_size = 50)
   expect_s3_class(res, "gs_result")
+  expect_gt(nrow(res), 0L)
   expect_true(all(res$stat_type == "NES"))
   expect_true(all(res$method == "fgsea"))
   expect_true(all(res$database == "testdb"))
@@ -134,6 +135,8 @@ test_that("gs_test pins its RNG inside a BiocParallel task", {
     BPPARAM = BiocParallel::SerialParam()
   )[[1L]]
 
+  expect_gt(nrow(parent), 0L)
+  expect_true(all(is.finite(parent$p_value)))
   expect_identical(parent$p_value, nested$p_value)
 })
 
@@ -159,6 +162,7 @@ test_that("gs_test on a gs_matrix records the scoring method that made it", {
     sample_data = fake_sample_data()
   )
   res <- gs_test(gm, design = ~ 0 + group, contrast = "groupKO-groupWT")
+  expect_gt(nrow(res), 0L)
   expect_true(all(res$method == "ssgsea"))
 })
 
