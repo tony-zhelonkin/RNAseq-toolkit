@@ -2,23 +2,7 @@
 # everywhere; the pipeline tests need the gatom stack and skip without it.
 
 test_that("pinned seeding preserves draws under R's default generator", {
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
 
   RNGkind("Mersenne-Twister", "Inversion", "Rejection")
   set.seed(42)
@@ -30,23 +14,7 @@ test_that("pinned seeding preserves draws under R's default generator", {
 })
 
 test_that("a NULL pinned seed evaluates once without touching RNG state", {
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
 
   set.seed(818L)
   seed_before <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
@@ -66,23 +34,7 @@ test_that("a NULL pinned seed evaluates once without touching RNG state", {
 })
 
 test_that("pinned seeding restores RNG state when evaluation fails", {
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
 
   RNGkind("L'Ecuyer-CMRG", "Inversion", "Rejection")
   set.seed(919L)

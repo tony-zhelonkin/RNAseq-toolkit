@@ -143,22 +143,32 @@ test_that("coresh_match handles every real CoReSh micro fixture object", {
   # the same scoring path as every other object.
   for (fixture_name in names(fixture)) {
     obj <- fixture[[fixture_name]]
+    reference_ids <- unique(obj$rownames[!is.na(obj$rownames)])
     if (fixture_name == "na_ids") {
-      # This query window includes an unmapped row. NA itself is not an Entrez
-      # ID, so remove it while retaining the real missing-ID background.
-      query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
-      query_positions <- c(
-        which(is.na(obj$rownames))[[1L]],
-        match(query, obj$rownames)
+      # Missing query IDs are rejected, while missing background IDs remain
+      # supported by the valid call below.
+      expect_error(
+        coresh_match(obj, c(NA_integer_, head(reference_ids, 7L))),
+        "non-empty integer vector",
+        info = fixture_name
       )
-      query_candidates <- obj$rownames[query_positions]
-      expect_true(anyNA(query_candidates))
-      query <- unique(query_candidates[!is.na(query_candidates)])
+      query <- head(reference_ids, 8L)
+    } else if (fixture_name == "duplicate_ids") {
+      duplicated_id <- obj$rownames[
+        duplicated(obj$rownames) & !is.na(obj$rownames)
+      ][[1L]]
+      query <- c(
+        duplicated_id,
+        head(setdiff(reference_ids, duplicated_id), 7L)
+      )
+      expect_true(
+        sum(obj$rownames == duplicated_id, na.rm = TRUE) > 1L,
+        info = fixture_name
+      )
     } else {
-      query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
+      query <- head(reference_ids, 8L)
     }
 
-    reference_ids <- unique(obj$rownames[!is.na(obj$rownames)])
     expected_size <- length(intersect(unique(query), reference_ids))
     without <- coresh_match(obj, query, pvalues = FALSE)
     with <- coresh_match(obj, query, pvalues = TRUE)
@@ -168,18 +178,26 @@ test_that("coresh_match handles every real CoReSh micro fixture object", {
     expect_identical(names(without), result_columns, info = fixture_name)
     expect_identical(names(with), result_columns, info = fixture_name)
     expect_true(is.finite(without$pct_var), info = fixture_name)
-    expect_gte(without$pct_var, 0)
+    expect_true(without$pct_var >= 0, info = fixture_name)
     expect_identical(with$pct_var, without$pct_var, info = fixture_name)
     expect_identical(without$p_value, NA_real_, info = fixture_name)
     expect_true(is.finite(with$p_value), info = fixture_name)
-    expect_gt(with$p_value, 0)
-    expect_lte(with$p_value, 1)
+    expect_true(with$p_value > 0, info = fixture_name)
+    expect_true(with$p_value <= 1, info = fixture_name)
     expect_identical(
       without$size,
       as.integer(expected_size),
       info = fixture_name
     )
     expect_identical(with$size, without$size, info = fixture_name)
+    if (fixture_name == "duplicate_ids") {
+      # The duplicated reference row contributes one matched Entrez ID.
+      expect_identical(
+        without$size,
+        as.integer(length(unique(query))),
+        info = fixture_name
+      )
+    }
   }
 })
 
@@ -434,23 +452,7 @@ test_that("coresh_search reports duplicate query IDs only once", {
 test_that("coresh_match restores the caller's RNG state", {
   obj <- fake_coresh_signal_object()
   query <- obj$rownames[seq_len(8L)]
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
 
   set.seed(90210L)
   kind_before <- RNGkind()
@@ -471,23 +473,7 @@ test_that("coresh_match restores the caller's RNG state", {
 test_that("coresh_match restores an absent RNG seed", {
   obj <- fake_coresh_signal_object()
   query <- obj$rownames[seq_len(8L)]
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
   if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
     rm(".Random.seed", envir = .GlobalEnv)
   }
@@ -500,31 +486,12 @@ test_that("coresh_match restores an absent RNG seed", {
 test_that("coresh_match quietly restores a legacy sample kind", {
   obj <- fake_coresh_signal_object()
   query <- obj$rownames[seq_len(8L)]
-  original_kind <- RNGkind()
-  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  original_seed <- if (had_seed) {
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  } else {
-    NULL
-  }
-  on.exit({
-    suppressWarnings(RNGkind(
-      original_kind[1L], original_kind[2L], original_kind[3L]
-    ))
-    if (had_seed) {
-      assign(".Random.seed", original_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
+  local_pinned_rng()
   suppressWarnings(RNGkind(sample.kind = "Rounding"))
   suppressWarnings(set.seed(90210L))
   kind_before <- RNGkind()
 
-  expect_warning(
-    coresh_match(obj, query, pvalues = TRUE, seed = 17L),
-    NA
-  )
+  expect_no_warning(coresh_match(obj, query, pvalues = TRUE, seed = 17L))
   expect_identical(RNGkind(), kind_before)
 })
 

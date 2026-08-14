@@ -24,17 +24,21 @@ test_that("each export has one stability lifecycle and one layer", {
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
+  expect_equal(nrow(api), 73L)
   expect_equal(sum(api$layer == "gs"), 17L)
   expect_equal(sum(api$layer == "gsdb"), 6L)
   expect_equal(sum(api$layer == "de"), 6L)
-  # `download_gatom_references` has no `gatom_` prefix, so it lands in
-  # top-level. That is the honest structural answer, and it is exactly the
-  # rename S2 is scheduled to make.
-  expect_equal(sum(api$layer == "gatom"), 5L)
+  expect_equal(sum(api$layer == "gatom"), 6L)
   expect_equal(sum(api$layer == "coresh"), 5L)
   expect_equal(sum(api$layer == "gsea"), 4L)
-  expect_equal(sum(api$layer == "top-level"), 30L)
-  expect_length(intersect(unique(api$layer), unique(api$lifecycle)), 0L)
+  expect_equal(sum(api$layer == "top-level"), 29L)
+  expect_identical(
+    api$layer[api$name == "download_gatom_references"],
+    "gatom"
+  )
+  expect_false(any(
+    api$lifecycle == "deprecated" & api$layer == "deprecated"
+  ))
 })
 
 test_that("experimental status is limited to CoReSh and gene-id helpers", {
@@ -172,6 +176,17 @@ test_that("every deprecated export warns before doing any work", {
     expect_warning(
       try(fun(), silent = TRUE),
       class = "deprecatedWarning"
+    )
+  }
+})
+
+test_that("a name's layer is invariant to lifecycle selection", {
+  api <- bulkirna_api(quiet = TRUE)
+  for (lifecycle in c("stable", "experimental", "deprecated")) {
+    selected <- bulkirna_api(lifecycle, quiet = TRUE)
+    expect_identical(
+      selected$layer,
+      api$layer[match(selected$name, api$name)]
     )
   }
 })

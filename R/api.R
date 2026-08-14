@@ -19,6 +19,9 @@
 #' The `superseded_by` field may name a technique or a sequence of calls rather
 #' than a single function, and may say that no replacement exists when part of
 #' the deprecated behaviour was deliberately retired.
+#' `layer` records the function's functional module. Stable and experimental
+#' functions retain their curated registry group; deprecated compatibility
+#' shims, which have no curated group, derive it from their name prefix.
 #'
 #' @param lifecycle `"all"`, or one or more of `"stable"`, `"experimental"`,
 #'   and `"deprecated"`.
@@ -111,9 +114,14 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   experimental_names <- unlist(experimental, use.names = FALSE)
   names_all <- c(stable_names, experimental_names, deprecated)
 
-  layer <- sub("_.*$", "", names_all)
+  deprecated_layer <- sub("_.*$", "", deprecated)
   known_layers <- c("gs", "gsdb", "de", "gatom", "coresh", "gsea")
-  layer[!layer %in% known_layers] <- "top-level"
+  deprecated_layer[!deprecated_layer %in% known_layers] <- "top-level"
+  layer <- c(
+    rep(names(stable), lengths(stable)),
+    rep(names(experimental), lengths(experimental)),
+    deprecated_layer
+  )
   lifecycle <- c(
     rep("stable", length(stable_names)),
     rep("experimental", length(experimental_names)),

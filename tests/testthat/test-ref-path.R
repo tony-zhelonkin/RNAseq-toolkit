@@ -13,7 +13,7 @@ test_that(".ref_path resolves current and records its snapshot", {
   }
   withr::local_envvar(c(REFCACHE_ROOT = root))
 
-  expect_warning(out <- .ref_path("coresh"), NA)
+  expect_no_warning(out <- .ref_path("coresh"))
 
   expect_identical(as.vector(out), file.path(source_dir, "current"))
   expect_identical(attr(out, "snapshot"), basename(snapshot))
@@ -36,7 +36,28 @@ test_that(".ref_path resolves a relative current target", {
     skip("This filesystem does not support symbolic links")
   }
 
-  expect_warning(out <- .ref_path("coresh", root = root), NA)
+  expect_no_warning(out <- .ref_path("coresh", root = root))
+
+  expect_identical(attr(out, "snapshot"), snapshot_tag)
+})
+
+test_that(".ref_path accepts a nested snapshot inside its source", {
+  .clear_ref_resolutions()
+  on.exit(.clear_ref_resolutions(), add = TRUE)
+  root <- withr::local_tempdir()
+  source_dir <- file.path(root, "coresh")
+  snapshot_tag <- "syn66227307_20260721"
+  snapshot <- file.path(source_dir, "snapshots", snapshot_tag)
+  dir.create(snapshot, recursive = TRUE)
+  linked <- suppressWarnings(file.symlink(
+    file.path("snapshots", snapshot_tag),
+    file.path(source_dir, "current")
+  ))
+  if (!isTRUE(linked)) {
+    skip("This filesystem does not support symbolic links")
+  }
+
+  expect_no_warning(out <- .ref_path("coresh", root = root))
 
   expect_identical(attr(out, "snapshot"), snapshot_tag)
 })
@@ -85,6 +106,27 @@ test_that(".ref_path warns once when current resolves outside its source", {
     fixed = TRUE
   )
   expect_identical(attr(second, "snapshot"), basename(external))
+})
+
+test_that("clearing reference resolutions re-arms the layout warning", {
+  .clear_ref_resolutions()
+  on.exit(.clear_ref_resolutions(), add = TRUE)
+  root <- withr::local_tempdir()
+  source_dir <- file.path(root, "coresh")
+  external <- file.path(root, "mounted", "syn66227307_20260721")
+  dir.create(source_dir, recursive = TRUE)
+  dir.create(external, recursive = TRUE)
+  linked <- suppressWarnings(
+    file.symlink(external, file.path(source_dir, "current"))
+  )
+  if (!isTRUE(linked)) {
+    skip("This filesystem does not support symbolic links")
+  }
+
+  expect_warning(.ref_path("coresh", root = root), "outside")
+  expect_no_warning(.ref_path("coresh", root = root))
+  .clear_ref_resolutions()
+  expect_warning(.ref_path("coresh", root = root), "outside")
 })
 
 test_that(".ref_path appends path components below current", {
@@ -162,14 +204,33 @@ test_that("a dangling current identifies a failed refresh", {
   expect_error(.ref_path("coresh"), "refcache refresh may have failed")
 })
 
-test_that("current may be a real directory", {
+test_that("a real-directory current warns once", {
+  .clear_ref_resolutions()
+  on.exit(.clear_ref_resolutions(), add = TRUE)
   root <- withr::local_tempdir()
   current <- file.path(root, "coresh", "current")
   dir.create(current, recursive = TRUE)
   withr::local_envvar(c(REFCACHE_ROOT = root))
 
-  out <- .ref_path("coresh")
+  warnings <- character()
+  out <- withCallingHandlers(
+    .ref_path("coresh"),
+    warning = function(cnd) {
+      warnings <<- c(warnings, conditionMessage(cnd))
+      invokeRestart("muffleWarning")
+    }
+  )
+  withCallingHandlers(
+    .ref_path("coresh"),
+    warning = function(cnd) {
+      warnings <<- c(warnings, conditionMessage(cnd))
+      invokeRestart("muffleWarning")
+    }
+  )
 
+  expect_length(warnings, 1L)
+  expect_match(warnings, "is not a symlink", fixed = TRUE)
+  expect_match(warnings, "snapshot cannot be identified", fixed = TRUE)
   expect_identical(as.vector(out), current)
   expect_identical(attr(out, "snapshot"), basename(current))
 })

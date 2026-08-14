@@ -50,3 +50,25 @@ coresh_micro_fixture <- function() {
                         "coresh-chunk-micro.rds is not in the built package")
   readRDS(path)
 }
+
+# Restore the process-wide RNG state after a test that deliberately mutates it.
+local_pinned_rng <- function(.local_envir = parent.frame()) {
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  withr::defer({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, envir = .local_envir)
+  invisible(NULL)
+}

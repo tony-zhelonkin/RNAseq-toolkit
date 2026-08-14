@@ -40,6 +40,9 @@ functions were introduced after the freeze and therefore have
 The \code{superseded_by} field may name a technique or a sequence of calls rather
 than a single function, and may say that no replacement exists when part of
 the deprecated behaviour was deliberately retired.
+\code{layer} records the function's functional module. Stable and experimental
+functions retain their curated registry group; deprecated compatibility
+shims, which have no curated group, derive it from their name prefix.
 }
 \examples{
 experimental <- bulkirna_api("experimental", quiet = TRUE)

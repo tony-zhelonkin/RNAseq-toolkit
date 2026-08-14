@@ -27,8 +27,10 @@ for a caller-supplied path.
 \description{
 An explicit \code{path} takes precedence over the shared cache. Otherwise the
 path is resolved below \verb{$REFCACHE_ROOT/<source>/current}, and the snapshot
-selected by \code{current} is recorded for session provenance. If \code{current}
-resolves outside its source directory, the resolved basename is retained
-but a warning is emitted at most once per source per session.
+selected by \code{current} is recorded for session provenance. If \code{current} is
+not a symlink or resolves outside its source directory, the resolved
+basename is retained but a warning is emitted at most once per source per
+session. With \code{options(warn = 2)}, an outside-source layout aborts instead
+of returning the path as it did before this warning was introduced.
 }
 \keyword{internal}

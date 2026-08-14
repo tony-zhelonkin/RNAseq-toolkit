@@ -1,14 +1,16 @@
 # Package-local record of reference data resolved during this session and
-# whether each source has emitted its external-target provenance warning.
+# whether each source has emitted its invalid-layout provenance warning.
 .ref_resolution_state <- new.env(parent = emptyenv())
 
 #' Resolve a path in the shared reference cache
 #'
 #' An explicit `path` takes precedence over the shared cache. Otherwise the
 #' path is resolved below `$REFCACHE_ROOT/<source>/current`, and the snapshot
-#' selected by `current` is recorded for session provenance. If `current`
-#' resolves outside its source directory, the resolved basename is retained
-#' but a warning is emitted at most once per source per session.
+#' selected by `current` is recorded for session provenance. If `current` is
+#' not a symlink or resolves outside its source directory, the resolved
+#' basename is retained but a warning is emitted at most once per source per
+#' session. With `options(warn = 2)`, an outside-source layout aborts instead
+#' of returning the path as it did before this warning was introduced.
 #'
 #' @param source Character scalar naming one refcache source. It must be a
 #'   single path segment.
@@ -45,8 +47,8 @@
   } else {
     NULL
   }
-  warned_external <- isTRUE(previous_resolution$warned_external)
-  external_target <- NULL
+  warned_layout <- isTRUE(previous_resolution$warned_layout)
+  layout_warning <- NULL
 
   caller_supplied <- !is.null(path)
   if (caller_supplied) {
@@ -112,6 +114,7 @@
       )
     }
 
+    current_target <- Sys.readlink(current)
     resolved_target <- normalizePath(
       current,
       winslash = "/",
@@ -122,8 +125,22 @@
       winslash = "/",
       mustWork = TRUE
     )
-    if (!identical(dirname(resolved_target), resolved_source_dir)) {
-      external_target <- resolved_target
+    if (!nzchar(current_target)) {
+      layout_warning <- paste0(
+        "`current` for reference source ", sQuote(source),
+        " is not a symlink, so its snapshot cannot be identified: ",
+        current, "."
+      )
+    } else if (!startsWith(
+      resolved_target,
+      paste0(resolved_source_dir, "/")
+    )) {
+      layout_warning <- paste0(
+        "Resolved `current` for reference source ", sQuote(source),
+        " outside its source directory: ", resolved_target, ". The recorded ",
+        "snapshot ", sQuote(basename(resolved_target)),
+        " may not identify a refcache snapshot."
+      )
     }
     snapshot <- basename(resolved_target)
     resolved_root <- unname(root)
@@ -142,25 +159,19 @@
     }
   }
 
-  if (!is.null(external_target) && !warned_external) {
-    warned_external <- TRUE
+  if (!is.null(layout_warning) && !warned_layout) {
+    warned_layout <- TRUE
     assign(
       source,
       list(
         source = source,
         snapshot = snapshot,
         path = resolved,
-        warned_external = warned_external
+        warned_layout = warned_layout
       ),
       envir = .ref_resolution_state
     )
-    warning(
-      "Resolved `current` for reference source ", sQuote(source),
-      " outside its source directory: ", external_target, ". The recorded ",
-      "snapshot ", sQuote(snapshot),
-      " may not identify a refcache snapshot.",
-      call. = FALSE
-    )
+    warning(layout_warning, call. = FALSE)
   }
 
   out <- structure(
@@ -176,7 +187,7 @@
       source = source,
       snapshot = snapshot,
       path = resolved,
-      warned_external = warned_external
+      warned_layout = warned_layout
     ),
     envir = .ref_resolution_state
   )
