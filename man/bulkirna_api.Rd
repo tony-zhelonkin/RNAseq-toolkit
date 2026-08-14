@@ -15,7 +15,8 @@ invisibly. If \code{TRUE}, do not print and return it visibly.}
 }
 \value{
 A tibble with one row per selected exported function and columns \code{name},
-\code{layer}, \code{lifecycle}, \code{frozen}, \code{superseded_by}, and \code{removed_in}.
+\code{layer}, \code{lifecycle}, \code{frozen}, \code{stochastic}, \code{superseded_by}, and
+\code{removed_in}.
 }
 \description{
 \code{bulkirna_api()} is the machine-readable contract for the package's public
@@ -36,6 +37,10 @@ API. It does not mean that a function is recommended: all 20 deprecated
 shims are frozen until their documented removal. Conversely, most stable
 functions were introduced after the freeze and therefore have
 \code{frozen = FALSE}.
+
+\code{stochastic} records whether calling the function consumes randomness, so
+its result depends on a seed. \code{\link[=bulkirna_stochastic]{bulkirna_stochastic()}} reports the seed
+interface, default, and source of randomness for each such function.
 
 The \code{superseded_by} field may name a technique or a sequence of calls rather
 than a single function, and may say that no replacement exists when part of

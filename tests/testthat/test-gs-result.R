@@ -45,12 +45,43 @@ test_that("validate_gs_result rejects a bad direction", {
 test_that("optional columns survive and stay after the core block", {
   df <- fake_gs_df(2L)
   df$es <- c(0.4, -0.4)
+  df$log2err <- c(0.3, 0.8)
   res <- bulkiRNA:::gs_result(df, database = "d", contrast = "c",
                               method = "fgsea", stat_type = "NES")
   res$leading_edge <- list(c("A", "B"), "C")
   res <- bulkiRNA:::validate_gs_result(res)
-  expect_true("es" %in% names(res))
+  expect_true(all(c("es", "log2err") %in% names(res)))
+  expect_identical(res$log2err, c(0.3, 0.8))
   expect_gt(match("es", names(res)), length(bulkiRNA:::.gs_core_cols))
+})
+
+test_that("an infinite log2err is valid and is not missing", {
+  df <- fake_gs_df(2L)
+  df$log2err <- c(0.3, Inf)
+
+  expect_silent(
+    res <- bulkiRNA:::gs_result(
+      df, database = "d", contrast = "c",
+      method = "fgsea", stat_type = "NES"
+    )
+  )
+  expect_silent(bulkiRNA:::validate_gs_result(res))
+  expect_true(is.infinite(res$log2err[2L]))
+  expect_false(is.na(res$log2err[2L]))
+  expect_s3_class(dplyr::arrange(res, .data$log2err), "gs_result")
+})
+
+test_that("gs_to_master deliberately drops log2err", {
+  df <- fake_gs_df(2L)
+  df$log2err <- c(0.3, Inf)
+  res <- bulkiRNA:::gs_result(
+    df, database = "d", contrast = "c",
+    method = "fgsea", stat_type = "NES"
+  )
+
+  master <- gs_to_master(res)
+  expect_false("log2err" %in% names(master))
+  expect_identical(ncol(master), 14L)
 })
 
 test_that("rbind pools contrasts and keeps the class", {

@@ -10,7 +10,7 @@
 A data frame with one row per exported function.
 }
 \description{
-Keeps the layer, lifecycle, signature-freeze, and deprecation metadata used
-by \code{\link[=bulkirna_api]{bulkirna_api()}} in one place.
+Keeps the layer, lifecycle, signature-freeze, stochasticity, and deprecation
+metadata used by \code{\link[=bulkirna_api]{bulkirna_api()}} in one place.
 }
 \keyword{internal}

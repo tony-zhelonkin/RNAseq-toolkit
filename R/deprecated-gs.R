@@ -340,6 +340,19 @@ empty_gsea_tibble <- function() {
   core$direction <- character(0)
   gs_result(core)
 }
+#' Drop columns the legacy shims never returned
+#'
+#' The shims exist so that unmigrated callers keep the old shape, and such a
+#' caller may index the table positionally. Additions to `gs_result` therefore
+#' stop at this boundary: anyone who wants `log2err` wants [gs_test()].
+#'
+#' @param x A `gs_result`.
+#' @return `x` without the post-legacy columns.
+#' @keywords internal
+.drop_legacy_extras <- function(x) {
+  x[, setdiff(names(x), "log2err"), drop = FALSE]
+}
+
 
 #' Deprecated: run preranked GSEA against an MSigDB collection
 #'
@@ -409,6 +422,11 @@ run_gsea <- function(
   db <- gsdb_msigdb(species = species, collection = collection,
                     subcollection = sub, db_species = db_species %||% "HS")
   res <- gs_test(ranks, db, n_perm_simple = nperm, seed = seed)
+  # A shim's contract is the old shape. `gs_test()` now carries fgsea's
+  # `log2err`, which is useful and which no legacy caller asked for -- and an
+  # unmigrated caller may index this table positionally. Drop it here; anyone
+  # who wants the uncertainty bound wants `gs_test()`.
+  res <- .drop_legacy_extras(res)
   if (!is.null(pvalue_cutoff) && pvalue_cutoff < 1) {
     res <- gs_filter(res, p_value = pvalue_cutoff)
   }
@@ -498,7 +516,7 @@ normalize_gsea_results <- function(
       substr(out$pathway_name[too_long], 1, max_name_length - 3), "..."
     )
   }
-  out
+  .drop_legacy_extras(out)
 }
 
 #' Deprecated: run a multi-database GSEA analysis and save its plots

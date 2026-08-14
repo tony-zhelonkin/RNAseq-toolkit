@@ -9,6 +9,27 @@ below get a version of their own: they moved numbers in a consumer project.
   keeping lifecycle status and the historical signature freeze as independent
   axes.
 
+* `bulkirna_stochastic()` declares the five public functions that consume
+  randomness, how each accepts its seed, its versioned default, and the
+  operation that is stochastic. `bulkirna_api()` marks the same functions in a
+  new `stochastic` column derived from that registry.
+
+## Reproducibility
+
+* `write_session_provenance()` now records all three `RNGkind()` components and
+  this package version's stochastic defaults. The existing defaults remain
+  unchanged: CoReSh retains upstream's literal `1L`, GATOM retains `42`, the
+  `gs_test()` fgsea adapter retains `123L`, and signature-frozen `run_gsea()`
+  retains `123`.
+
+## Gene-set testing
+
+* `gs_test(method = "fgsea")` now retains fgsea's `log2err` p-value uncertainty
+  estimate in `gs_result`. Infinite values are preserved because they identify
+  estimates past reliable resolution. Methods without a Monte-Carlo component
+  omit the column, and `gs_to_master()` continues to return the fixed ADR-002
+  schema without it.
+
 ## CoReSh
 
 * `pvalues = TRUE` now works for CoReSh matching and search. Every CoReSh result

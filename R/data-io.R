@@ -226,10 +226,12 @@ read_metadata <- function(path,
 #'
 #' Writes the genome build, the requested Ensembl release, the **resolved**
 #' biomaRt archive release, the bulkiRNA and hard-dependency versions, resolved
-#' reference-data snapshots, and the full `sessionInfo()`. The resolved archive
-#' matters because `sessionInfo()` records only the biomaRt *package* version --
-#' not which remote Ensembl release the annotation actually came from, which is
-#' the thing that changes an analysis underneath you.
+#' reference-data snapshots, all three [RNGkind()] components, the stochastic
+#' defaults declared by [bulkirna_stochastic()], and the full `sessionInfo()`.
+#' The resolved archive matters because `sessionInfo()` records only the
+#' biomaRt *package* version -- not which remote Ensembl release the annotation
+#' actually came from, which is the thing that changes an analysis underneath
+#' you.
 #'
 #' @param path Output file path. Parent directories are created.
 #' @param genome_build Character genome build, e.g. `"mm10"`, or `NULL`.
@@ -252,6 +254,19 @@ write_session_provenance <- function(path, genome_build = NULL,
   if (!is.null(ensembl_version)) {
     lines <- c(lines, paste0("Ensembl version (requested): ", ensembl_version))
   }
+
+  rng_kind <- RNGkind()
+  stochastic <- .bulkirna_stochastic_registry()
+  lines <- c(
+    lines,
+    paste0(
+      "RNGkind(): kind = ", rng_kind[[1L]],
+      ", normal.kind = ", rng_kind[[2L]],
+      ", sample.kind = ", rng_kind[[3L]]
+    ),
+    "Stochastic defaults:",
+    paste0("  ", stochastic$name, " = ", stochastic$seed_default)
+  )
 
   if (requireNamespace("biomaRt", quietly = TRUE)) {
     arch <- tryCatch({

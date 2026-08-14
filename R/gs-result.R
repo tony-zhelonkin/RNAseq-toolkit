@@ -29,7 +29,10 @@
 #' # Optional columns
 #'
 #' Method-specific, dropped when not applicable: `es` (raw enrichment score),
+#' `log2err` (the estimator's own bound on the log2 error of the p-value),
 #' `leading_edge` (list of character vectors), `fold_enrichment`, `overlap`.
+#' `log2err = Inf` means the estimate is past reliable resolution, not that the
+#' computation failed.
 #'
 #' Renderers label their statistic axis from `stat_type`, so a GSVA
 #' t-statistic is never mislabelled "NES". Never write a `stat` column without
@@ -73,7 +76,9 @@ gs_stat_types <- function() {
   "p_value", "padj"
 )
 
-.gs_optional_cols <- c("es", "leading_edge", "fold_enrichment", "overlap")
+.gs_optional_cols <- c(
+  "es", "log2err", "leading_edge", "fold_enrichment", "overlap"
+)
 
 .gs_col_coerce <- list(
   pathway_id     = as.character,
@@ -89,6 +94,7 @@ gs_stat_types <- function() {
   p_value        = as.numeric,
   padj           = as.numeric,
   es             = as.numeric,
+  log2err        = as.numeric,
   fold_enrichment = as.numeric,
   overlap        = as.integer
 )
@@ -227,6 +233,16 @@ validate_gs_result <- function(x) {
 
   if (!is.null(x[["leading_edge"]]) && !is.list(x[["leading_edge"]])) {
     stop("`leading_edge` must be a list column.", call. = FALSE)
+  }
+
+  if (!is.null(x[["log2err"]])) {
+    if (!is.numeric(x[["log2err"]])) {
+      stop("`log2err` must be numeric.", call. = FALSE)
+    }
+    negative <- !is.na(x[["log2err"]]) & x[["log2err"]] < 0
+    if (any(negative)) {
+      stop("`log2err` must be non-negative when present.", call. = FALSE)
+    }
   }
 
   invisible(x)

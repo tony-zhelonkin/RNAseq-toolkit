@@ -1,3 +1,70 @@
+#' Registry of stochastic public functions
+#'
+#' Keeps each stochastic export's seed interface, default, source of
+#' randomness, and reason for retaining that default in one place.
+#'
+#' @return A data frame with one row per stochastic exported function.
+#' @keywords internal
+.bulkirna_stochastic_registry <- function() {
+  data.frame(
+    name = c(
+      "coresh_match", "coresh_search", "gatom_module", "gs_test",
+      "run_gsea"
+    ),
+    seed_arg = c("seed", "seed", "seed", NA_character_, "seed"),
+    seed_default = c("1L", "1L", "42", "123L", "123"),
+    source_of_randomness = c(
+      "GESECA multilevel permutations",
+      "GESECA multilevel permutations",
+      "BioNet BUM fit and the MWCS solver heuristic",
+      "fgsea multilevel permutations",
+      "fgsea multilevel permutations"
+    ),
+    note = c(
+      "upstream's reference implementation passes the literal value 1L",
+      "upstream's reference implementation passes the literal value 1L",
+      "the historical default is retained to preserve published results",
+      paste0(
+        "the legacy default, accepted through `...` and documented in ",
+        "`gs_test_fgsea_params`, is retained"
+      ),
+      "the historical signature-frozen default is retained"
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' List stochastic bulkiRNA functions
+#'
+#' Reports the public functions whose results consume randomness, the route by
+#' which each function accepts a seed, and the default preserved by this
+#' package version. `seed_arg` is `NA` when the seed is accepted only through
+#' `...`; see the row's `note` for the documented parameter source.
+#'
+#' The defaults deliberately differ. They are historical reproducibility
+#' commitments, not a package-wide seed policy.
+#'
+#' @param quiet Logical. If `FALSE`, print the registry and return it
+#'   invisibly. If `TRUE`, do not print and return it visibly.
+#' @return A tibble with columns `name`, `seed_arg`, `seed_default`,
+#'   `source_of_randomness`, and `note`.
+#' @examples
+#' stochastic <- bulkirna_stochastic(quiet = TRUE)
+#' stochastic[, c("name", "seed_default")]
+#' @export
+bulkirna_stochastic <- function(quiet = FALSE) {
+  if (!is.logical(quiet) || length(quiet) != 1L || is.na(quiet)) {
+    stop("`quiet` must be a single non-missing logical value.", call. = FALSE)
+  }
+
+  out <- tibble::as_tibble(.bulkirna_stochastic_registry())
+
+  # n = Inf: a truncated report could hide the function being audited.
+  if (!quiet) print(out, n = Inf)
+  if (!quiet) return(invisible(out))
+  out
+}
+
 #' Evaluate an expression with a pinned RNG seed
 #'
 #' `set.seed()` alone is not enough because `BiocParallel::bplapply()` changes

@@ -221,7 +221,8 @@ NULL
 #' @param ranks Named numeric vector, decreasing.
 #' @param sets Named list of character vectors.
 #' @inheritParams gs_test_fgsea_params
-#' @return A data frame of core [gs_result] columns.
+#' @return A data frame of core [gs_result] columns plus the fgsea-specific
+#'   `log2err`, `es`, and `leading_edge` columns.
 #' @keywords internal
 .gs_fgsea <- function(ranks, sets, min_size = 10L, max_size = 500L,
                       eps = 0, n_perm_simple = 100000L,
@@ -243,7 +244,9 @@ NULL
   )
   res <- as.data.frame(res)
   if (!nrow(res)) {
-    return(.gs_empty_core(numeric_cols = "es", list_cols = "leading_edge"))
+    return(.gs_empty_core(
+      numeric_cols = c("es", "log2err"), list_cols = "leading_edge"
+    ))
   }
   data.frame(
     pathway_id = res$pathway,
@@ -254,6 +257,7 @@ NULL
     p_value = res$pval,
     padj = stats::p.adjust(res$pval, method = "BH"),
     es = res$ES,
+    log2err = res$log2err,
     stringsAsFactors = FALSE
   ) |>
     .gs_attach_list_col("leading_edge", res$leadingEdge)

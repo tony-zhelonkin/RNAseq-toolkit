@@ -6,6 +6,10 @@ test_that("a named numeric vector dispatches to fgsea and returns a gs_result", 
   expect_true(all(res$method == "fgsea"))
   expect_true(all(res$database == "testdb"))
   expect_true(all(res$contrast == "KO-WT"))
+  expect_true("log2err" %in% names(res))
+  expect_type(res$log2err, "double")
+  expect_length(res$log2err, nrow(res))
+  expect_true(all(res$log2err >= 0))
   expect_true("leading_edge" %in% names(res))
   expect_true(is.list(res$leading_edge))
   # names come from the gs_db pathway_names attribute
@@ -27,6 +31,7 @@ test_that("a character vector dispatches to ORA", {
   expect_true(all(res$method == "ora"))
   expect_true(all(res$stat_type == "log2_fold_enrichment"))
   expect_true(all(c("fold_enrichment", "overlap") %in% names(res)))
+  expect_false("log2err" %in% names(res))
   up <- res[res$pathway_id == "SET_UP", ]
   expect_equal(up$overlap, 20L)
   expect_gt(up$stat, 0)
@@ -162,7 +167,8 @@ test_that("an empty result keeps the method's optional columns", {
   # per-contrast gs_leading_edge() reported a usage error for an empty answer.
   res <- gs_test(fake_ranks(), fake_gs_db(list(TOO_BIG = paste0("G", 1:100))),
                  min_size = 5, max_size = 10)
-  expect_true("leading_edge" %in% names(res))
+  expect_true(all(c("log2err", "leading_edge") %in% names(res)))
+  expect_type(res$log2err, "double")
   expect_true(is.list(res$leading_edge))
   expect_length(gs_leading_edge(res), 0L)
 })

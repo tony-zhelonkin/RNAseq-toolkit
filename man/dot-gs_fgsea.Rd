@@ -36,7 +36,8 @@ the setting the legacy pipeline used.}
 to leave the RNG untouched. When set, the generator is pinned as well.}
 }
 \value{
-A data frame of core \link{gs_result} columns.
+A data frame of core \link{gs_result} columns plus the fgsea-specific
+\code{log2err}, \code{es}, and \code{leading_edge} columns.
 }
 \description{
 fgsea adapter

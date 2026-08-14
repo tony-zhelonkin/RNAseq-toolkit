@@ -32,7 +32,10 @@ tested with limma -- the scoring method that produced the matrix
 
 \section{Optional columns}{
 Method-specific, dropped when not applicable: \code{es} (raw enrichment score),
+\code{log2err} (the estimator's own bound on the log2 error of the p-value),
 \code{leading_edge} (list of character vectors), \code{fold_enrichment}, \code{overlap}.
+\code{log2err = Inf} means the estimate is past reliable resolution, not that the
+computation failed.
 
 Renderers label their statistic axis from \code{stat_type}, so a GSVA
 t-statistic is never mislabelled "NES". Never write a \code{stat} column without

@@ -16,6 +16,10 @@
 #' functions were introduced after the freeze and therefore have
 #' `frozen = FALSE`.
 #'
+#' `stochastic` records whether calling the function consumes randomness, so
+#' its result depends on a seed. [bulkirna_stochastic()] reports the seed
+#' interface, default, and source of randomness for each such function.
+#'
 #' The `superseded_by` field may name a technique or a sequence of calls rather
 #' than a single function, and may say that no replacement exists when part of
 #' the deprecated behaviour was deliberately retired.
@@ -28,7 +32,8 @@
 #' @param quiet Logical. If `FALSE`, print the registry and return it
 #'   invisibly. If `TRUE`, do not print and return it visibly.
 #' @return A tibble with one row per selected exported function and columns `name`,
-#'   `layer`, `lifecycle`, `frozen`, `superseded_by`, and `removed_in`.
+#'   `layer`, `lifecycle`, `frozen`, `stochastic`, `superseded_by`, and
+#'   `removed_in`.
 #' @examples
 #' experimental <- bulkirna_api("experimental", quiet = TRUE)
 #' @export
@@ -57,8 +62,8 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
 
 #' Registry of public API metadata
 #'
-#' Keeps the layer, lifecycle, signature-freeze, and deprecation metadata used
-#' by [bulkirna_api()] in one place.
+#' Keeps the layer, lifecycle, signature-freeze, stochasticity, and deprecation
+#' metadata used by [bulkirna_api()] in one place.
 #'
 #' @return A data frame with one row per exported function.
 #' @keywords internal
@@ -84,9 +89,9 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
     ),
     `top-level` = c(
       "annotate_genes", "build_dge", "bulkirna_api",
-      "bulkirna_check_deps", "ensure_dir", "format_pathway_name",
-      "read_counts_matrix", "read_metadata", "theme_bulki",
-      "write_session_provenance"
+      "bulkirna_check_deps", "bulkirna_stochastic", "ensure_dir",
+      "format_pathway_name", "read_counts_matrix", "read_metadata",
+      "theme_bulki", "write_session_provenance"
     )
   )
 
@@ -166,11 +171,14 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   removed_in <- rep(NA_character_, length(names_all))
   removed_in[names_all %in% deprecated] <- "1.0.0"
 
+  stochastic_names <- .bulkirna_stochastic_registry()$name
+
   out <- data.frame(
     name = names_all,
     layer = unname(layer),
     lifecycle = lifecycle,
     frozen = names_all %in% frozen_names,
+    stochastic = names_all %in% stochastic_names,
     superseded_by = unname(superseded_by),
     removed_in = removed_in,
     stringsAsFactors = FALSE
