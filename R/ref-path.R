@@ -1,11 +1,14 @@
-# Package-local record of reference data resolved during this session.
+# Package-local record of reference data resolved during this session and
+# whether each source has emitted its external-target provenance warning.
 .ref_resolution_state <- new.env(parent = emptyenv())
 
 #' Resolve a path in the shared reference cache
 #'
 #' An explicit `path` takes precedence over the shared cache. Otherwise the
 #' path is resolved below `$REFCACHE_ROOT/<source>/current`, and the snapshot
-#' selected by `current` is recorded for session provenance.
+#' selected by `current` is recorded for session provenance. If `current`
+#' resolves outside its source directory, the resolved basename is retained
+#' but a warning is emitted at most once per source per session.
 #'
 #' @param source Character scalar naming one refcache source. It must be a
 #'   single path segment.
@@ -32,6 +35,18 @@
       is.na(must_exist)) {
     stop("`must_exist` must be `TRUE` or `FALSE`.", call. = FALSE)
   }
+
+  previous_resolution <- if (exists(
+    source,
+    envir = .ref_resolution_state,
+    inherits = FALSE
+  )) {
+    get(source, envir = .ref_resolution_state, inherits = FALSE)
+  } else {
+    NULL
+  }
+  warned_external <- isTRUE(previous_resolution$warned_external)
+  external_target <- NULL
 
   caller_supplied <- !is.null(path)
   if (caller_supplied) {
@@ -97,12 +112,20 @@
       )
     }
 
-    link_target <- Sys.readlink(current)
-    if (length(link_target) != 1L || is.na(link_target) ||
-        !nzchar(link_target)) {
-      link_target <- normalizePath(current, winslash = "/", mustWork = TRUE)
+    resolved_target <- normalizePath(
+      current,
+      winslash = "/",
+      mustWork = TRUE
+    )
+    resolved_source_dir <- normalizePath(
+      source_dir,
+      winslash = "/",
+      mustWork = TRUE
+    )
+    if (!identical(dirname(resolved_target), resolved_source_dir)) {
+      external_target <- resolved_target
     }
-    snapshot <- basename(link_target)
+    snapshot <- basename(resolved_target)
     resolved_root <- unname(root)
     resolved <- if (length(components)) {
       unname(do.call(file.path, c(list(current), components)))
@@ -119,6 +142,27 @@
     }
   }
 
+  if (!is.null(external_target) && !warned_external) {
+    warned_external <- TRUE
+    assign(
+      source,
+      list(
+        source = source,
+        snapshot = snapshot,
+        path = resolved,
+        warned_external = warned_external
+      ),
+      envir = .ref_resolution_state
+    )
+    warning(
+      "Resolved `current` for reference source ", sQuote(source),
+      " outside its source directory: ", external_target, ". The recorded ",
+      "snapshot ", sQuote(snapshot),
+      " may not identify a refcache snapshot.",
+      call. = FALSE
+    )
+  }
+
   out <- structure(
     resolved,
     snapshot = snapshot,
@@ -128,7 +172,12 @@
   )
   assign(
     source,
-    list(source = source, snapshot = snapshot, path = resolved),
+    list(
+      source = source,
+      snapshot = snapshot,
+      path = resolved,
+      warned_external = warned_external
+    ),
     envir = .ref_resolution_state
   )
   out

@@ -16,7 +16,8 @@ the setting the legacy pipeline used.}
 
 \item{score_type}{One of \code{"std"}, \code{"pos"}, \code{"neg"}.}
 
-\item{seed}{Integer seed set immediately before the fgsea call.}
+\item{seed}{Integer seed set immediately before the fgsea call, or \code{NULL}
+to leave the RNG untouched. When set, the generator is pinned as well.}
 }
 \description{
 Shared fgsea / ORA parameters

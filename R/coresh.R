@@ -48,31 +48,6 @@
   as.integer(x)
 }
 
-# `geseca()` takes no seed and draws its internal seeds from R's RNG, while
-# `bplapply()` changes the generator, so pinning the seed alone is not enough.
-.coresh_with_seed <- function(seed, expr) {
-  old_kind <- RNGkind()
-  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv,
-                         inherits = FALSE)) {
-    get(".Random.seed", envir = .GlobalEnv)
-  } else {
-    NULL
-  }
-  on.exit({
-    # A warning here describes the caller's legacy sampler, which we are
-    # restoring, rather than a sampler selected by bulkiRNA.
-    suppressWarnings(RNGkind(old_kind[1L], old_kind[2L], old_kind[3L]))
-    if (!is.null(old_seed)) {
-      assign(".Random.seed", old_seed, envir = .GlobalEnv)
-    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      rm(".Random.seed", envir = .GlobalEnv)
-    }
-  }, add = TRUE)
-  set.seed(seed, kind = "Mersenne-Twister", normal.kind = "Inversion",
-           sample.kind = "Rejection")
-  force(expr)
-}
-
 #' Resolve a CoReSh species directory
 #'
 #' @param chunk_dir Optional explicit species-directory path.
@@ -276,7 +251,8 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
 #'   removed with a message before scoring.
 #' @param pvalues Logical. Calculate a GESECA p-value.
 #' @param sample_size Positive whole number passed to the GESECA multilevel
-#'   estimator as `sampleSize`.
+#'   estimator as `sampleSize`. The default of 21 is the value used in the
+#'   upstream CoReSh vignette, not fgsea's default of 101.
 #' @param seed Whole-number RNG seed reset immediately before the GESECA call.
 #'   The generator is also pinned, so results do not depend on the number of
 #'   cores or the caller's `RNGkind()`.
@@ -284,10 +260,12 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
 #'   estimator.
 #' @return A one-row tibble with `gse`, `gpl`, `pct_var`, `p_value`, `log2err`,
 #'   and `size`. `log2err` is `Inf` for sets beyond the estimator's
-#'   reliable resolution and is reported rather than hidden. Because the same
-#'   seed is reset for every dataset, p-values are not independent across the
-#'   compendium; multiple-testing correction across them is invalid and
-#'   `p_value` is for ranking.
+#'   reliable resolution and is reported rather than hidden. `nPermSimple` is
+#'   not exposed, so an infinite `log2err` can mean that the reported p-value
+#'   came entirely from fgsea's pre-permutation screen. Because the same seed
+#'   is reset for every dataset, p-values are not independent across the
+#'   compendium. There is no `padj` column, and applying [stats::p.adjust()] to
+#'   the compendium is invalid; `p_value` is for ranking.
 #' @examples
 #' obj <- list(
 #'   gseId = "GSE1", gplId = "GPL1",
@@ -354,7 +332,7 @@ coresh_match <- function(obj, query, pvalues = FALSE,
     # stream gives common-random-number precision for comparisons and, because
     # it is reset per call, makes chunk scheduling irrelevant. The resulting
     # cross-dataset p-values are correlated, as documented in the return value.
-    geseca_result <- .coresh_with_seed(
+    geseca_result <- .with_pinned_seed(
       seed,
       fgsea::geseca(
         pathways = list(query = query_rows),
@@ -451,7 +429,8 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #' @param pvalues Logical. Calculate GESECA p-values and rank by ascending
 #'   `p_value` instead of descending `pct_var`.
 #' @param sample_size Positive whole number passed to the GESECA multilevel
-#'   estimator as `sampleSize`.
+#'   estimator as `sampleSize`. The default of 21 is the value used in the
+#'   upstream CoReSh vignette, not fgsea's default of 101.
 #' @param seed Whole-number RNG seed reset immediately before every dataset's
 #'   GESECA call. The generator is also pinned, so results do not depend on the
 #'   number of cores or the caller's `RNGkind()`.
@@ -461,10 +440,13 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #'   `p_value`, `log2err`, `size`, and `rank`, ordered within query by ascending
 #'   `p_value` when requested and descending `pct_var` otherwise. `log2err` is
 #'   `Inf` for sets beyond the estimator's reliable resolution and is reported
-#'   rather than hidden. Because the same seed is reset for every dataset,
-#'   p-values are not independent across the compendium; multiple-testing
-#'   correction across them is invalid and `p_value` is for ranking. The
-#'   `provenance` attribute records the reference snapshot.
+#'   rather than hidden. `nPermSimple` is not exposed, so an infinite `log2err`
+#'   can mean that the reported p-value came entirely from fgsea's
+#'   pre-permutation screen. Because the same seed is reset for every dataset,
+#'   p-values are not independent across the compendium. There is no `padj`
+#'   column, and applying [stats::p.adjust()] to the compendium is invalid;
+#'   `p_value` is for ranking. The `provenance` attribute records the reference
+#'   snapshot.
 #' @examples
 #' \dontrun{
 #' hits <- coresh_search(

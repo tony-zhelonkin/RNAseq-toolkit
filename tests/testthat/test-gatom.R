@@ -1,6 +1,109 @@
 # gatom_* module. The gatom_de() validation tests encode the traps and run
 # everywhere; the pipeline tests need the gatom stack and skip without it.
 
+test_that("pinned seeding preserves draws under R's default generator", {
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  RNGkind("Mersenne-Twister", "Inversion", "Rejection")
+  set.seed(42)
+  expected <- rnorm(3)
+
+  # Protects the two GATOM resets from moving results for default-RNG callers.
+  actual <- bulkiRNA:::.with_pinned_seed(42, rnorm(3))
+  expect_identical(actual, expected)
+})
+
+test_that("a NULL pinned seed evaluates once without touching RNG state", {
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  set.seed(818L)
+  seed_before <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  evaluations <- 0L
+
+  value <- bulkiRNA:::.with_pinned_seed(NULL, {
+    evaluations <- evaluations + 1L
+    "evaluated"
+  })
+
+  expect_identical(value, "evaluated")
+  expect_identical(evaluations, 1L)
+  expect_identical(
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE),
+    seed_before
+  )
+})
+
+test_that("pinned seeding restores RNG state when evaluation fails", {
+  original_kind <- RNGkind()
+  had_seed <- exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  original_seed <- if (had_seed) {
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  } else {
+    NULL
+  }
+  on.exit({
+    suppressWarnings(RNGkind(
+      original_kind[1L], original_kind[2L], original_kind[3L]
+    ))
+    if (had_seed) {
+      assign(".Random.seed", original_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+
+  RNGkind("L'Ecuyer-CMRG", "Inversion", "Rejection")
+  set.seed(919L)
+  kind_before <- RNGkind()
+  seed_before <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+
+  expect_error(
+    bulkiRNA:::.with_pinned_seed(42L, {
+      runif(1L)
+      stop("seeded failure", call. = FALSE)
+    }),
+    "seeded failure"
+  )
+
+  expect_identical(RNGkind(), kind_before)
+  expect_identical(
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE),
+    seed_before
+  )
+})
+
 fake_tt <- function(n = 6) {
   data.frame(
     symbol  = c("IDO1", "KMO", "KYNU", "HAAO", "QPRT", "TDO2")[seq_len(n)],
@@ -280,15 +383,21 @@ test_that("gatom_module() passes extra mappings and preserves NULL omission", {
   de <- data.frame(ID = "IDO1", pval = 0.01, log2FC = 1, baseMean = 100)
   extra <- data.frame(gene = "3620", reaction = "R01920")
 
+  # The separate scoring and solver resets must not replace the caller's draw.
+  set.seed(606L)
+  control <- runif(1L)
+  set.seed(606L)
   with_extra <- gatom_module(de, fake_refs, gene2reaction_extra = extra)
   omitted <- gatom_module(de, fake_refs)
   explicit_null <- gatom_module(de, fake_refs, gene2reaction_extra = NULL)
+  after <- runif(1L)
 
   expect_s3_class(with_extra, "igraph")
   expect_identical(seen[[1L]]$value, extra)
   expect_null(seen[[2L]]$value)
   expect_null(seen[[3L]]$value)
   expect_identical(omitted, explicit_null)
+  expect_identical(after, control)
 })
 
 test_that("gatom_module() appends its optional mapping argument", {

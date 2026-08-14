@@ -118,6 +118,71 @@ test_that("coresh_match handles an almost entirely unmapped background", {
   expect_identical(with$size, 2L)
 })
 
+test_that("the real CoReSh micro fixture retains its edge cases", {
+  fixture <- coresh_micro_fixture()
+
+  expect_identical(
+    names(fixture),
+    c("plain", "duplicate_ids", "na_ids", "pca_reduced")
+  )
+  expect_gt(anyDuplicated(fixture$duplicate_ids$rownames), 0L)
+  expect_true(anyNA(fixture$na_ids$rownames))
+  expect_lt(
+    ncol(fixture$pca_reduced$E1024),
+    fixture$pca_reduced$nsamples
+  )
+})
+
+test_that("coresh_match handles every real CoReSh micro fixture object", {
+  fixture <- coresh_micro_fixture()
+  result_columns <- c(
+    "gse", "gpl", "pct_var", "p_value", "log2err", "size"
+  )
+
+  # The pca_reduced object's columns are components, not samples; it must use
+  # the same scoring path as every other object.
+  for (fixture_name in names(fixture)) {
+    obj <- fixture[[fixture_name]]
+    if (fixture_name == "na_ids") {
+      # This query window includes an unmapped row. NA itself is not an Entrez
+      # ID, so remove it while retaining the real missing-ID background.
+      query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
+      query_positions <- c(
+        which(is.na(obj$rownames))[[1L]],
+        match(query, obj$rownames)
+      )
+      query_candidates <- obj$rownames[query_positions]
+      expect_true(anyNA(query_candidates))
+      query <- unique(query_candidates[!is.na(query_candidates)])
+    } else {
+      query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
+    }
+
+    reference_ids <- unique(obj$rownames[!is.na(obj$rownames)])
+    expected_size <- length(intersect(unique(query), reference_ids))
+    without <- coresh_match(obj, query, pvalues = FALSE)
+    with <- coresh_match(obj, query, pvalues = TRUE)
+
+    expect_equal(nrow(without), 1L, info = fixture_name)
+    expect_equal(nrow(with), 1L, info = fixture_name)
+    expect_identical(names(without), result_columns, info = fixture_name)
+    expect_identical(names(with), result_columns, info = fixture_name)
+    expect_true(is.finite(without$pct_var), info = fixture_name)
+    expect_gte(without$pct_var, 0)
+    expect_identical(with$pct_var, without$pct_var, info = fixture_name)
+    expect_identical(without$p_value, NA_real_, info = fixture_name)
+    expect_true(is.finite(with$p_value), info = fixture_name)
+    expect_gt(with$p_value, 0)
+    expect_lte(with$p_value, 1)
+    expect_identical(
+      without$size,
+      as.integer(expected_size),
+      info = fixture_name
+    )
+    expect_identical(with$size, without$size, info = fixture_name)
+  }
+})
+
 test_that("coresh_match sample_size controls estimator precision", {
   # Keep the signal moderate so the smaller estimator does not saturate at
   # infinite uncertainty before the precision comparison can be made.
@@ -492,26 +557,19 @@ test_that("coresh_search p-values do not depend on parallel scheduling", {
   expect_identical(serial$p_value, parallel$p_value)
 })
 
-test_that("coresh_match and coresh_search use identical p-value RNG", {
-  skip_on_os("windows")
+test_that("coresh_match pins its RNG inside a BiocParallel task", {
   skip_if_not_installed("BiocParallel")
-  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
-  chunks <- withr::local_tempdir()
-  file.create(file.path(chunks, "001_full_objects.qs2"))
-
   obj <- fake_coresh_signal_object()
-  testthat::local_mocked_bindings(
-    .coresh_read_chunk = function(path) list(obj),
-    .package = "bulkiRNA"
-  )
   query <- seq.int(1001L, length.out = 8L)
 
-  direct <- coresh_match(obj, query, pvalues = TRUE, seed = 23L)
-  searched <- coresh_search(
-    list(signal = query), chunks, n_cores = 2L, pvalues = TRUE, seed = 23L
-  )
+  parent <- coresh_match(obj, query, pvalues = TRUE, seed = 23L)
+  nested <- BiocParallel::bplapply(
+    1L,
+    function(i) coresh_match(obj, query, pvalues = TRUE, seed = 23L),
+    BPPARAM = BiocParallel::SerialParam()
+  )[[1L]]
 
-  expect_identical(direct$p_value, searched$p_value)
+  expect_identical(parent$p_value, nested$p_value)
 })
 
 test_that("coresh_search names invalid queries and validates controls", {

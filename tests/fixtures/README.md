@@ -88,3 +88,32 @@ statistics — which is what the `stat` / `stat_type` contract exists to carry.
 Per-gene DE is deliberately modest (27 genes). GSEA is more sensitive than per-gene
 testing, and a fixture where everything is significant would not exercise the
 non-significant rendering paths.
+
+## `coresh-chunk-micro.rds`
+
+Four real CoReSh dataset objects, subset to 300 genes each, from mouse snapshot
+`syn66227307_20260721`. 40 KB. Public GEO-derived data.
+
+**Columns are deliberately not subset.** They are at most 20 wide, and cutting them would
+destroy the `ncol(E1024) < nsamples` property that marks a PCA-reduced matrix — which is one of
+the four structures this fixture exists to carry. `samples` and `nsamples` are as the source
+recorded them.
+
+| element | accession | what it is here for |
+|---|---|---|
+| `plain` | GSE100219 | the ordinary case |
+| `duplicate_ids` | GSE10000 | repeated Entrez ids, which `fgsea::geseca()` rejects unless uniquified |
+| `na_ids` | GSE101177 | 60 `NA` Entrez ids, and duplicates as well |
+| `pca_reduced` | GSE100012 | a matrix whose columns are principal components, not samples |
+
+**Why this exists.** Every CoReSh test before it built its object by hand, and a hand-built
+object contains only what its author thought to put there. The `NA` Entrez ids in 0.7% of real
+datasets passed the entire suite and were found by a compendium sweep instead. A fixture cut
+from the real thing cannot have that blind spot.
+
+`totalVar` is recomputed for the subset, since the stored value describes the full matrix.
+`E1024` keeps its integer quantization, so the `/1024` path is exercised as it is in production.
+Read it with `readRDS()` — no `qs2` needed, so these tests never skip.
+
+Regenerate with `make_coresh_micro.R`, which needs the refcache mounted read-only and `qs2` in a
+scratch library. It reproduces this file byte-for-byte.

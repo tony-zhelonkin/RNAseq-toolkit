@@ -210,7 +210,8 @@ gs_test.gs_matrix <- function(x, db = NULL, method = NULL,
 #'   the setting the legacy pipeline used.
 #' @param n_perm_simple Integer, fgsea's `nPermSimple`.
 #' @param score_type One of `"std"`, `"pos"`, `"neg"`.
-#' @param seed Integer seed set immediately before the fgsea call.
+#' @param seed Integer seed set immediately before the fgsea call, or `NULL`
+#'   to leave the RNG untouched. When set, the generator is pinned as well.
 #' @name gs_test_fgsea_params
 #' @keywords internal
 NULL
@@ -229,22 +230,16 @@ NULL
   # `set.seed()` mutates the caller's global stream, so a script that seeds
   # itself and then bootstraps after a `gs_test()` call was silently drawing
   # from the seed-123 stream instead of its own -- once per database, at that.
-  # Seed for fgsea's benefit, then put the caller's stream back exactly as it
-  # was (including "there was no stream yet").
-  if (!is.null(seed)) {
-    if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
-      old_seed <- get(".Random.seed", envir = globalenv())
-      on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
-    } else {
-      on.exit(suppressWarnings(rm(".Random.seed", envir = globalenv())),
-              add = TRUE)
-    }
-    set.seed(seed)
-  }
-  res <- fgsea::fgseaMultilevel(
-    pathways = sets, stats = ranks,
-    minSize = min_size, maxSize = max_size,
-    eps = eps, nPermSimple = n_perm_simple, scoreType = score_type
+  # Pin the generator too because `bplapply()` changes it inside tasks. Seed
+  # for fgsea's benefit, then restore the caller's stream exactly, including
+  # "there was no stream yet".
+  res <- .with_pinned_seed(
+    seed,
+    fgsea::fgseaMultilevel(
+      pathways = sets, stats = ranks,
+      minSize = min_size, maxSize = max_size,
+      eps = eps, nPermSimple = n_perm_simple, scoreType = score_type
+    )
   )
   res <- as.data.frame(res)
   if (!nrow(res)) {

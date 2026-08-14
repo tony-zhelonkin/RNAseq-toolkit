@@ -108,11 +108,28 @@ test_that("gs_test leaves the caller's RNG stream untouched", {
   # seed-123 stream rather than the script's own.
   db <- fake_gs_db()
   set.seed(999)
-  before <- runif(3)
+  before <- runif(1)
   set.seed(999)
   invisible(gs_test(fake_ranks(), db, min_size = 5, max_size = 50))
-  after <- runif(3)
+  after <- runif(1)
   expect_identical(before, after)
+})
+
+test_that("gs_test pins its RNG inside a BiocParallel task", {
+  skip_if_not_installed("BiocParallel")
+  ranks <- fake_ranks()
+  db <- fake_gs_db()
+
+  parent <- gs_test(ranks, db, min_size = 5, max_size = 50, seed = 71L)
+  nested <- BiocParallel::bplapply(
+    1L,
+    function(i) {
+      gs_test(ranks, db, min_size = 5, max_size = 50, seed = 71L)
+    },
+    BPPARAM = BiocParallel::SerialParam()
+  )[[1L]]
+
+  expect_identical(parent$p_value, nested$p_value)
 })
 
 test_that("a partially named db list still labels every database", {

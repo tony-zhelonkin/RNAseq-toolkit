@@ -316,8 +316,8 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #'
 #' `k_gene` is the module-size dial: **smaller `k` gives a larger module.**
 #' 50 is the GATOM default; 25 and 75 are the standard sensitivity branches.
-#' The solver is a heuristic, so `seed` is set immediately before the solve
-#' and recorded on the result.
+#' Scoring and solving are stochastic, so `seed` is reset independently before
+#' each call and recorded on the result.
 #'
 #' @param de A `gatom_de` table from [gatom_de()] (or a data frame with the
 #'   same four columns).
@@ -326,7 +326,11 @@ gatom_de <- function(x, id, pval, log2FC, baseMean) {
 #' @param k_met Numeric(1) metabolite-score parameter, or `NULL` when
 #'   `met_de` is `NULL`.
 #' @param met_de Optional metabolite DE table.
-#' @param seed Integer(1) RNG seed set before solving.
+#' @param seed Integer(1) RNG seed reset separately before scoring and solving.
+#'   For callers using R's default generator, each stochastic call starts from
+#'   the same state as before this helper was introduced, so results do not
+#'   move. Results do move to the reproducible value when callers had changed
+#'   `RNGkind()`.
 #' @param solver Character(1): `"rnc"` (default), `"rmwcs"` or `"annealing"`.
 #' @param verbose Logical(1); report graph and module sizes.
 #' @param gene2reaction_extra Optional data frame of additional gene-to-reaction
@@ -414,10 +418,14 @@ gatom_module <- function(de, refs, k_gene = 50, k_met = NULL, met_de = NULL,
   # Seed twice: BioNet's BUM fit inside scoreGraph() uses random starts, so
   # seeding only the solver leaves the *scores* irreproducible (observed:
   # 40- vs 53-node modules from one seed at realistic scale).
-  set.seed(seed)
-  gs <- gatom::scoreGraph(g, k.gene = k_gene, k.met = k_met)
-  set.seed(seed)
-  solution <- mwcsr::solve_mwcsp(solver_obj, gs)
+  gs <- .with_pinned_seed(
+    seed,
+    gatom::scoreGraph(g, k.gene = k_gene, k.met = k_met)
+  )
+  solution <- .with_pinned_seed(
+    seed,
+    mwcsr::solve_mwcsp(solver_obj, gs)
+  )
   m <- solution$graph
 
   # This name matches the downstream results-table column and avoids ambiguity.

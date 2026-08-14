@@ -40,3 +40,13 @@ fake_gs_matrix <- function(n_path = 3L, n_samp = 4L) {
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
+
+# `tests/fixtures/` is in .Rbuildignore, so it ships with the source tree but not
+# with the built package. Tests that need it run under devtools::test() and the
+# golden harness, and skip under R CMD check rather than erroring there.
+coresh_micro_fixture <- function() {
+  path <- testthat::test_path("..", "fixtures", "coresh-chunk-micro.rds")
+  testthat::skip_if_not(file.exists(path),
+                        "coresh-chunk-micro.rds is not in the built package")
+  readRDS(path)
+}

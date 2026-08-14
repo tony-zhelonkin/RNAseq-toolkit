@@ -23,7 +23,8 @@ removed with a message before scoring.}
 \item{pvalues}{Logical. Calculate a GESECA p-value.}
 
 \item{sample_size}{Positive whole number passed to the GESECA multilevel
-estimator as \code{sampleSize}.}
+estimator as \code{sampleSize}. The default of 21 is the value used in the
+upstream CoReSh vignette, not fgsea's default of 101.}
 
 \item{seed}{Whole-number RNG seed reset immediately before the GESECA call.
 The generator is also pinned, so results do not depend on the number of
@@ -35,10 +36,12 @@ estimator.}
 \value{
 A one-row tibble with \code{gse}, \code{gpl}, \code{pct_var}, \code{p_value}, \code{log2err},
 and \code{size}. \code{log2err} is \code{Inf} for sets beyond the estimator's
-reliable resolution and is reported rather than hidden. Because the same
-seed is reset for every dataset, p-values are not independent across the
-compendium; multiple-testing correction across them is invalid and
-\code{p_value} is for ranking.
+reliable resolution and is reported rather than hidden. \code{nPermSimple} is
+not exposed, so an infinite \code{log2err} can mean that the reported p-value
+came entirely from fgsea's pre-permutation screen. Because the same seed
+is reset for every dataset, p-values are not independent across the
+compendium. There is no \code{padj} column, and applying \code{\link[stats:p.adjust]{stats::p.adjust()}} to
+the compendium is invalid; \code{p_value} is for ranking.
 }
 \description{
 Computes the percentage of stored total variance explained by the query's

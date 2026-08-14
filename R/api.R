@@ -111,11 +111,9 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   experimental_names <- unlist(experimental, use.names = FALSE)
   names_all <- c(stable_names, experimental_names, deprecated)
 
-  layer <- c(
-    rep(names(stable), lengths(stable)),
-    rep(names(experimental), lengths(experimental)),
-    rep("deprecated", length(deprecated))
-  )
+  layer <- sub("_.*$", "", names_all)
+  known_layers <- c("gs", "gsdb", "de", "gatom", "coresh", "gsea")
+  layer[!layer %in% known_layers] <- "top-level"
   lifecycle <- c(
     rep("stable", length(stable_names)),
     rep("experimental", length(experimental_names)),

@@ -29,7 +29,11 @@ same four columns).}
 
 \item{met_de}{Optional metabolite DE table.}
 
-\item{seed}{Integer(1) RNG seed set before solving.}
+\item{seed}{Integer(1) RNG seed reset separately before scoring and solving.
+For callers using R's default generator, each stochastic call starts from
+the same state as before this helper was introduced, so results do not
+move. Results do move to the reproducible value when callers had changed
+\code{RNGkind()}.}
 
 \item{solver}{Character(1): \code{"rnc"} (default), \code{"rmwcs"} or \code{"annealing"}.}
 
@@ -53,8 +57,8 @@ subgraph.
 \details{
 \code{k_gene} is the module-size dial: \strong{smaller \code{k} gives a larger module.}
 50 is the GATOM default; 25 and 75 are the standard sensitivity branches.
-The solver is a heuristic, so \code{seed} is set immediately before the solve
-and recorded on the result.
+Scoring and solving are stochastic, so \code{seed} is reset independently before
+each call and recorded on the result.
 }
 \examples{
 \dontrun{

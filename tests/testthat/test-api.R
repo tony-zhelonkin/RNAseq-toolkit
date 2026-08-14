@@ -24,6 +24,17 @@ test_that("each export has one stability lifecycle and one layer", {
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
+  expect_equal(sum(api$layer == "gs"), 17L)
+  expect_equal(sum(api$layer == "gsdb"), 6L)
+  expect_equal(sum(api$layer == "de"), 6L)
+  # `download_gatom_references` has no `gatom_` prefix, so it lands in
+  # top-level. That is the honest structural answer, and it is exactly the
+  # rename S2 is scheduled to make.
+  expect_equal(sum(api$layer == "gatom"), 5L)
+  expect_equal(sum(api$layer == "coresh"), 5L)
+  expect_equal(sum(api$layer == "gsea"), 4L)
+  expect_equal(sum(api$layer == "top-level"), 30L)
+  expect_length(intersect(unique(api$layer), unique(api$lifecycle)), 0L)
 })
 
 test_that("experimental status is limited to CoReSh and gene-id helpers", {
