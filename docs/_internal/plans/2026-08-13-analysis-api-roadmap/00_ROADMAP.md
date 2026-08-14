@@ -349,3 +349,89 @@ formals I assumed existed, an undecided RNG policy, an inconsistency between two
 and a clone I had made from a commit that predated the work it was supposed to build on. That
 last one was my error and cost a full round. One round died on a `bwrap` sandbox failure and wrote
 nothing; `setsid` fixed it.
+
+---
+
+## 9. Determinism made enforceable (2026-08-14)
+
+Three fan-outs. **1385 tests passing, golden 20/20, `R CMD check` 0/0/0.** §8 fixed the
+mechanism; this pass fixed the policy around it and made the invariant enforceable.
+
+### What was still wrong after the mechanism was fixed
+
+`.with_pinned_seed()` was correct and used at all three sites, and none of that was visible or
+defended. Measured on the tree at the time:
+
+- **The stochastic surface was undiscoverable.** Four exports took a seed; `gs_test()` was
+  stochastic too but accepted `seed` only through `...`, so it did not appear in its own
+  signature. Nothing let a user ask which functions are random.
+- **`write_session_provenance()` recorded nothing about RNG** — 76 lines, zero mentions of seed,
+  generator or `RNGkind` — in a package whose ADR-001 makes the version the unit of
+  reproducibility. `RNGkind` is the single most useful line it could carry, since it is what
+  silently changed answers inside `bplapply()`.
+- **`gs_test()` discarded `log2err`.** fgsea returns it natively; the adapter dropped it. So the
+  same estimator family was treated two ways in one package — CoReSh reported its uncertainty and
+  `gs_test()` threw it away. Nothing looks wrong at either call site, which makes it a more
+  interesting kind of drift than a retyped function.
+- **Nothing prevented a fourth seeding site** from appearing.
+
+### What was deliberately not changed
+
+**The three default seeds stay different.** `coresh_*` uses `1L` because that is the literal value
+upstream's reference implementation passes, `gatom_module()` uses `42`, the fgsea adapter uses
+`123L`, and `run_gsea()` is signature-frozen. Unifying them would silently move every number
+already published. They are **documented deviations, not an accident to tidy** —
+`bulkirna_stochastic()` records each one with its reason, which is the fix.
+
+**The legacy shims keep their historical shape.** `log2err` moved two golden baselines through
+`run_gsea()` and `normalize_gsea_results()`. Rather than re-capture, `.drop_legacy_extras()` stops
+the addition at the shim boundary: a shim exists so unmigrated callers need not change, two of
+three consumers are unmigrated, and such a caller may index positionally. Anyone who wants the
+uncertainty bound wants `gs_test()`. Golden returned to 20/20 with no baseline touched.
+
+**`gs_to_master()` still returns exactly the 14 ADR-002 columns**, verified rather than assumed —
+the whole `neg_log_padj` defect this project began with was a column-union accident.
+
+### The enforcement test, and why it has teeth
+
+It walks the parse tree of every file under `R/` and rejects any RNG-state **mutation** outside
+`R/rng.R`: `set.seed()`, `RNGkind()` called with arguments, assignment to or removal of
+`.Random.seed`. A bare `RNGkind()` is a **read** and stays legal, which matters because
+`write_session_provenance()` queries it on purpose.
+
+**That distinction came from an agent refusing the brief.** I first wrote the rule as "`RNGkind`
+appears only in `R/rng.R`", and it stopped to point out that `R/data-io.R` would fail it for a
+read-only provenance query. It was right, and the corrected rule — mutation, not access — is the
+one that states the invariant that actually matters. **That is the sixth time an agent on this
+package has stopped on a false premise in one of my briefs.**
+
+Verified in both directions rather than trusted: a `set.seed()` and an argument-bearing
+`RNGkind()` planted in `R/utils.R` fail the test and are named individually; a bare `RNGkind()`
+read added to the same file passes. The test also asserts `R/rng.R` *does* contain a `set.seed()`,
+so it cannot rot into a pass over an empty set.
+
+### The classification loop, which is the durable part
+
+Every name `bulkirna_stochastic()` declares must be either exercised in the loop — same seed twice
+identical, two seeds different, the caller's stream and `RNGkind()` untouched — or listed as
+covered elsewhere with a reason. **Declaring a sixth stochastic function turns the suite red until
+somebody classifies it.** Verified by declaring `gs_score` and watching six tests go red.
+
+That is the property worth having: coverage cannot silently lag the registry, and the registry
+cannot silently lag the code, because a separate test derives the registry from `formals()` in both
+directions.
+
+### Two lessons about writing tests for stochastic code
+
+- **A tiny fixture proves nothing.** The first `gs_test` case used a 100-gene ramp and three sets;
+  its p-values saturate, so two seeds compared equal and the test passed while asserting nothing.
+  It now uses 2,000 genes and 16 sets to keep the estimator in the range where the seed matters.
+- **State must be captured after the fixture is built.** Capturing before means the fixture's own
+  `set.seed()` is mistaken for the function under test disturbing its caller. The comparison helper
+  now brackets only the calls.
+
+Three vacuous assertions were also found in existing tests — two serial-versus-`SerialParam()`
+comparisons that would pass on empty p-value vectors, one `all()` that would pass on zero rows —
+and one in the new code: `paste0()` recycles a zero-length vector to `""` when another argument is
+longer, so the offender message built `": "` on the passing case and failed the test it existed to
+explain.
