@@ -272,3 +272,80 @@ compared accession by accession. It needs a browser, so it is the owner's step.
 The mouse sweep, and the `snapshot` field reading `coresh` rather than the tag in one test run —
 an artifact of the scratch symlink used for that run, not of `.ref_path()`, which reported
 `syn66227307_20260721` correctly whenever pointed at a real refcache layout.
+
+---
+
+## 8. The nick-trimming pass (2026-08-13)
+
+Two fan-outs plus a follow-up round, each reviewed. **1325 tests passing, golden 20/20,
+`R CMD check` 0/0/0.** The point of the pass was the deeper causes, not the symptoms.
+
+### Deeper cause 1 — a concern with no owner drifts, even inside this package
+
+Seeding a stochastic library call was implemented **three times, three ways**:
+
+| site | restored the caller's stream | pinned the generator |
+|---|---|---|
+| `.coresh_with_seed()` | yes | yes |
+| `.gs_fgsea()` | yes | **no** |
+| `gatom_module()` | **no** | **no** |
+
+This is the founding pain point of the whole refactor — generic machinery retyped and drifted —
+reproduced inside the package that exists to end it, in the one area where the symptom is silent:
+not a crash, a different draw.
+
+**Both failure modes were measured, not inferred.** `BiocParallel::bplapply()` switches
+`RNGkind()` to `"L'Ecuyer-CMRG"` inside the task **even with `SerialParam()`**, so `set.seed()`
+alone drives a different generator there. `gs_test()` on one fixed input returned
+`0.8963006 0.6011883 0.5638954` in the parent and `0.8981157 0.6039905 0.5644991` inside
+`bplapply` — same seed, different numbers, no warning. And `gatom_module()` overwrote the
+caller's stream, the exact defect a comment in `gs-test.R` describes being fixed *there*.
+
+`R/rng.R` is now the only place in the package allowed to seed. `gatom_module()` still seeds
+twice, in two independent wraps, because collapsing them would change every module ever computed;
+the test that guarantees nothing moves is `.with_pinned_seed(42, rnorm(5))` being identical to
+`{set.seed(42); rnorm(5)}`. After the change `gs_test()` returns the **parent's** values in both
+contexts, so parallel agrees with serial without serial moving.
+
+### Deeper cause 2 — a hand-built fixture contains only what its author imagined
+
+The `NA` Entrez ids in 0.7% of real datasets passed the entire suite and were caught by a
+compendium sweep. That is a blind spot in the *method* of testing, not in any one test.
+
+`tests/fixtures/coresh-chunk-micro.rds` is four **real** dataset objects, 300 genes each, carrying
+between them every structure that has broken this package: repeated ids, missing ids, and a
+matrix whose columns are principal components. Columns are deliberately not subset — the first
+attempt cut them to 8 and silently destroyed three of the four properties, which is the same
+mistake one level up. `make_coresh_micro.R` reproduces the file byte-for-byte; it was the only
+fixture in the tree without a generating script.
+
+### Provenance that can be silently wrong
+
+`.ref_path()` recorded `basename(Sys.readlink(current))`. Two ways that is meaningless while the
+call succeeds: `current` pointing outside its source directory records whatever that path is
+called, and `current` being a **real directory** records the literal string `"current"`, which
+reads as plausible in a `gs_result`'s provenance. Both now warn, once per source, re-armed by
+`.clear_ref_resolutions()`. A nested-but-internal snapshot stays silent, and the real refcache
+still records `syn66227307_20260721` with no warning.
+
+### On the review
+
+The reviewer's most severe finding was **wrong** — it argued from R's C sources that a bare
+`RNGkind()` initialises `.Random.seed`, making a branch dead. Measured in R 4.5.3: `exists()` is
+`FALSE` before and after. The lines were left alone. Its second half was right and more useful:
+that branch had no test. **A finding worth checking is not the same as a finding worth acting
+on**, and the check cost one command.
+
+Three tests were also asserting nothing: a tautology over a whitelist, a fixture branch that
+built `c(NA, query)` and stripped the `NA` back out before calling anything, and an
+`expected_size` that reduced to `length(query)` so the duplicate-collapsing path was never
+reached. All three now assert the property they were named for.
+
+### What the agents got right, and what that cost
+
+Codex stopped and reported rather than guessing **six times across the session**, and was right
+every time: an off-by-one in my export count, five shims with no machine-readable successor, three
+formals I assumed existed, an undecided RNG policy, an inconsistency between two of my own briefs,
+and a clone I had made from a commit that predated the work it was supposed to build on. That
+last one was my error and cost a full round. One round died on a `bwrap` sandbox failure and wrote
+nothing; `setsid` fixed it.
