@@ -3,9 +3,10 @@
 Repo-internal. `.Rbuildignore`d, not shipped. Read this before writing a line of
 `R/`; it is the contract the parallel module agents (B1–B5) share.
 
-The design record lives outside this repo in
-`/data1/users/antonz/pipeline/sciagent-rna/docs/` (`07_api-design.md` is the API
-contract). Live state is `docs/_internal/plans/2026-08-10-bulkirna-package/00_INDEX.md`.
+Live state and the plan of record are `docs/_internal/plans/HANDOFF.md`, which is the entry
+point to every other plan document. The original API-design record is outside this repo in
+`/data1/users/antonz/pipeline/sciagent-rna/docs/` (`07_api-design.md`); it is history now, not
+the contract.
 
 ---
 

@@ -39,6 +39,58 @@ schema.**
 
 ---
 
+## 0b. The house pipeline shape
+
+**Canonical reference:**
+`/data1/users/antonz/projects/AdaW-eWAT-WL-bulkRNAseq/02_analysis/wl_subset`
+
+The most complete end-to-end example in the estate, and the one whose *stage numbering* is the
+convention every other project approximates. 28 scripts, three phases, one `_viz` per compute
+stage:
+
+| Stage | Scripts |
+|---|---|
+| **1.x ingest and prepare** | `1.1_data_loading` → `1.2_annotation` → `1.3_qc_filtering` → `1.4_design` → `1.6_de` |
+| **2.x compute** | `2.1_gsea`, `2.3_mito_gsea`, `2.3_modules`, `2.4_transportdb_gsea`, `2.5_decoupler_tf`, `2.5_gatom`, `2.6_progeny`, `2.7_master_tables`, `2.8`–`2.14_wgcna_*` |
+| **3.x render** | `3.0_volcano_viz`, `3.1_gsea_viz`, `3.2_progeny_viz`, `3.3_tf_viz`, `3.5_gatom_viz`, `3.8`/`3.9` heatmaps, `3.11`/`3.12_wgcna_viz` |
+| **validate** | `validate_wl_pipeline.R` — fail-fast schema check, run before the pipeline, not after |
+
+**The numbering is the contract, not decoration.** A compute stage and its renderer share a
+number; a renderer never computes. Gaps in the sequence (`1.5`, `2.2`, `3.4`) are deliberate —
+they are where a stage was dropped, and reusing the number would make two projects' `2.2` mean
+different things.
+
+**Configuration lives in `config/`, not in the scripts.** Three files:
+`config.R` (paths, groups, contrasts, palettes, and the derived constants), a project YAML read
+into `CONFIG`, and `color_config.R`. The keys that recur across every project, and which the
+package should therefore treat as its own defaults:
+
+| Concern | Config keys |
+|---|---|
+| Filtering | `MIN_COUNT`, `MIN_SAMPLES` |
+| DE thresholds | `DE_FDR`, `DE_LOGFC` |
+| GSEA | `GSEA_NPERM`, `GSEA_SEED`, `GSEA_MIN_SIZE`, `GSEA_MAX_SIZE` |
+| Design | `GROUPS`, `*_CONTRASTS`, `*_CONTRASTS_BASIC` |
+| Presentation | `GROUP_COLORS`, `DIVERGING_COLORS`, `PLOT_DIRS` |
+
+**Output layout**, which the package's `gs_save()` and `ensure_dir()` already assume:
+
+```
+03_results/<subset>/
+├── checkpoints/     # every expensive step, read back on re-run
+├── tables/          # one tidy CSV per figure, beside the figure
+└── plots/<TOPIC>/   # GSEA, Volcano, Heatmaps, TF, PROGENy, GATOM, QC
+```
+
+**Two conventions worth stating explicitly**, because agents get them wrong:
+
+- **A tidy CSV is written beside every figure.** A plot whose source table cannot be read is not
+  a finished output. `gs_save()` does this; do not bypass it.
+- **`contrast` is a string and the join key across every stage.** DE, GSEA, TF and PROGENy rows
+  all stack vertically into one long table per entity class, joined on it.
+
+---
+
 ## 1. CoReSh coregulation search
 
 **Canonical reference:**

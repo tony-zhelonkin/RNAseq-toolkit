@@ -2,7 +2,7 @@
 
 Bulk RNA-seq differential expression and gene-set analysis, as an installed R package.
 
-**Version:** 0.4.0 · **License:** MIT · **Author:** Anton Zhelonkin
+**Version:** 0.5.0 · **License:** MIT · **Author:** Anton Zhelonkin
 
 This package succeeds `RNAseq-toolkit`, a folder of scripts each project `source()`d from a
 submodule. There is now one installed copy and one line to reach it: `library(bulkiRNA)`.
@@ -13,11 +13,11 @@ The old function names still work — see [Legacy names](#legacy-names).
 ## Install
 
 ```r
-remotes::install_github("tony-zhelonkin/bulkiRNA@v0.4.0")
+remotes::install_github("tony-zhelonkin/bulkiRNA@v0.5.0")
 ```
 
 Pin a ref. The package lives on tagged releases and on the `feat/bulkirna-package` branch,
-so `@v0.4.0` or `@feat/bulkirna-package` both resolve.
+so `@v0.5.0` or `@feat/bulkirna-package` both resolve.
 
 The hard dependencies are small: `msigdbr`, `fgsea`, `ggplot2`, `dplyr` and a handful of
 base-adjacent packages. `limma`, `edgeR`, `GSVA`, `gatom`, `org.*.eg.db` and `plotly` sit
@@ -119,10 +119,12 @@ alike.
 `theme_bulki()` (publication ggplot2 theme) · `gs_save()` (a plot with the table behind it)
 · `format_pathway_name()` (biological capitalisation from a ~400-term dictionary) ·
 `write_session_provenance()` · `ensure_dir()` · `bulkirna_check_deps()` ·
-`bulkirna_api()` (machine-readable lifecycle and signature-freeze registry)
+`bulkirna_api()` (machine-readable lifecycle and signature-freeze registry) ·
+`bulkirna_stochastic()` (which functions consume randomness, and each one's seed)
 
 `write_session_provenance()` records the `bulkiRNA` version, every hard-dependency version,
-the bundled registry version, and any shared reference-data snapshot resolved this session —
+the bundled registry version, `RNGkind()` and the stochastic seed defaults, and any shared
+reference-data snapshot resolved this session —
 the package version is the unit of reproducibility, so it is stated outright rather than
 inferred from `sessionInfo()`.
 
@@ -136,7 +138,7 @@ from CRAN.
 
 ## Legacy names
 
-20 of the 73 exports are shims for the old script-library API. Each one works, warns once,
+20 of the 74 exports are shims for the old script-library API. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`
