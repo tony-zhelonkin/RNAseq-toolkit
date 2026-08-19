@@ -243,6 +243,9 @@ is_gs_db <- function(x) inherits(x, "gs_db")
 
 #' Print a `gs_db`
 #'
+#' Database provenance wraps to the current console width, with a 40-character
+#' minimum, and continuation lines are indented under the label.
+#'
 #' @param x A `gs_db`.
 #' @param ... Ignored.
 #' @return `x`, invisibly.
@@ -271,9 +274,18 @@ print.gs_db <- function(x, ...) {
     rendered <- vapply(values, function(value) {
       if (is.na(value)) "NA" else as.character(value)
     }, character(1L))
-    cat("Provenance: ",
-        paste0(names(rendered), "=", rendered, collapse = "; "), "\n",
-        sep = "")
+    width <- getOption("width", 80L)
+    if (!is.numeric(width) || length(width) != 1L || is.na(width) ||
+        !is.finite(width)) {
+      width <- 80L
+    }
+    provenance_lines <- strwrap(
+      paste0(names(rendered), "=", rendered, collapse = "; "),
+      width = max(40L, as.integer(width)),
+      prefix = "            ",
+      initial = "Provenance: "
+    )
+    cat(paste(provenance_lines, collapse = "\n"), "\n", sep = "")
   }
   if (length(x)) {
     show <- utils::head(names(x), 3L)

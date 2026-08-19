@@ -98,6 +98,7 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   )
 
   experimental <- list(
+    gsdb = "gsdb_coresh",
     gs = "gs_coregulation",
     # All dataset-level CoReSh APIs share the (gse, gpl) composite key.
     coresh = c(

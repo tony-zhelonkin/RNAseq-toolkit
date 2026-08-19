@@ -2,6 +2,12 @@
 
 ## API
 
+* `gsdb_coresh()` composes CoReSh search and set construction into an
+  experimental provider returning `database = "coresh"`. It records the
+  resolved reference snapshot, compact query names and sizes, and the
+  set-building controls in database provenance. Exact Entrez IDs remain in
+  the caller's query definitions instead of being serialized into the object.
+
 * Named calls using the result-limit arguments `top` or `n_top` must now use
   `top_n`. This breaking rename affects `gs_leading_edge()`, `gs_plot_bar()`,
   `gs_plot_dot()`, `gs_plot_heatmap()`, `gs_plot_running()`,
@@ -53,6 +59,10 @@
   annotate human genes through the mouse annotation package.
 
 ## Reproducibility
+
+* `gsdb_coresh()` pins the compendium search with CoReSh's historical
+  `seed = 1L`. Its returned database records the snapshot tag even though the
+  shared refcache remains free to advance `current`.
 
 * `gs_coregulation()` pins GESECA's stochastic work through the package RNG
   owner and is declared by `bulkirna_stochastic()`. Its default seed is `123L`,

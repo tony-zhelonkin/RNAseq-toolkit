@@ -15,5 +15,6 @@
 \code{x}, invisibly.
 }
 \description{
-Print a \code{gs_db}
+Database provenance wraps to the current console width, with a 40-character
+minimum, and continuation lines are indented under the label.
 }

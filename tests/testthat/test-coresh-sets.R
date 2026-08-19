@@ -13,6 +13,18 @@ fake_coresh_loading_object <- function(gse = "GSE_LOAD", n_genes = 30L) {
   )
 }
 
+test_that("CoReSh query provenance is compact and uses unique sizes", {
+  queries <- list(
+    iron_uptake = c(7037L, 4891L, 7037L, 55240L),
+    ferroptosis = c(2879L, 3764L, 112398L, 79071L)
+  )
+
+  expect_identical(
+    bulkiRNA:::.coresh_query_summary(queries),
+    "iron_uptake(3), ferroptosis(4)"
+  )
+})
+
 test_that("coresh_loadings reproduces the deterministic projection", {
   skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
   chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
@@ -340,6 +352,12 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
   )
   expect_false("CORESH_q_low_GSE_LOW" %in% names(db))
   expect_identical(attr(db, "provenance")$snapshot, "syn-test")
+  expect_identical(
+    attr(db, "provenance")$queries,
+    "q_low(3), q_far(3), q_high(3), unused_short_query(2)"
+  )
+  expect_false("queries_r" %in% names(attr(db, "provenance")))
+  expect_false("selected_hits_r" %in% names(attr(db, "provenance")))
   expect_identical(attr(db, "provenance")$top_n, 50L)
   expect_identical(
     attr(db, "set_provenance")$set_name,

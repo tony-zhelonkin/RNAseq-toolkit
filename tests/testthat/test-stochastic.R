@@ -188,6 +188,10 @@ test_that("every declared stochastic function is classified and reproducible", {
   covered_elsewhere <- c(
     gatom_module  = "needs gatom and mwcsr; covered in test-gatom.R",
     coresh_search = "needs a chunk tree; covered by the mocked tests above",
+    gsdb_coresh   = paste(
+      "needs a chunk tree; composition and RNG state are covered in",
+      "test-gsdb-coresh.R"
+    ),
     run_gsea      = "needs msigdbr over the network; delegates to gs_test()"
   )
 

@@ -259,6 +259,19 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
   keep
 }
 
+#' Summarise CoReSh queries for database provenance
+#'
+#' Database provenance identifies caller-owned queries by name and unique
+#' Entrez-ID count without copying their full definitions into every database.
+#'
+#' @param queries A validated named list of Entrez queries.
+#' @return A character scalar in the form `name(size), name(size)`.
+#' @keywords internal
+.coresh_query_summary <- function(queries) {
+  sizes <- vapply(queries, function(query) length(unique(query)), integer(1L))
+  paste0(names(queries), "(", sizes, ")", collapse = ", ")
+}
+
 #' Build gene sets from ranked CoReSh hits
 #'
 #' For every hit, [coresh_loadings()] extracts the strongest gene loadings and
@@ -290,8 +303,12 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
 #' @param verbose Logical. Report the reason for each skipped hit in addition
 #'   to the always-reported category counts.
 #' @return A [gs_db()] with database-level `provenance` and a set-keyed
-#'   `set_provenance` tibble. The latter contains `set_name`, `query_name`,
-#'   `gse`, `gpl`, `chunk_path`, `loading_cutoff`, and `rank_in_coresh`.
+#'   `set_provenance` tibble. Database provenance records query names and their
+#'   unique Entrez-ID counts, the snapshot, and the set-building parameters.
+#'   It does not store the exact Entrez IDs; reproducing the database requires
+#'   the caller's own query definitions. Set provenance contains `set_name`,
+#'   `query_name`, `gse`, `gpl`, `chunk_path`, `loading_cutoff`, and
+#'   `rank_in_coresh` for each retained set.
 #' @examples
 #' \dontrun{
 #' db <- coresh_sets(
@@ -306,6 +323,7 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
                         min_size = 15L, max_size = 500L,
                         jaccard_threshold = 0.8, verbose = FALSE) {
   .coresh_validate_set_inputs(top_hits, queries)
+  query_summary <- .coresh_query_summary(queries)
   top_n <- .coresh_positive_integer(top_n, "top_n")
   min_size <- .coresh_positive_integer(min_size, "min_size")
   max_size <- .coresh_positive_integer(max_size, "max_size")
@@ -508,6 +526,12 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
     species = species_info$scientific,
     n_chunks = index_provenance$n_chunks %||%
       as.integer(length(unique(index$chunk))),
+    queries = query_summary,
+    top_hits = if (nrow(top_hits)) {
+      as.integer(max(top_hits$rank))
+    } else {
+      0L
+    },
     top_n = top_n,
     min_size = min_size,
     max_size = max_size,

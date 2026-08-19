@@ -152,6 +152,30 @@ test_that("database and set provenance survive subsetting", {
   expect_true(any(grepl("snapshot=snapshot-20260818", printed, fixed = TRUE)))
 })
 
+test_that("long database provenance wraps at the configured display width", {
+  db <- bulkiRNA:::gs_db(
+    list(A = "a"),
+    database = "d",
+    species = "Mus musculus",
+    provenance = list(
+      source = "coresh",
+      snapshot = "syn66227307_20260721",
+      queries = "iron_uptake(5), ferroptosis(4), heme(4)",
+      top_hits = 5L,
+      top_n = 50L
+    )
+  )
+  withr::local_options(width = 60L)
+
+  printed <- capture.output(print(db))
+  provenance_lines <- grep("^(Provenance: | {12})", printed, value = TRUE)
+
+  expect_gt(length(provenance_lines), 1L)
+  expect_true(all(nchar(provenance_lines, type = "width") <= 60L))
+  expect_true(grepl("^Provenance: source=coresh", provenance_lines[[1L]]))
+  expect_true(all(grepl("^ {12}", provenance_lines[-1L])))
+})
+
 test_that("set provenance is restricted and reordered to retained sets", {
   set_provenance <- tibble::tibble(
     set_name = c("A", "B", "C"),

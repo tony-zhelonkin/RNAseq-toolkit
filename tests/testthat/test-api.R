@@ -75,12 +75,14 @@ test_that("experimental status covers CoReSh, coregulation and gene-id helpers",
   experimental <- c(
     "coresh_chunks", "coresh_convergence", "coresh_loadings", "coresh_match",
     "coresh_search", "coresh_sets", "coresh_validate", "gs_coregulation",
-    "entrez_to_gene", "filter_confounder_genes", "gene_to_entrez"
+    "gsdb_coresh", "entrez_to_gene", "filter_confounder_genes",
+    "gene_to_entrez"
   )
 
   expect_setequal(api$name[api$lifecycle == "experimental"], experimental)
   expect_true(all(api$layer[grepl("^coresh_", api$name)] == "coresh"))
   expect_identical(api$layer[api$name == "gs_coregulation"], "gs")
+  expect_identical(api$layer[api$name == "gsdb_coresh"], "gsdb")
 })
 
 test_that("the historical signature freeze remains an independent axis", {

@@ -9,16 +9,19 @@
   data.frame(
     name = c(
       "coresh_match", "coresh_search", "gatom_module",
-      "gs_coregulation", "gs_test", "run_gsea"
+      "gs_coregulation", "gs_test", "gsdb_coresh", "run_gsea"
     ),
-    seed_arg = c("seed", "seed", "seed", "seed", NA_character_, "seed"),
-    seed_default = c("1L", "1L", "42", "123L", "123L", "123"),
+    seed_arg = c(
+      "seed", "seed", "seed", "seed", NA_character_, "seed", "seed"
+    ),
+    seed_default = c("1L", "1L", "42", "123L", "123L", "1L", "123"),
     source_of_randomness = c(
       "GESECA multilevel permutations",
       "GESECA multilevel permutations",
       "BioNet BUM fit and the MWCS solver heuristic",
       "GESECA multilevel permutations",
       "fgsea multilevel permutations",
+      "CoReSh compendium search worker scheduling",
       "fgsea multilevel permutations"
     ),
     note = c(
@@ -32,6 +35,10 @@
       paste0(
         "the legacy default, accepted through `...` and documented in ",
         "`gs_test_fgsea_params`, is retained"
+      ),
+      paste0(
+        "provider composition pins the compendium search and retains ",
+        "CoReSh's historical 1L"
       ),
       "the historical signature-frozen default is retained"
     ),

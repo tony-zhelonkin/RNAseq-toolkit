@@ -43,8 +43,12 @@ to the always-reported category counts.}
 }
 \value{
 A \code{\link[=gs_db]{gs_db()}} with database-level \code{provenance} and a set-keyed
-\code{set_provenance} tibble. The latter contains \code{set_name}, \code{query_name},
-\code{gse}, \code{gpl}, \code{chunk_path}, \code{loading_cutoff}, and \code{rank_in_coresh}.
+\code{set_provenance} tibble. Database provenance records query names and their
+unique Entrez-ID counts, the snapshot, and the set-building parameters.
+It does not store the exact Entrez IDs; reproducing the database requires
+the caller's own query definitions. Set provenance contains \code{set_name},
+\code{query_name}, \code{gse}, \code{gpl}, \code{chunk_path}, \code{loading_cutoff}, and
+\code{rank_in_coresh} for each retained set.
 }
 \description{
 For every hit, \code{\link[=coresh_loadings]{coresh_loadings()}} extracts the strongest gene loadings and
