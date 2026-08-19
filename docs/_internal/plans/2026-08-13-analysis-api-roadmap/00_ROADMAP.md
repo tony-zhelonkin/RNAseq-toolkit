@@ -578,3 +578,96 @@ because the two sides touched **different files**: `R/coresh-sets.R` called `.ge
 which the audit had deleted in favour of `.species()`. `devtools::test()` passed on each branch
 *and on the merge*, because `load_all()` had both definitions in scope. Only `R CMD check` on the
 built package caught it. **Parallel stages need the built-package gate, not the fast one.**
+
+---
+
+## 11. The platform key and G4 (2026-08-18)
+
+Two more stages, same shape. **1,572 tests passing, golden 20/20, `R CMD check` 0/0/0, 78
+exports.** Every gate here was run by me; neither agent had a Docker socket and neither claimed
+otherwise.
+
+### A GSE accession was never a unique key, and the numbers are large
+
+§10's finding, fixed. `coresh_loadings()` gains an optional `gpl`, `coresh_sets()` threads it into
+loading extraction and into per-set provenance, and `coresh_convergence()` — which had the same
+defect and which I had not spotted — now requires and groups by `(gse, gpl)`. `coresh_search()`
+already scored every platform as its own row, and `coresh_validate()` performs no lookup, so
+neither changed.
+
+**Warning rather than error, on ambiguity.** An error would break `coresh_sets()` on any `top_hits`
+table produced before this change, and `coresh_search()` did not emit `gpl` until now. So an
+ambiguous accession warns, names every available platform, states which one was used and why, and
+records that platform in the result and in the provenance. The choice is radix-first, so it does
+not depend on chunk-file order, object order within a chunk, or locale.
+
+**Measured on real data, which is what makes this worth the change.** GSE100112 is one of the 1,635.
+Its two platforms:
+
+| platform | chunk | top-5 Entrez by absolute loading |
+|---|---|---|
+| GPL17556 | `chunk_1` | 5996, 8553, 230, 5210, 54541 |
+| GPL11154 | `chunk_36` | 5996, 339122, 8553, 6015, 55814 |
+
+**Their top-50 sets share 19 genes of 50.** First-match was choosing between two materially
+different answers by file order, silently. Verified also: a single-platform accession stays quiet,
+a requested platform that is absent errors naming what is available, and asking for both platforms
+of one accession yields two sets with `GPL`-suffixed names rather than one silently discarded as a
+duplicate.
+
+One honest limit, worth writing down. `coresh_loadings()` sees one chunk file, so it can only detect
+ambiguity *within* that chunk. Cross-chunk ambiguity — which is the common case, since the duplicate
+platforms often live in different files — is detected by `coresh_sets()`, which holds the index. A
+direct `coresh_loadings()` call on a cross-chunk duplicate therefore does not warn.
+
+### G4 — `gs_coregulation()`
+
+GESECA as a first-class verb: an expression matrix in, a `gs_result` with
+`stat_type = "pct_var"` out, `method = "geseca"`, `log2err` retained, seeded through
+`.with_pinned_seed()` and declared in the stochastic registry. Rows are centred by default, because
+GESECA's variance-along-a-direction is only the intended quantity on centred data and a general
+matrix — unlike a CoReSh chunk — does not arrive that way.
+
+Two decisions were mine, and the agent stopped for both rather than inventing them:
+
+- **`pct_var` joins `gs_stat_types()`.** Adding a value to a controlled vocabulary is a widening.
+- **`direction` is `NA`, not `"up"`.** The statistic is unsigned. `gs_direction()` on a strictly
+  positive statistic would have labelled every row `"up"` — a claim the method does not make, and
+  one a filter written `direction == "up"` would silently accept.
+
+**That `NA` found a live defect in `gs_top()`.** It built its grouping key with `paste()`, which
+renders `NA` as the string `"NA"`, so an unsigned result would have been grouped together with any
+row genuinely carrying that text. It now uses `interaction(exclude = NULL)`.
+
+`gs_to_master()`'s NES guard is deliberately untouched: a `pct_var` result reaches the master table
+only with `stat_as_nes = TRUE`, and a test pins that the guard fires by default. A master table
+whose `nes` column silently holds three different statistics is one of the defects this project
+began with.
+
+### The golden baseline G4 promised, and why it is not there
+
+`capture_golden.R` says what it is for in its own header: every case calls a **frozen legacy name**,
+so the goldens prove the refactor did not change behaviour reached through the shims. A new
+experimental function is outside that purpose, and adding it would also pin fgsea's estimator
+version into a baseline that exists to detect *our* drift.
+
+So **the roadmap's G4 gate is not met as written, deliberately.** What stands in its place is
+stronger for a Monte-Carlo function: a test asserting agreement with the centred, unscaled GESECA
+formula computed by hand, invariance to row offsets, a planted coregulated set outranking a
+scrambled one, and the usual seed relations including parent-versus-`bplapply` agreement. A
+snapshot proves a number has not changed; an independent formula proves the number is right.
+
+### Two process findings from this pass
+
+**A textual merge can be clean and still wrong.** `R/coresh-sets.R` called `.gene_id_species()`,
+deleted by the concurrent audit in a different file. `devtools::test()` passed on both branches and
+on the merge, because `load_all()` had both definitions in scope; only `R CMD check` on the built
+package caught it. Separately, a merge kept pre-merge `man/` files, and `R CMD check` reported the
+codoc mismatch and a failing example that `devtools::test()` cannot see. **For parallel stages the
+built-package gate is not optional.**
+
+**Ten pushbacks, ten correct.** Across this session the delegated agents stopped rather than guessed
+ten times: a fifth species handler I had missed, a `gs_db` provenance premise of mine that was false
+in three ways, a `stat_type` vocabulary that would have had to be invented, a golden-case
+registration that my own read-only rule forbade, and six earlier. Not one was wrong. The cost was
+one round each; the alternative in every case was a plausible answer with no basis.
