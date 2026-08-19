@@ -143,12 +143,12 @@ survives as an open question in `03_DEFERRED.md`.
 | 6 Retire the submodule | ⬜ |
 | 7 Distribution | ⬜ |
 | **8 Stabilize the surface** | 🟡 S1 ✅ S2 ✅ S3 ✅ S4 ✅ · **S5, S6 open** |
-| **9 One CoReSh/GESECA run** | 🟡 G1 ✅ G2 ✅ G5 half · **G3, G4 open** |
+| **9 One CoReSh/GESECA run** | 🟡 G1 ✅ G2 ✅ G4 ✅ G5 half · **G3 open** |
 | 10–11 Activity layer, WGCNA, uniform surface | 🚫 parked by decision |
 
 ### What Phase 8–9 delivered so far
 
-- **`bulkirna_api()`** — 77 exports with lifecycle and signature-freeze as *independent* axes,
+- **`bulkirna_api()`** — 78 exports with lifecycle and signature-freeze as *independent* axes,
   because 20 of the 24 frozen names are also deprecated. 46 stable, 8 experimental, 20
   deprecated, all removed in `1.0.0`. Its load-bearing test compares the registry against
   `NAMESPACE` in both directions at test time. 46 stable, 10 experimental, 21 deprecated after
@@ -157,8 +157,13 @@ survives as an open question in `03_DEFERRED.md`.
   default and source of randomness. `write_session_provenance()` records `RNGkind()`.
 - **`R/rng.R`** — the only place allowed to mutate RNG state, with a parse-tree test that fails
   if a fourth site appears, verified in both directions.
-- **CoReSh** — `coresh_chunks/match/search/convergence/validate`, p-values through
-  `fgsea::geseca()`, `pct_var` bit-identical to hand computation on 12 of 12 real datasets.
+- **CoReSh** — `coresh_chunks/match/search/convergence/validate/loadings/sets`, p-values through
+  `fgsea::geseca()`, `pct_var` bit-identical to hand computation on 12 of 12 real datasets, and
+  the loading projection identical to the reference implementation on 63 of 63 comparable hits.
+  Dataset identity is the `(gse, gpl)` pair: 1,635 of 42,465 human accessions appear on more than
+  one platform, and on the one I measured the two platforms shared 19 of 50 top-loading genes.
+- **`gs_coregulation()`** — GESECA on any expression matrix, `stat_type = "pct_var"`, `direction`
+  `NA` because the statistic is unsigned.
 - **`gs_test()`** keeps fgsea's `log2err` instead of discarding it.
 - **A real-data fixture** carrying the three structures that have broken this package.
 
@@ -175,16 +180,11 @@ degradation pathway — at rank 4. Validated against biology, not against itself
 1. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step. It is the only remaining
    independent check on the CoReSh port.
-2. **A GSE is not a unique key in the CoReSh compendium.** 1,635 of 42,465 human accessions
-   appear more than once, the same accession on a different platform, sometimes in a different
-   chunk file. `coresh_loadings()` takes the first `gseId` match, so which dataset you get
-   depends on chunk file ordering. `coresh_chunks()` already returns `gpl`; the lookup needs to
-   use it, which means an optional `gpl` argument and a warning when a bare accession is
-   ambiguous. This is a silent-wrongness defect on 3.7% of accessions and it is the first thing
-   to do.
-3. **G3 and G4** — `gsdb_coresh()` on `.ref_path("coresh")` recording the snapshot tag, then
-   `gs_coregulation()` as its own verb (it takes a matrix where `gs_test()` takes ranks, so a
-   shared signature would lie about the input).
+2. **G3** — `gsdb_coresh()` on `.ref_path("coresh")`, recording the snapshot tag in the
+   `gs_db` provenance that G2 added. Its gate cannot be byte agreement with DC-nexus's stored
+   GMT: that artefact's input chunks no longer exist, and its companion provenance file recorded
+   each query's score rather than each hit's. Gate it on the loading-level agreement plus a
+   fresh end-to-end run.
 4. **Finish Phase 4 — STING-JR first.** It is also the TF reference project, so migrating it
    puts its conventions in front of us before the activity layer is designed. Two unmigrated
    consumers are what keep the 20 shims alive, so this is on the critical path to `v1.0.0`.
