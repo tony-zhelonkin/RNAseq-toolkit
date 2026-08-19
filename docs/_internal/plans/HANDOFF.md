@@ -142,7 +142,7 @@ survives as an open question in `03_DEFERRED.md`.
 | 5 Bind the skills | 🚫 blocked on the SciAgent-toolkit refactor |
 | 6 Retire the submodule | ⬜ |
 | 7 Distribution | ⬜ |
-| **8 Stabilize the surface** | 🟡 S1 ✅ S2 ✅ S3 ✅ S4 ✅ · **S5, S6 open** |
+| **8 Stabilize the surface** | ✅ **S1–S6 done** |
 | **9 One CoReSh/GESECA run** | 🟡 G1–G4 ✅ · **G5's web-UI half open (needs a browser)** |
 | 10–11 Activity layer, WGCNA, uniform surface | 🚫 parked by decision |
 
@@ -179,8 +179,11 @@ degradation pathway — at rank 4. Validated against biology, not against itself
 1. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step. It is the only remaining
    independent check on the CoReSh port.
-2. **S5 and S6** — the return-type and error-message audit, then one vignette per live layer with
-   `R CMD check` staying at 0/0/0. These are the last two open steps of Phase 8.
+2. **Phase 4 — STING-JR, then DC-nexus.** This is now the critical path to `v1.0.0`: the 21
+   deprecated shims exist only because those two consumers still call the old names, and
+   `v1.0.0` is the release where they go. STING-JR first, because it is also the TF reference
+   project, so migrating it puts its conventions in front of us before the activity layer is
+   designed.
 4. **Finish Phase 4 — STING-JR first.** It is also the TF reference project, so migrating it
    puts its conventions in front of us before the activity layer is designed. Two unmigrated
    consumers are what keep the deprecated shims alive, so this is on the critical path to

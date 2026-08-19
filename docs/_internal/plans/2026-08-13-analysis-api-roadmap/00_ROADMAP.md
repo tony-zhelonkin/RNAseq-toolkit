@@ -1274,3 +1274,72 @@ whether every evaluated call behaves in the built namespace, whether optional-pa
 is identical under the check library, and whether rendered figures or generated vignette artifacts
 trigger a check note. Only `devtools::document()`, `devtools::test()`, the golden verifier and
 `rcmdcheck::rcmdcheck()` in the image can close those questions.
+
+---
+
+## 16. S5 and S6 — Phase 8 complete (2026-08-19)
+
+**1,697 tests passing, golden 20/20, `R CMD check` 0/0/0 including the re-building of vignette
+outputs.** Both steps ran in parallel and each found something the step was not looking for.
+
+### S5 — the audit says the roadmap's wording is wrong, not the code
+
+Measured across all 58 live exports rather than asserted: 17 tabular results, 9 renderers returning
+ggplots, 6 writers returning their paths invisibly, and 26 in reasoned exception categories. The full
+tables are in `05_RETURN_AUDIT.md`.
+
+**The roadmap's "every compute function returns a tibble" does not hold, and the honest output is the
+exception list rather than a diff.** `gs_db` is a named list, `gs_score()` returns a numeric matrix,
+`build_dge()` returns a `DGEList` because edgeR consumers require one, `de_pca_3d()` returns a `plotly`
+object on purpose, and `theme_bulki()` returns a theme rather than a plot. Those are architectural
+contracts; changing them to satisfy a sentence in a plan would be the tail wagging the dog.
+
+Error messages now name the offending argument and the fix, with `call. = FALSE` throughout, and two
+enforcement tests keep both properties: every live export's return class asserted against its category,
+and every `stop()` in `R/` parsed for `call. = FALSE` and a backticked argument.
+
+**One self-inflicted defect, and where it surfaced is the point.** Rewriting `de_pca()`'s zero-variance
+message broke a test matching on the old wording. `devtools::test()` did not show it — only `R CMD check`
+on the built package did, where the failure also left a testthat `_problems/` directory that the
+working-directory guard then caught, so one message rewrite produced two red assertions in different
+files. **Error-text churn breaks matchers**, which my brief warned about and the round did anyway, and
+the built-package gate is again the one that sees it.
+
+### S6 — the stated gate was impossible, and the agent stopped rather than reinterpreting it
+
+S6 asked for vignettes "runnable on the shipped fixture". **`tests/fixtures/` and `data/` are both
+`.Rbuildignore`d**, so a built vignette can read neither. The agent stopped and reported that before
+writing four of them, which is the twelfth correct pushback of this work.
+
+Recorded as **unmet-and-superseded**, not reinterpreted. What replaces it, per layer, decided on what can
+actually run with no network and no refcache:
+
+| Vignette | Evaluated? | Why |
+|---|---|---|
+| Gene sets | **Yes** | `inst/extdata` ships real mitocarta/mitoxplorer/transportdb sets and is not build-ignored |
+| Differential expression | **Yes** | self-contained synthetic counts, said to be synthetic in prose, with real signal planted |
+| GATOM | No | needs ~24 MB of reference files |
+| CoReSh | No | needs the 20 GB chunk tree, and `qs2` is not in the image |
+
+The unevaluated two show real copy-pasteable calls and say what the reader must have first. **A vignette
+that prints invented output would be worse than one that admits its prerequisites.**
+
+`knitr` and `rmarkdown` join `Suggests` as **dev-only, beside `testthat`**, rather than the
+optional-dependency registry: `bulkirna_check_deps()` answers "what must I install to use this feature",
+and that answer never includes knitr. The registry-versus-`Suggests` drift test caught the omission
+immediately — ADR-003's seam working exactly as it was built to.
+
+### Phase 8 as a whole
+
+| Step | Outcome |
+|---|---|
+| S1 stability contract | ✅ `bulkirna_api()`, two axes because 20 of 24 frozen names are also deprecated |
+| S2 name audit | ✅ 13 decisions recorded, one rename |
+| S3 argument audit | ✅ five species handlers unified; two concepts later unified on `top_n` and `palette` |
+| S4 deprecation clock | ✅ all 21 shims removed in `1.0.0` |
+| S5 return and error audit | ✅ exceptions reasoned rather than forced |
+| S6 vignettes | ✅ gate superseded, two layers genuinely runnable |
+
+**A name now tells you what you are allowed to rely on, and a test fails if that stops being true.**
+Which was the whole point of the phase, and is worth stating plainly because none of it shipped a
+feature.
