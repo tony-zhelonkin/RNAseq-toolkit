@@ -91,7 +91,7 @@ gs_write <- function(x, dir, name = "gsea", overview = TRUE,
   # previous run, with nothing to indicate it.
   .gs_write_manifest(dir, name, files)
 
-  structure(dir, files = files)
+  invisible(structure(dir, files = files))
 }
 
 #' Record which files a `gs_write()` call produced
@@ -166,7 +166,7 @@ gs_read <- function(dir, name = "gsea") {
   }
   missing <- paths[!file.exists(paths)]
   if (!length(paths) || length(missing)) {
-    stop("No gs_result tables found at ", sQuote(dir),
+    stop("No gs_result tables found at ", encodeString(dir, quote = "\""),
          ". Expected `_overview/", name, "_all.tsv` or ",
          "`by_contrast/*/", name, "_*.tsv`.", call. = FALSE)
   }
@@ -191,7 +191,7 @@ gs_read <- function(dir, name = "gsea") {
   stale <- rel[!rel %in% listed]
   if (length(stale)) {
     warning(
-      length(stale), " file(s) under ", sQuote(dir),
+      length(stale), " file(s) under ", encodeString(dir, quote = "\""),
       " were not written by the last `gs_write()` and are being read anyway: ",
       paste(utils::head(stale, 5L), collapse = ", "),
       ". Re-run `gs_write(prune = TRUE)` to clear them.", call. = FALSE

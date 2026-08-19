@@ -92,7 +92,8 @@ gs_score <- function(expr, db,
     plage = GSVA::plageParam(
       expr, sets, minSize = min_size, maxSize = max_size, ...
     ),
-    stop("Unknown scoring `method`: ", sQuote(method), ".", call. = FALSE)
+    stop("Unknown scoring `method`: ", encodeString(method, quote = "\""),
+         ".", call. = FALSE)
   )
   out <- GSVA::gsva(param, verbose = verbose)
   if (!is.matrix(out)) out <- as.matrix(out)

@@ -61,7 +61,7 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
 
   chunk <- .coresh_read_chunk(chunk_path)
   if (!is.list(chunk) || !length(chunk)) {
-    stop("CoReSh chunk did not contain a non-empty object list: ",
+    stop("CoReSh `chunk_path` did not contain a non-empty object list: ",
          chunk_path, ".", call. = FALSE)
   }
   hits <- which(vapply(chunk, function(obj) {
@@ -69,8 +69,8 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
       identical(as.character(obj$gseId), gse_id)
   }, logical(1L)))
   if (!length(hits)) {
-    stop("GSE ", gse_id, " was not found in ", chunk_path, ".",
-         call. = FALSE)
+    stop("`gse_id` ", gse_id, " was not found in `chunk_path` ",
+         chunk_path, ". Choose a GSE present in that chunk.", call. = FALSE)
   }
   for (hit in hits) {
     .coresh_validate_object(chunk[[hit]], paste0("GSE ", gse_id))
@@ -92,17 +92,18 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
   query_idx <- match(query, obj$rownames)
   query_idx <- query_idx[!is.na(query_idx)]
   if (length(query_idx) < 3L) {
-    stop("GSE ", gse_id, ": only ", length(query_idx), "/", length(query),
-         " query genes are present; at least 3 are required for loading ",
-         "extraction.", call. = FALSE)
+    stop("`query` for `gse_id` ", gse_id, " has only ", length(query_idx),
+         "/", length(query), " genes present; supply at least 3 matching ",
+         "Entrez IDs for loading extraction.", call. = FALSE)
   }
 
   E <- obj$E1024 / 1024
   profile <- colSums(E[query_idx, , drop = FALSE])
   norm <- sqrt(sum(profile^2))
   if (!is.finite(norm) || norm <= 0) {
-    stop("GSE ", gse_id, " has a zero or non-finite query profile; ",
-         "loadings cannot be extracted.", call. = FALSE)
+    stop("`query` for `gse_id` ", gse_id,
+         " has a zero or non-finite profile; supply genes with non-zero ",
+         "loadings in that dataset.", call. = FALSE)
   }
   loadings <- as.numeric(E %*% (profile / norm))
   ordering <- order(-abs(loadings), method = "radix", na.last = TRUE)
@@ -128,8 +129,8 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
   available <- sort(unique(as.character(available)), method = "radix")
   if (!is.null(gpl)) {
     if (!gpl %in% available) {
-      stop("GSE ", gse, " is not available on platform ", gpl,
-           ". Available platforms: ", paste(available, collapse = ", "), ".",
+      stop("`gpl` ", gpl, " is unavailable for `gse` ", gse,
+           "; choose one of: ", paste(available, collapse = ", "), ".",
            call. = FALSE)
     }
     return(gpl)
@@ -196,8 +197,9 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
   for (query_name in unique(top_hits$query_name)) {
     query <- queries[[query_name]]
     if (!is.integer(query) || anyNA(query) || length(unique(query)) < 3L) {
-      stop("Query ", sQuote(query_name), " must contain at least 3 unique, ",
-           "non-missing integer Entrez IDs.", call. = FALSE)
+      stop("`queries` entry ", encodeString(query_name, quote = "\""),
+           " must contain at least 3 unique, non-missing integer Entrez IDs.",
+           call. = FALSE)
     }
   }
   invisible(NULL)
@@ -213,8 +215,8 @@ coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
   gse <- row$gse[[1L]]
   candidates <- index[index$gse == gse, , drop = FALSE]
   if (!nrow(candidates)) {
-    stop("GSE ", gse, " was not found in the CoReSh chunk index.",
-         call. = FALSE)
+    stop("`row$gse` ", gse, " was not found in `index`; use a hit returned ",
+         "by `coresh_search()` for the same chunk snapshot.", call. = FALSE)
   }
   requested_gpl <- if ("gpl" %in% names(row)) row$gpl[[1L]] else NULL
   selected_gpl <- .coresh_select_gpl(gse, candidates$gpl, requested_gpl)

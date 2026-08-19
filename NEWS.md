@@ -2,6 +2,14 @@
 
 ## API
 
+* `gs_write()` now returns its directory invisibly, as documented. Its value
+  and `files` manifest attribute are unchanged.
+
+* Validation errors consistently omit the internal call, name caller
+  arguments in backticks, and render observed values with stable ASCII quotes.
+  Errors caused by corrupt bundled data or malformed third-party results name
+  that object instead of inventing a caller argument.
+
 * `gsdb_coresh()` composes CoReSh search and set construction into an
   experimental provider returning `database = "coresh"`. It records the
   resolved reference snapshot, compact query names and sizes, and the

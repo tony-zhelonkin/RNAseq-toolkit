@@ -244,8 +244,8 @@
   human <- unique(unlist(db, use.names = FALSE))
   map <- homologene::homologene(human, inTax = 9606, outTax = 10090)
   if (!nrow(map)) {
-    stop("homologene returned no human-to-mouse orthologs for these ",
-         "symbols; the input may not be human gene symbols.", call. = FALSE)
+    stop("`db` symbols produced no human-to-mouse orthologs; supply a gs_db ",
+         "whose genes are human symbols.", call. = FALSE)
   }
   map <- map[!duplicated(map[[1]]), ]
   lookup <- stats::setNames(as.character(map[[2]]), as.character(map[[1]]))

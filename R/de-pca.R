@@ -22,7 +22,7 @@
   logcpm <- logcpm[keep_r, keep_c, drop = FALSE]
   if (nrow(logcpm) < min_dim || ncol(logcpm) < min_dim) {
     stop(sprintf(
-      "Not enough variation for PCA: %d gene(s) and %d sample(s) survive the ",
+      "`dge` has too little variation for PCA: %d gene(s) and %d sample(s) survive the ",
       nrow(logcpm), ncol(logcpm)),
       "zero-variance filter, need at least ", min_dim, " of each.",
       call. = FALSE)

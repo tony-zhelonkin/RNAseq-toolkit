@@ -300,7 +300,8 @@ gs_plot_running <- function(x,
   missing_ids <- setdiff(ids, names(sets))
   if (length(missing_ids)) {
     stop("Pathway(s) not found in `db`: ",
-         paste(sQuote(missing_ids), collapse = ", "), ".", call. = FALSE)
+         paste(encodeString(missing_ids, quote = "\""), collapse = ", "),
+         ".", call. = FALSE)
   }
   ids
 }
@@ -427,7 +428,8 @@ gs_plot_running <- function(x,
   out <- lapply(names(sets), function(id) {
     genes <- intersect(sets[[id]], names(ranks))
     if (!length(genes)) {
-      stop("Pathway ", sQuote(id), " has no genes in `ranks`, so it has no ",
+      stop("Pathway ", encodeString(id, quote = "\""),
+           " has no genes in `ranks`, so it has no ",
            "running curve.", call. = FALSE)
     }
     fgsea::plotEnrichmentData(pathway = genes, stats = ranks,

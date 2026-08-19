@@ -163,7 +163,8 @@ list_to_term2gene <- function(
 ) {
   .Deprecated("gsdb_register")
   if (!is.list(geneset_list) || is.null(names(geneset_list))) {
-    stop("geneset_list must be a named list")
+    stop("`geneset_list` must be a named list; name each element with its ",
+         "pathway ID.", call. = FALSE)
   }
   db <- gs_db(geneset_list, database = "legacy_list", species = "Mus musculus")
   t2g <- .gsdb_as_t2g(db)$T2G
@@ -186,7 +187,8 @@ list_to_term2gene <- function(
 parse_gmx <- function(file, prefix = NULL, min_size = 5, max_size = 500) {
   .Deprecated("gsdb_from_file")
   if (!file.exists(file)) {
-    stop("GMX file not found: ", file)
+    stop("`file` not found: ", file,
+         ". Supply the path to an existing GMX file.", call. = FALSE)
   }
   lines <- readLines(file, warn = FALSE)
   lines <- lines[nzchar(trimws(lines))]
@@ -250,7 +252,8 @@ parse_mitoxplorer <- function(
     "gsdb_from_file(). Rebuilding from a raw mitoXplorer export is a",
     "maintainer task and has no exported equivalent."))
   if (!file.exists(file)) {
-    stop("mitoXplorer file not found: ", file)
+    stop("`file` not found: ", file,
+         ". Supply the path to an existing mitoXplorer file.", call. = FALSE)
   }
   db <- .gsdb_parse_mitoxplorer(file, species = "Mus musculus",
                                 prefix = prefix, gene_col = gene_col,
@@ -400,13 +403,18 @@ run_gsea <- function(
     seed          = 123
 ) {
   .Deprecated("gs_ranks() and gs_test()")
-  if (!is.data.frame(DE_results)) stop("`DE_results` must be a data frame.")
+  if (!is.data.frame(DE_results)) {
+    stop("`DE_results` must be a data frame.", call. = FALSE)
+  }
   if (is.null(rownames(DE_results))) {
-    stop("`DE_results` must have rownames (gene identifiers).")
+    stop("`DE_results` must have rownames (gene identifiers).",
+         call. = FALSE)
   }
   if (!rank_metric %in% colnames(DE_results)) {
-    stop(sprintf("`rank_metric` column '%s' not found in `DE_results`.",
-                 rank_metric))
+    stop("`rank_metric` names a column absent from `DE_results`; got ",
+         encodeString(rank_metric, quote = "\""), ". Choose one of: ",
+         paste0("`", colnames(DE_results), "`", collapse = ", "), ".",
+         call. = FALSE)
   }
   if (!identical(padj_method, "fdr")) {
     warning("`padj_method` is ignored: gs_test() always adjusts with \"BH\".",

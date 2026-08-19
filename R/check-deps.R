@@ -132,7 +132,7 @@ bulkirna_check_deps <- function(features = "all", quiet = FALSE,
   if (error && any(missing)) {
     commands <- paste(unique(out$install[missing]), collapse = "; ")
     stop(
-      "Missing optional package(s) for the requested feature set: ",
+      "Missing optional package(s) selected by `features`: ",
       paste(out$package[missing], collapse = ", "),
       ". Install with: ", commands, ".",
       call. = FALSE

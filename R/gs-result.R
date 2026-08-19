@@ -141,7 +141,7 @@ gs_result <- function(x,
   missing <- setdiff(setdiff(.gs_core_cols, "direction"), names(x))
   if (length(missing)) {
     stop(
-      "gs_result is missing required column(s): ",
+      "`x` is missing required gs_result column(s): ",
       paste(missing, collapse = ", "),
       call. = FALSE
     )
@@ -185,12 +185,13 @@ new_gs_result <- function(x) {
 #' @keywords internal
 validate_gs_result <- function(x) {
   if (!inherits(x, "gs_result")) {
-    stop("Not a gs_result.", call. = FALSE)
+    stop("`x` must be a gs_result; construct it with `gs_test()` or ",
+         "`gs_coregulation()`.", call. = FALSE)
   }
   missing <- setdiff(.gs_core_cols, names(x))
   if (length(missing)) {
     stop(
-      "gs_result is missing core column(s): ",
+      "`x` is missing core gs_result column(s): ",
       paste(missing, collapse = ", "), call. = FALSE
     )
   }
@@ -209,7 +210,7 @@ validate_gs_result <- function(x) {
   }
   if (length(bad_type)) {
     stop(
-      "gs_result column(s) have the wrong type: ",
+      "`x` has gs_result column(s) of the wrong type: ",
       paste(bad_type, collapse = ", "), call. = FALSE
     )
   }
@@ -218,7 +219,8 @@ validate_gs_result <- function(x) {
   unknown <- setdiff(st, names(gs_stat_types()))
   if (length(unknown)) {
     stop(
-      "Unknown stat_type: ", paste(sQuote(unknown), collapse = ", "),
+      "Unknown stat_type in `x$stat_type`: ",
+      paste(encodeString(unknown, quote = "\""), collapse = ", "),
       ". Allowed: ", paste(names(gs_stat_types()), collapse = ", "),
       call. = FALSE
     )
@@ -229,7 +231,8 @@ validate_gs_result <- function(x) {
   if (length(bad_dir)) {
     stop(
       "`direction` must be \"up\", \"down\" or \"ns\"; got: ",
-      paste(sQuote(bad_dir), collapse = ", "), call. = FALSE
+      paste(encodeString(bad_dir, quote = "\""), collapse = ", "),
+      call. = FALSE
     )
   }
 

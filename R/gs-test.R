@@ -49,7 +49,7 @@ gs_test.default <- function(x, db, method = NULL, contrast = "contrast", ...,
                             verbose = FALSE) {
   stop(
     "`gs_test()` has no method for an object of class ",
-    paste(sQuote(class(x)), collapse = "/"),
+    paste(encodeString(class(x), quote = "\""), collapse = "/"),
     ". Supply a named numeric vector (fgsea), a character vector (ORA), ",
     "or a gs_matrix (limma).",
     call. = FALSE
@@ -70,7 +70,7 @@ gs_test.numeric <- function(x, db, method = NULL, contrast = "contrast", ...,
       method,
       fgsea = .gs_fgsea(x, sets, ...),
       stop("`method` must be \"fgsea\" for a ranked numeric `x`; got ",
-           sQuote(method), ".", call. = FALSE)
+           encodeString(method, quote = "\""), ".", call. = FALSE)
     ) |>
       gs_result(database = database, contrast = contrast,
                 method = "fgsea", stat_type = "NES")
@@ -92,7 +92,8 @@ gs_test.character <- function(x, db, method = NULL, contrast = "contrast", ...,
                               verbose = FALSE) {
   method <- method %||% "ora"
   if (!identical(method, "ora")) {
-    stop("`method` must be \"ora\" for a character `x`; got ", sQuote(method),
+    stop("`method` must be \"ora\" for a character `x`; got ",
+         encodeString(method, quote = "\""),
          ".", call. = FALSE)
   }
   .gs_over_dbs(db, function(sets, database) {
@@ -108,7 +109,8 @@ gs_test.gs_matrix <- function(x, db = NULL, method = NULL,
                               contrast = "contrast", ..., verbose = FALSE) {
   method <- method %||% "limma"
   if (!identical(method, "limma")) {
-    stop("`method` must be \"limma\" for a gs_matrix `x`; got ", sQuote(method),
+    stop("`method` must be \"limma\" for a gs_matrix `x`; got ",
+         encodeString(method, quote = "\""),
          ".", call. = FALSE)
   }
   out <- .gs_limma(x, contrast = contrast, ...)

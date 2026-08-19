@@ -109,10 +109,11 @@ new_gs_matrix <- function(x, database, method, score_type,
 #' @keywords internal
 validate_gs_matrix <- function(x) {
   if (!inherits(x, "gs_matrix")) {
-    stop("Not a gs_matrix.", call. = FALSE)
+    stop("`x` must be a gs_matrix; construct it with `gs_score()`.",
+         call. = FALSE)
   }
   if (!is.numeric(x) || length(dim(x)) != 2L) {
-    stop("A gs_matrix must be a 2-dimensional numeric matrix.", call. = FALSE)
+    stop("`x` must be a 2-dimensional numeric gs_matrix.", call. = FALSE)
   }
   pn <- attr(x, "pathway_names")
   if (!identical(names(pn), rownames(x))) {
@@ -303,7 +304,7 @@ summary.gs_matrix <- function(object, ...) {
 .gs_check_subscript <- function(idx, have, what) {
   unknown <- setdiff(idx, have)
   if (length(unknown)) {
-    stop(length(unknown), " ", what,
+    stop("`i` selects ", length(unknown), " ", what,
          if (length(unknown) == 1L) "" else "s",
          " not found in the gs_matrix: ",
          paste(utils::head(unknown, 5L), collapse = ", "), ".", call. = FALSE)

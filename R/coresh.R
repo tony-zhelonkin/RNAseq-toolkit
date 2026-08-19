@@ -202,8 +202,8 @@ coresh_chunks <- function(chunk_dir = NULL, species = "human", cache = TRUE) {
   pieces <- lapply(paths, function(path) {
     chunk <- .coresh_read_chunk(path)
     if (!is.list(chunk) || !length(chunk)) {
-      stop("CoReSh chunk did not contain a non-empty object list: ", path,
-           ".", call. = FALSE)
+      stop("CoReSh `chunk_dir` contained an invalid chunk: ", path,
+           ". Rebuild or refresh the chunk snapshot.", call. = FALSE)
     }
     lapply(seq_along(chunk), function(i) {
       obj <- chunk[[i]]
@@ -344,8 +344,9 @@ coresh_match <- function(obj, query, pvalues = FALSE,
       }
       stop(
         "GESECA returned ", result_description,
-        " for dataset gse=", sQuote(as.character(obj$gseId)),
-        ", gpl=", sQuote(as.character(obj$gplId)),
+        " for dataset gse=",
+        encodeString(as.character(obj$gseId), quote = "\""),
+        ", gpl=", encodeString(as.character(obj$gplId), quote = "\""),
         " (k = ", k, ", nrow(E) = ", nrow(E), ").",
         call. = FALSE
       )
@@ -377,8 +378,8 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 .coresh_score_file <- function(path, queries, pvalues, sample_size, seed, eps) {
   chunk <- .coresh_read_chunk(path)
   if (!is.list(chunk) || !length(chunk)) {
-    stop("CoReSh chunk did not contain a non-empty object list: ", path, ".",
-         call. = FALSE)
+    stop("`path` did not contain a non-empty CoReSh object list: ", path,
+         ". Rebuild or refresh the chunk snapshot.", call. = FALSE)
   }
   rows <- lapply(names(queries), function(query_name) {
     scored <- lapply(
@@ -462,14 +463,15 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
   if (anyDuplicated(query_names)) {
     duplicate <- unique(query_names[duplicated(query_names)])[[1L]]
     stop("`queries` names must be unique; duplicated query ",
-         sQuote(duplicate), ".", call. = FALSE)
+         encodeString(duplicate, quote = "\""), ".", call. = FALSE)
   }
   n_duplicates <- 0L
   for (query_name in query_names) {
     query <- queries[[query_name]]
     if (!is.integer(query) || length(query) < 3L || anyNA(query)) {
-      stop("Query ", sQuote(query_name), " must be an integer Entrez vector ",
-           "of length at least 3 with no missing values.", call. = FALSE)
+      stop("`queries` entry ", encodeString(query_name, quote = "\""),
+           " must be an integer Entrez vector of length at least 3 with no ",
+           "missing values.", call. = FALSE)
     }
     deduplicated <- unique(query)
     n_duplicates <- n_duplicates + length(query) - length(deduplicated)
@@ -481,8 +483,9 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
   }
   for (query_name in query_names) {
     if (length(queries[[query_name]]) < 3L) {
-      stop("Query ", sQuote(query_name), " must contain at least 3 unique ",
-           "Entrez IDs after duplicates are removed.", call. = FALSE)
+      stop("`queries` entry ", encodeString(query_name, quote = "\""),
+           " must contain at least 3 unique Entrez IDs after duplicates are ",
+           "removed.", call. = FALSE)
     }
   }
   n_cores <- .coresh_positive_integer(n_cores, "n_cores")
@@ -765,7 +768,8 @@ coresh_validate <- function(chunk_dir = NULL, species = "human") {
     checked <- tryCatch({
       first <- .coresh_read_chunk(paths[[1L]])
       if (!is.list(first) || !length(first)) {
-        stop("the first chunk is not a non-empty list", call. = FALSE)
+        stop("`chunk_dir` first chunk is not a non-empty list.",
+             call. = FALSE)
       }
       .coresh_validate_object(first[[1L]], "The first dataset object")
       TRUE

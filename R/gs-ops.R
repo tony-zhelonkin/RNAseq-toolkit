@@ -48,7 +48,8 @@ gs_filter <- function(x,
     bad <- setdiff(direction, c("up", "down", "ns"))
     if (length(bad)) {
       stop("`direction` must be \"up\", \"down\" or \"ns\"; got ",
-           paste(sQuote(bad), collapse = ", "), ".", call. = FALSE)
+           paste(encodeString(bad, quote = "\""), collapse = ", "), ".",
+           call. = FALSE)
     }
     keep <- keep & x$direction %in% direction
   }
@@ -220,7 +221,8 @@ gs_leading_edge <- function(x, padj = NULL, top_n = NULL,
   if (!inherits(x, "gs_result")) {
     stop("`x` must be a `gs_result`, as returned by `gs_test()` or ",
          "`gs_coregulation()`; got ",
-         paste(sQuote(class(x)), collapse = "/"), ".", call. = FALSE)
+         paste(encodeString(class(x), quote = "\""), collapse = "/"), ".",
+         call. = FALSE)
   }
   invisible(x)
 }

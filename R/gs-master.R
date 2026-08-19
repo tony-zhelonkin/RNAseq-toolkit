@@ -11,14 +11,16 @@
       is.na(schema_version) || !nzchar(schema_version)) {
     shown <- paste0(schema_version, collapse = ", ")
     stop("`schema_version` must be a non-empty character scalar; got ",
-         sQuote(shown), ".", call. = FALSE)
+         encodeString(shown, quote = "\""), ".", call. = FALSE)
   }
 
   file <- paste0("master-schema-v", schema_version, ".csv")
   path <- system.file("extdata", file, package = "bulkiRNA")
   if (!nzchar(path)) {
-    stop("Unknown `schema_version` ", sQuote(schema_version),
-         "; expected a packaged file named ", sQuote(file), ".",
+    stop("Unknown `schema_version` ",
+         encodeString(schema_version, quote = "\""),
+         "; expected a packaged file named ",
+         encodeString(file, quote = "\""), ".",
          call. = FALSE)
   }
 
@@ -29,13 +31,14 @@
   )
   expected_fields <- c("column", "type", "required", "description")
   if (!identical(names(schema), expected_fields)) {
-    stop("Master schema ", sQuote(file), " is malformed: expected fields ",
+    stop("Master schema ", encodeString(file, quote = "\""),
+         " is malformed: expected fields ",
          paste(expected_fields, collapse = ", "), ".", call. = FALSE)
   }
   if (anyDuplicated(schema$column) ||
       any(!schema$type %in% c("character", "numeric", "integer")) ||
       any(!schema$required %in% c("yes", "no"))) {
-    stop("Master schema ", sQuote(file),
+    stop("Master schema ", encodeString(file, quote = "\""),
          " has invalid or duplicated declarations.", call. = FALSE)
   }
   schema$required <- schema$required == "yes"
@@ -70,7 +73,7 @@
           integer_value <- as.integer(numeric_value)
           non_missing <- !is.na(numeric_value)
           if (any(non_missing & numeric_value != integer_value)) {
-            stop("fractional value")
+            stop("fractional value", call. = FALSE)
           }
           integer_value
         }
@@ -117,13 +120,15 @@ gs_to_master <- function(res, db = NULL, universe = NULL, entity_type = NULL,
                          schema_version = "1", stat_as_nes = FALSE) {
   if (!inherits(res, "gs_result")) {
     stop("`res` must be a gs_result; got class ",
-         sQuote(paste(class(res), collapse = "/")), ".", call. = FALSE)
+         encodeString(paste(class(res), collapse = "/"), quote = "\""),
+         ".", call. = FALSE)
   }
   validate_gs_result(res)
   if (!is.logical(stat_as_nes) || length(stat_as_nes) != 1L ||
       is.na(stat_as_nes)) {
     stop("`stat_as_nes` must be TRUE or FALSE; got ",
-         sQuote(paste0(stat_as_nes, collapse = ", ")), ".", call. = FALSE)
+         encodeString(paste0(stat_as_nes, collapse = ", "), quote = "\""),
+         ".", call. = FALSE)
   }
 
   schema <- .gs_master_schema(schema_version)
@@ -132,7 +137,7 @@ gs_to_master <- function(res, db = NULL, universe = NULL, entity_type = NULL,
   if (length(bad_stat_types) && !stat_as_nes) {
     shown <- ifelse(is.na(bad_stat_types), "<NA>", bad_stat_types)
     stop("`res$stat_type` must be \"NES\" before `stat` can populate `nes`; ",
-         "got ", paste(sQuote(shown), collapse = ", "),
+         "got ", paste(encodeString(shown, quote = "\""), collapse = ", "),
          ". Set `stat_as_nes = TRUE` for a deliberate override.",
          call. = FALSE)
   }
@@ -152,17 +157,21 @@ gs_to_master <- function(res, db = NULL, universe = NULL, entity_type = NULL,
         any(!nzchar(names(db))) || anyDuplicated(names(db)) ||
         !all(vapply(db, is.character, logical(1L)))) {
       stop("`db` must be a named list of gene vectors or `NULL`; got class ",
-           sQuote(paste(class(db), collapse = "/")), ".", call. = FALSE)
+           encodeString(paste(class(db), collapse = "/"), quote = "\""),
+           ".", call. = FALSE)
     }
     if (!is.character(universe)) {
       stop("`universe` must be a character vector when `db` is supplied; got ",
-           "class ", sQuote(paste(class(universe), collapse = "/")), ".",
+           "class ",
+           encodeString(paste(class(universe), collapse = "/"), quote = "\""),
+           ".",
            call. = FALSE)
     }
     missing_sets <- setdiff(unique(res$pathway_id), names(db))
     if (length(missing_sets)) {
       stop("`db` is missing `res$pathway_id` value(s): ",
-           paste(sQuote(missing_sets), collapse = ", "), ".", call. = FALSE)
+           paste(encodeString(missing_sets, quote = "\""), collapse = ", "),
+           ".", call. = FALSE)
     }
   }
 
@@ -257,11 +266,13 @@ gs_to_master <- function(res, db = NULL, universe = NULL, entity_type = NULL,
 gs_validate_master <- function(df, schema_version = "1", error = TRUE) {
   if (!is.data.frame(df)) {
     stop("`df` must be a data frame; got class ",
-         sQuote(paste(class(df), collapse = "/")), ".", call. = FALSE)
+         encodeString(paste(class(df), collapse = "/"), quote = "\""),
+         ".", call. = FALSE)
   }
   if (!is.logical(error) || length(error) != 1L || is.na(error)) {
     stop("`error` must be TRUE or FALSE; got ",
-         sQuote(paste0(error, collapse = ", ")), ".", call. = FALSE)
+         encodeString(paste0(error, collapse = ", "), quote = "\""),
+         ".", call. = FALSE)
   }
 
   schema <- .gs_master_schema(schema_version)
@@ -298,7 +309,7 @@ gs_validate_master <- function(df, schema_version = "1", error = TRUE) {
       paste0(
         "Column `", column, "` is NA on ", length(row_indices),
         " ", row_label, " ", condition, "; example pathway_id(s): ",
-        paste(sQuote(example_ids), collapse = ", "), "."
+        paste(encodeString(example_ids, quote = "\""), collapse = ", "), "."
       )
     )
   }
@@ -349,7 +360,8 @@ gs_validate_master <- function(df, schema_version = "1", error = TRUE) {
         "column_type",
         column,
         paste0("Column `", column, "` is not coercible to ",
-               declared_type, "; got ", sQuote(shown), ".")
+               declared_type, "; got ",
+               encodeString(shown, quote = "\""), ".")
       )
     } else {
       coerced[[column]] <- result$value
@@ -413,7 +425,8 @@ gs_validate_master <- function(df, schema_version = "1", error = TRUE) {
         "direction_values",
         "direction",
         paste0("Column `direction` must contain only \"Up\", \"Down\", or ",
-               "\"NS\"; got ", paste(sQuote(bad_direction), collapse = ", "),
+               "\"NS\"; got ",
+               paste(encodeString(bad_direction, quote = "\""), collapse = ", "),
                ".")
       )
     }
@@ -455,7 +468,7 @@ gs_validate_master <- function(df, schema_version = "1", error = TRUE) {
   }
   if (nrow(problems)) {
     stop(
-      "Master table failed schema v", schema_version, " validation:\n- ",
+      "`df` failed master schema v", schema_version, " validation:\n- ",
       paste(problems$message, collapse = "\n- "),
       call. = FALSE
     )

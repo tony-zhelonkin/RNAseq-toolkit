@@ -29,7 +29,8 @@
       !nzchar(source) || source == "." ||
       grepl("[/\\\\]|\\.\\.", source)) {
     stop("`source` must be a single path segment -- no `/`, `\\`, `..` or ",
-         "`.`; got ", sQuote(paste0(source, collapse = ", ")), ".",
+         "`.`; got ",
+         encodeString(paste0(source, collapse = ", "), quote = "\""), ".",
          call. = FALSE)
   }
   source <- unname(source)
@@ -127,7 +128,8 @@
     )
     if (!nzchar(current_target)) {
       layout_warning <- paste0(
-        "`current` for reference source ", sQuote(source),
+        "`current` for reference source ",
+        encodeString(source, quote = "\""),
         " is not a symlink, so its snapshot cannot be identified: ",
         current, "."
       )
@@ -136,9 +138,10 @@
       paste0(resolved_source_dir, "/")
     )) {
       layout_warning <- paste0(
-        "Resolved `current` for reference source ", sQuote(source),
+        "Resolved `current` for reference source ",
+        encodeString(source, quote = "\""),
         " outside its source directory: ", resolved_target, ". The recorded ",
-        "snapshot ", sQuote(basename(resolved_target)),
+        "snapshot ", encodeString(basename(resolved_target), quote = "\""),
         " may not identify a refcache snapshot."
       )
     }
@@ -154,8 +157,10 @@
       stop("Path components in `...` must resolve to one path.", call. = FALSE)
     }
     if (must_exist && !file.exists(resolved)) {
-      stop("Reference data path for \"", source, "\" does not exist: ",
-           resolved, ".", call. = FALSE)
+      stop("`source` reference data path for ",
+           encodeString(source, quote = "\""), " does not exist: ", resolved,
+           ". Install or mount that snapshot under `REFCACHE_ROOT`.",
+           call. = FALSE)
     }
   }
 

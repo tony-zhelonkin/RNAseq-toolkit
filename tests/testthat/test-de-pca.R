@@ -23,7 +23,7 @@ test_that("de_pca refuses data with no variation", {
   samples <- data.frame(group = c("a", "a", "b", "b"),
                         row.names = colnames(counts))
   dge <- build_dge(counts, samples, data.frame(gene = rownames(counts)))
-  expect_error(de_pca(dge), "Not enough variation")
+  expect_error(de_pca(dge), "`dge` has too little variation for PCA", fixed = TRUE)
 })
 
 test_that("de_pca_3d returns a plotly object", {
