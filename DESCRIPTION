@@ -12,6 +12,7 @@ Description: A compact toolkit for bulk RNA-seq differential expression and
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+VignetteBuilder: knitr
 Depends:
     R (>= 4.2)
 Imports:
@@ -39,6 +40,7 @@ Suggests:
     GSVA,
     homologene,
     igraph,
+    knitr,
     limma,
     mwcsr,
     org.Hs.eg.db,
@@ -47,6 +49,7 @@ Suggests:
     plotly,
     qs2,
     readxl,
+    rmarkdown,
     testthat (>= 3.1.9),
     yaml
 Config/testthat/edition: 3

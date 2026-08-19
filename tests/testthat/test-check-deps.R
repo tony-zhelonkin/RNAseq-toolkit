@@ -137,7 +137,10 @@ test_that("the registry cannot silently drift from DESCRIPTION's Suggests", {
   declared <- sub("\\s*\\(.*\\)$", "", declared)   # drop version constraints
   declared <- declared[nzchar(declared)]
 
-  dev_only <- "testthat"                            # never user-facing
+  # Never user-facing: needed to test or to build this package's own
+  # documentation, not to use any feature. `bulkirna_check_deps()` answers
+  # "what must I install to use this?", and the answer never includes knitr.
+  dev_only <- c("testthat", "knitr", "rmarkdown")
   expected <- setdiff(declared, dev_only)
   reported <- bulkirna_check_deps("all", quiet = TRUE)$package
 
