@@ -986,3 +986,12 @@ The owner decided on 2026-08-19 to unify the result limit on `top_n` and the col
 `palette`. All affected formals were renamed in place, including the heatmap methods, so positional
 callers remain unaffected. No argument-level deprecation aliases were added. The two multi-spelling
 exceptions were removed; only the four upstream non-snake-case exceptions remain.
+
+One more defect surfaced at the moment the exceptions went away, and it is worth recording because of
+where it lived. With no multi-spelling concepts left, the test compared an empty **named** list against
+an empty **unnamed** one and went red — on exactly the state it exists to reward. Same family as the
+`paste0(character(0))` defect §8 records: **the passing path of an enforcement test is itself untested
+until the day it passes.** An audit that has always had exceptions has never run its own success case.
+
+**1,606 tests passing, golden 20/20, `R CMD check` 0/0/0.** "One spelling per concept" is now a fact
+about the API rather than a goal in a document.
