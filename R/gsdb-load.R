@@ -206,7 +206,7 @@ gsdb_load <- function(database,
   if (tolower(database) == "gatom") {
     stop("GATOM network files are not bundled (too large, ~24 MB) and are ",
          "not gene sets. Fetch them with ",
-         "download_gatom_references(dest_dir = \"00_data/references/gatom\").",
+         "gatom_download_refs(dir = \"00_data/references/gatom\").",
          call. = FALSE)
   }
 

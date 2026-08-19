@@ -33,13 +33,14 @@ GSEA now runs through `fgsea` directly, so `clusterProfiler` leaves the dependen
 
 ## 2. Every old name still works
 
-All 20 legacy functions are exported through v0.x and are scheduled for removal in v1.0.0.
+All deprecated functions are exported through v0.x and are scheduled for removal in v1.0.0.
 Each warns once through `.Deprecated()` and names its migration path, so a project runs after
 step 1 alone. A migration path may use several functions, and two deliberately note behaviour
 with no successor. Step 4 covers the two changes that reach further.
 
 | Old | New |
 |---|---|
+| `download_gatom_references(dest_dir = )` | `gatom_download_refs(dir = )` |
 | `run_gsea()` | `gs_ranks()` + `gs_test()` |
 | `run_gsea_analysis()` | `gs_ranks()` + `gsdb_msigdb()` + `gs_test()` + `gs_plot_*()` |
 | `normalize_gsea_results()` | drop it — `gs_test()` already returns a tibble |

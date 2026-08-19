@@ -10,12 +10,22 @@ test_that("download_gatom_references keeps its frozen formals", {
   expect_false(eval(f$overwrite))
 })
 
+test_that("download_gatom_references is a deprecated compatibility shim", {
+  expect_warning(
+    try(download_gatom_references(networks = character()), silent = TRUE),
+    class = "deprecatedWarning"
+  )
+  expect_identical(
+    names(formals(gatom_download_refs)),
+    c("dir", "species", "networks", "overwrite")
+  )
+})
+
 test_that("an unsupported species fails before anything is written", {
   dest <- file.path(tempdir(), "gatom-unsupported")
   expect_error(
-    download_gatom_references(dest_dir = dest, species = "Xenopus"),
-    "`species` must be \"Mus_musculus\" or \"Homo_sapiens\"; got \"Xenopus\"",
-    fixed = TRUE
+    gatom_download_refs(dir = dest, species = "Xenopus"),
+    "`species` must be one of"
   )
   expect_false(dir.exists(dest))
 })
@@ -23,11 +33,11 @@ test_that("an unsupported species fails before anything is written", {
 test_that("networks must be a non-empty character vector", {
   dest <- file.path(tempdir(), "gatom-badnetworks")
   expect_error(
-    download_gatom_references(dest_dir = dest, networks = character()),
+    gatom_download_refs(dir = dest, networks = character()),
     "`networks` must be a non-empty character vector"
   )
   expect_error(
-    download_gatom_references(dest_dir = dest, networks = NA_character_),
+    gatom_download_refs(dir = dest, networks = NA_character_),
     "`networks` must be a non-empty character vector"
   )
   expect_false(dir.exists(dest))
@@ -35,15 +45,14 @@ test_that("networks must be a non-empty character vector", {
 
 test_that("gsdb_load points GATOM users at the downloader", {
   expect_error(gsdb_load("gatom"),
-               "download_gatom_references", fixed = TRUE)
+               "gatom_download_refs", fixed = TRUE)
   expect_error(gsdb_load("GATOM"), "not bundled")
 })
 
 # --- regressions from the IO review ------------------------------------------
 
-# `download_gatom_references()` has frozen formals and no URL seam, so the
-# transfer itself is mocked; these tests are about the skip/rename logic around
-# it, not about the network.
+# The downloader has no URL seam, so the transfer itself is mocked; these tests
+# are about the skip/rename logic around it, not about the network.
 
 test_that("an empty leftover file is refetched rather than skipped forever", {
   # An interrupted transfer left a partial file that every later run reported as
@@ -64,8 +73,8 @@ test_that("an empty leftover file is refetched rather than skipped forever", {
   )
   msgs <- character()
   withCallingHandlers(
-    download_gatom_references(dest_dir = dest, species = "Homo_sapiens",
-                              networks = "kegg"),
+    gatom_download_refs(dir = dest, species = "Homo_sapiens",
+                        networks = "kegg"),
     message = function(m) {
       msgs <<- c(msgs, conditionMessage(m))
       invokeRestart("muffleMessage")
@@ -90,8 +99,8 @@ test_that("a download that produces nothing leaves no file behind", {
     .package = "utils"
   )
   suppressWarnings(suppressMessages(
-    out <- download_gatom_references(dest_dir = dest, species = "Homo_sapiens",
-                                     networks = "kegg")
+    out <- gatom_download_refs(dir = dest, species = "Homo_sapiens",
+                               networks = "kegg")
   ))
   expect_length(out, 0L)
   expect_length(list.files(dest), 0L)

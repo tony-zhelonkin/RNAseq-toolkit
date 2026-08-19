@@ -17,7 +17,9 @@ annotate_genes(
 \item{ens_ids}{Character vector of Ensembl gene IDs, with or without
 version suffixes.}
 
-\item{species}{\code{"Mus musculus"} or \code{"Homo sapiens"}.}
+\item{species}{A human or mouse alias accepted by \code{\link[=.species]{.species()}}. Partial
+scientific names accepted by the historical \code{match.arg()} call remain
+supported.}
 
 \item{use_biomart}{Logical. Attempt the biomaRt refinement.}
 

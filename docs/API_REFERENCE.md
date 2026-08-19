@@ -91,10 +91,10 @@ correct install command — grouped by feature area (`de`, `annotation`, `scorin
 
 ## Network modules (need `gatom` and `mwcsr`)
 
-`gatom_refs()` · `gatom_de()` · `gatom_genes()` · `gatom_module()` · `gatom_save_html()` ·
-`download_gatom_references()`
+`gatom_refs()` · `gatom_de()` · `gatom_download_refs()` · `gatom_genes()` ·
+`gatom_module()` · `gatom_save_html()`
 
 ## Deprecated
 
-20 shims for the old script-library API. They work and they warn.
+21 shims for superseded API names. They work and they warn.
 [../MIGRATION.md](../MIGRATION.md) maps each one to its replacement.

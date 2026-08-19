@@ -2,7 +2,7 @@
 % Please edit documentation in R/gsdb-gatom.R
 \name{download_gatom_references}
 \alias{download_gatom_references}
-\title{Download GATOM reference network files}
+\title{Deprecated GATOM reference downloader name}
 \usage{
 download_gatom_references(
   dest_dir = "00_data/references/gatom",
@@ -14,27 +14,19 @@ download_gatom_references(
 \arguments{
 \item{dest_dir}{Character(1) destination directory; created if missing.}
 
-\item{species}{Character(1), \code{"Mus_musculus"} or \code{"Homo_sapiens"}.}
+\item{species}{Character(1) human or mouse species alias.}
 
-\item{networks}{Character vector of networks to fetch, e.g.
-\code{c("kegg", "combined")}.}
+\item{networks}{Character vector of networks to fetch.}
 
 \item{overwrite}{Logical(1); re-download files that already exist.}
 }
 \value{
-Character vector of downloaded (or already present) file paths,
-invisibly.
+Character vector returned invisibly by \code{\link[=gatom_download_refs]{gatom_download_refs()}}.
 }
 \description{
-GATOM's atom-transition metabolic networks are too large to bundle
-(~24 MB), so they are fetched on demand from the Artyomov Lab server. This
-is a downloader, not a gene-set provider: the files it writes are consumed
-by GATOM itself, and it does not return a \code{\link[=gs_db]{gs_db()}}.
-}
-\details{
-Files already present are skipped unless \code{overwrite = TRUE}. A file that
-fails to download warns and is left out of the return value, so a partial
-run is visible rather than silent.
+\code{download_gatom_references()} is the frozen pre-package name. Use
+\code{\link[=gatom_download_refs]{gatom_download_refs()}} for the layer-prefixed API and its consistent \code{dir}
+argument.
 }
 \examples{
 \dontrun{

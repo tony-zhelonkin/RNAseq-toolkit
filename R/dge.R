@@ -68,7 +68,9 @@ build_dge <- function(count_mat, samples_df, genes_df,
 #'
 #' @param ens_ids Character vector of Ensembl gene IDs, with or without
 #'   version suffixes.
-#' @param species `"Mus musculus"` or `"Homo sapiens"`.
+#' @param species A human or mouse alias accepted by [.species()]. Partial
+#'   scientific names accepted by the historical `match.arg()` call remain
+#'   supported.
 #' @param use_biomart Logical. Attempt the biomaRt refinement.
 #' @param input_gene_name Optional character vector of symbols supplied by the
 #'   quantifier, either named by version-stripped ID (as produced by
@@ -89,13 +91,13 @@ annotate_genes <- function(ens_ids,
                            input_gene_name = NULL,
                            biomart_version = NULL,
                            biomart_host = NULL) {
-  species <- match.arg(species)
-  orgdb <- switch(species,
-                  "Mus musculus" = "org.Mm.eg.db",
-                  "Homo sapiens" = "org.Hs.eg.db")
-  dataset <- switch(species,
-                    "Mus musculus" = "mmusculus_gene_ensembl",
-                    "Homo sapiens" = "hsapiens_gene_ensembl")
+  if (identical(species, c("Mus musculus", "Homo sapiens"))) {
+    species <- species[[1L]]
+  }
+  sp <- .species(species)
+  species <- sp$scientific
+  orgdb <- sp$orgdb
+  dataset <- sp$biomart_dataset
 
   .require_pkg("AnnotationDbi", "`annotate_genes()`",
               'BiocManager::install("AnnotationDbi")')

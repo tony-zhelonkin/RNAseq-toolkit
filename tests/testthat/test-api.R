@@ -8,7 +8,7 @@ test_that("the API registry covers the complete namespace exactly once", {
     c("name", "layer", "lifecycle", "frozen", "stochastic", "superseded_by",
       "removed_in")
   )
-  expect_equal(nrow(api), 74L)
+  expect_equal(nrow(api), 75L)
   expect_equal(anyDuplicated(api$name), 0L)
   expect_setequal(api$name, exports)
   expect_identical(api$name, sort(api$name))
@@ -17,18 +17,18 @@ test_that("the API registry covers the complete namespace exactly once", {
 test_that("each export has one stability lifecycle and one layer", {
   api <- bulkirna_api(quiet = TRUE)
 
-  expect_equal(sum(api$lifecycle == "deprecated"), 20L)
+  expect_equal(sum(api$lifecycle == "deprecated"), 21L)
   expect_equal(sum(api$lifecycle == "experimental"), 8L)
   expect_equal(sum(api$lifecycle == "stable"), 46L)
   expect_false(anyNA(api$lifecycle))
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
-  expect_equal(nrow(api), 74L)
+  expect_equal(nrow(api), 75L)
   expect_equal(sum(api$layer == "gs"), 17L)
   expect_equal(sum(api$layer == "gsdb"), 6L)
   expect_equal(sum(api$layer == "de"), 6L)
-  expect_equal(sum(api$layer == "gatom"), 6L)
+  expect_equal(sum(api$layer == "gatom"), 7L)
   expect_equal(sum(api$layer == "coresh"), 5L)
   expect_equal(sum(api$layer == "gsea"), 4L)
   expect_equal(sum(api$layer == "top-level"), 30L)
@@ -71,8 +71,7 @@ test_that("the historical signature freeze remains an independent axis", {
   expect_true(all(api$frozen[api$lifecycle == "deprecated"]))
   expect_setequal(
     api$name[api$frozen & api$lifecycle == "stable"],
-    c("build_dge", "download_gatom_references", "ensure_dir",
-      "format_pathway_name")
+    c("build_dge", "ensure_dir", "format_pathway_name")
   )
 })
 
@@ -81,7 +80,7 @@ test_that("deprecated metadata names a successor and removal version", {
   deprecated <- api[api$lifecycle == "deprecated", ]
   maintained <- api[api$lifecycle != "deprecated", ]
 
-  expect_equal(nrow(deprecated), 20L)
+  expect_equal(nrow(deprecated), 21L)
   expect_true(all(!is.na(deprecated$superseded_by)))
   expect_true(all(nzchar(deprecated$superseded_by)))
   expect_true(all(deprecated$removed_in == "1.0.0"))
@@ -92,13 +91,13 @@ test_that("deprecated metadata names a successor and removal version", {
 test_that("machine-readable successors come from the deprecation calls", {
   api <- bulkirna_api(quiet = TRUE)
   # Six shims use `.Deprecated(msg = )` and so carry no machine-readable
-  # target; the other fourteen are parsed out of the call itself.
+  # target; the other fifteen are parsed out of the call itself.
   message_only <- c(
     "filter_by_size", "parse_mitoxplorer", "convert_human_to_mouse",
     "plot_all_gsea_results", "save_gsea_log", "empty_gsea_tibble"
   )
   machine_readable <- setdiff(api$name[api$lifecycle == "deprecated"], message_only)
-  expect_length(machine_readable, 14L)
+  expect_length(machine_readable, 15L)
 
   # One literal anchor, so the loop below cannot pass with a helper that reads
   # the wrong argument and still agrees with itself.
@@ -151,14 +150,15 @@ test_that("bulkirna_api is itself a stable top-level export", {
   expect_true(is.na(row$removed_in))
 })
 
-test_that("every deprecated export calls .Deprecated", {
+test_that("every deprecated export calls .Deprecated first", {
   api <- bulkirna_api(quiet = TRUE)
   deprecated <- api$name[api$lifecycle == "deprecated"]
 
   for (name in deprecated) {
     fun <- getExportedValue("bulkiRNA", name)
+    first <- body(fun)[[2L]]
     expect_true(
-      any(grepl(".Deprecated(", deparse(body(fun)), fixed = TRUE)),
+      is.call(first) && identical(first[[1L]], as.name(".Deprecated")),
       info = name
     )
   }
@@ -170,11 +170,12 @@ test_that("every deprecated export warns before doing any work", {
 
   for (name in deprecated) {
     fun <- getExportedValue("bulkiRNA", name)
-    # .Deprecated() is the first statement in every shim, so a bare call
-    # always warns. Some shims then fail on a required argument, which is not
-    # what this test is about, so try() absorbs that later error.
+    # The test above establishes that this is the shim's first statement.
+    # Evaluate only that statement: this proves the real warning fires without
+    # allowing any delegated work in this or a future shim to run.
+    deprecation_call <- body(fun)[[2L]]
     expect_warning(
-      try(fun(), silent = TRUE),
+      eval(deprecation_call, envir = environment(fun)),
       class = "deprecatedWarning"
     )
   }

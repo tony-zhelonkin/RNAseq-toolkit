@@ -24,10 +24,10 @@ The first draft of this roadmap proposed three new subsystems. The owner's call:
 That is the right call and it is worth saying why, because the argument is not only about
 appetite.
 
-**The package has 72 exports, 20 of which are deprecated shims, and no stability contract at
+**The package has 74 exports, 20 of which are deprecated shims, and no stability contract at
 all.** Nothing says which names are safe to build on. Meanwhile 24 exports are frozen by an
 explicit promise, 5 `coresh_*` functions are two days old and unproven against a consumer, and
-13 live exports sit outside every layer prefix. Adding `tf_activity()` on top of that would
+13 inherited live exports sit outside every layer prefix. Adding `tf_activity()` on top of that would
 mean a consumer cannot tell a settled name from a provisional one — which is exactly the
 failure the refactor was meant to end, reintroduced one level up.
 
@@ -47,9 +47,9 @@ proves the surface is actually usable rather than merely tidy.
 | Fact | Value |
 |---|---|
 | Version | `v0.5.0`, tagged and pushed |
-| Exports | **72** — 52 live, **20 deprecated shims** |
-| Live exports under a layer prefix | 39 (`gs_` 17, `gsdb_` 6, `de_` 6, `gatom_` 5, `coresh_` 5) |
-| Live exports outside every prefix | **13** |
+| Exports | **74** — 54 live, **20 deprecated shims** |
+| Live exports under an analysis-layer prefix | 39 (`gs_` 17, `gsdb_` 6, `de_` 6, `gatom_` 5, `coresh_` 5) |
+| Other live exports | **15** — the 13 inherited S2 targets plus `bulkirna_api()` and `bulkirna_stochastic()` from S1 |
 | Tests | 1060 passing, 0 failing, 5 skipped |
 | Golden baselines | 20/20 |
 | **`R CMD check`** | **0 errors, 0 warnings, 1 note** — and the note was a `NEWS.md` heading, now fixed |
@@ -81,7 +81,7 @@ capability. Six steps, in order.
 |---|---|---|
 | **S1** | ✅ **done 2026-08-13.** `bulkirna_api()` ships the contract as a table. **Write the stability contract.** Three tiers: `stable` (the 24 frozen plus anything a migrated consumer depends on), `experimental` (the 5 `coresh_*`, the 3 gene-id functions — may change without a major bump), `deprecated` (the 20 shims, with a removal version). Publish it as a vignette and a machine-readable table, and make `bulkirna_api()` return it. | A test asserts every export carries exactly one tier, so a new export cannot be added without classifying it |
 | **S2** | **Name audit on the 13 unprefixed exports.** Decide per name: keep as a deliberate top-level verb, or move under a prefix with a shim. `download_gatom_references` → `gatom_download_refs` is the clear one, because it already belongs to a family whose other five members are prefixed. `ensure_dir` is a utility that probably should not be exported at all. | Every decision recorded with a reason in the contract vignette; no silent renames |
-| **S3** | **Argument-name consistency audit.** One spelling per concept across all 52 live exports: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and fails on a known-bad spelling; one shared `.species()` resolver |
+| **S3** | **Argument-name consistency audit.** One spelling per concept across all 54 live exports: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and fails on a known-bad spelling; one shared `.species()` resolver |
 | **S4** | ✅ **done with S1** — `removed_in` is `1.0.0` for all 20 shims, stated in `MIGRATION.md`. **Set the deprecation clock.** The 20 shims exist because 64 call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay — but with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
 | **S5** | **Return-type and error-message consistency.** Every compute function returns a tibble; every renderer returns a ggplot; every validation error names the fix. Mostly true already — this step is the audit that proves it and the tests that keep it true. | Tests assert the class of every export's return on the shipped fixture |
 | **S6** | **`R CMD check` stays at zero notes, and vignettes build.** One vignette per live layer: gene sets, DE, GATOM, CoReSh. Each runnable on the shipped fixture with no network and no refcache. | `rcmdcheck` in the image, 0/0/0, vignettes built |

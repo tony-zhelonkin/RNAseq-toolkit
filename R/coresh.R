@@ -4,21 +4,11 @@
 
 #' Normalise a CoReSh species label
 #'
-#' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
+#' @param species A human or mouse alias accepted by [.species()].
 #' @return `"hsa"` or `"mmu"`.
 #' @keywords internal
 .coresh_species_code <- function(species) {
-  if (!is.character(species) || length(species) != 1L || is.na(species) ||
-      !nzchar(species)) {
-    stop("`species` must be one of \"human\", \"hsa\", \"mouse\", or ",
-         "\"mmu\".", call. = FALSE)
-  }
-  aliases <- c(human = "hsa", hsa = "hsa", mouse = "mmu", mmu = "mmu")
-  if (!species %in% names(aliases)) {
-    stop("`species` must be one of \"human\", \"hsa\", \"mouse\", or ",
-         "\"mmu\"; got ", sQuote(species), ".", call. = FALSE)
-  }
-  unname(aliases[[species]])
+  .species(species)$code
 }
 
 #' Validate a logical CoReSh argument
@@ -188,7 +178,7 @@
 #'
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
 #'   When `NULL`, resolve the corresponding directory in the shared refcache.
-#' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
+#' @param species A human or mouse alias accepted by [.species()].
 #' @param cache Logical. Reuse an index built earlier in this R session.
 #' @return A tibble with columns `gse`, `gpl`, and `chunk`. Its `provenance`
 #'   attribute records the resolved reference snapshot.
@@ -423,7 +413,7 @@ coresh_match <- function(obj, query, pvalues = FALSE,
 #' @param queries A non-empty named list of integer Entrez vectors, each of
 #'   length at least three after duplicate IDs are removed.
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
-#' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
+#' @param species A human or mouse alias accepted by [.species()].
 #' @param n_cores Positive whole number. `1` uses base R and does not require
 #'   BiocParallel.
 #' @param pvalues Logical. Calculate GESECA p-values and rank by ascending
@@ -659,7 +649,7 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
 #' functions.
 #'
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
-#' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
+#' @param species A human or mouse alias accepted by [.species()].
 #' @return Invisibly, a tibble with columns `check`, `ok`, and `detail`.
 #' @examples
 #' \dontrun{

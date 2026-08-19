@@ -116,19 +116,15 @@ is_gs_db <- function(x) inherits(x, "gs_db")
 
 #' Normalise a species label
 #'
-#' Accepts `"Mus musculus"` or `"Mus_musculus"` and returns the spaced form
-#' used by the `gs_db` `species` attribute.
+#' Known aliases are normalized through [.species()]. Unknown non-empty labels
+#' remain supported for user-supplied databases and have underscores replaced
+#' by spaces.
 #'
 #' @param species Character(1).
 #' @return Character(1) with underscores replaced by spaces.
 #' @keywords internal
 .gsdb_species_label <- function(species) {
-  if (!is.character(species) || length(species) != 1L || is.na(species) ||
-        !nzchar(species)) {
-    stop("`species` must be a single non-empty string, e.g. ",
-         "\"Mus musculus\".", call. = FALSE)
-  }
-  gsub("_", " ", species, fixed = TRUE)
+  .species(species, allow_custom = TRUE)$scientific
 }
 
 #' Species label in directory form

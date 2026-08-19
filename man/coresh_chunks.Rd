@@ -10,7 +10,7 @@ coresh_chunks(chunk_dir = NULL, species = "human", cache = TRUE)
 \item{chunk_dir}{Optional explicit path to an \code{hsa} or \code{mmu} chunk directory.
 When \code{NULL}, resolve the corresponding directory in the shared refcache.}
 
-\item{species}{One of \code{"human"}, \code{"hsa"}, \code{"mouse"}, or \code{"mmu"}.}
+\item{species}{A human or mouse alias accepted by \code{\link[=.species]{.species()}}.}
 
 \item{cache}{Logical. Reuse an index built earlier in this R session.}
 }

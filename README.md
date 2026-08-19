@@ -130,15 +130,15 @@ inferred from `sessionInfo()`.
 
 ### Network modules
 
-`gatom_de()` `gatom_genes()` `gatom_module()` `gatom_refs()` `gatom_save_html()`
-`download_gatom_references()` — these need `gatom` from Bioconductor and `mwcsr`
+`gatom_de()` `gatom_download_refs()` `gatom_genes()` `gatom_module()`
+`gatom_refs()` `gatom_save_html()` — these need `gatom` from Bioconductor and `mwcsr`
 from CRAN.
 
 ---
 
 ## Legacy names
 
-20 of the 74 exports are shims for the old script-library API. Each one works, warns once,
+21 of the 75 exports are shims for superseded API names. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`
@@ -146,7 +146,7 @@ and names its replacement:
 `create_standard_volcano()` `create_MD_plot()` `custom_minimal_theme_with_grid()`
 `load_reference_db()` `list_reference_dbs()` `filter_by_size()` `parse_gmx()`
 `parse_mitoxplorer()` `list_to_term2gene()` `convert_human_to_mouse()`
-`empty_gsea_tibble()` `save_gsea_log()`
+`empty_gsea_tibble()` `save_gsea_log()` `download_gatom_references()`
 
 Two changes reach past the shims, because the return type itself changed:
 

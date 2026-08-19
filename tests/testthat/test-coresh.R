@@ -329,6 +329,7 @@ test_that("coresh_chunks maps species aliases and caches by resolved path", {
   expect_identical(human$gse, "GSE_HSA")
   expect_identical(attr(human, "provenance")$species, "hsa")
   expect_identical(coresh_chunks(species = "hsa")$gse, "GSE_HSA")
+  expect_identical(coresh_chunks(species = "Homo sapiens")$gse, "GSE_HSA")
   expect_identical(reads, 1L)
 
   mouse <- coresh_chunks(species = "mouse", cache = FALSE)

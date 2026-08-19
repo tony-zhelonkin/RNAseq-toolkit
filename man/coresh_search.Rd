@@ -21,7 +21,7 @@ length at least three after duplicate IDs are removed.}
 
 \item{chunk_dir}{Optional explicit path to an \code{hsa} or \code{mmu} chunk directory.}
 
-\item{species}{One of \code{"human"}, \code{"hsa"}, \code{"mouse"}, or \code{"mmu"}.}
+\item{species}{A human or mouse alias accepted by \code{\link[=.species]{.species()}}.}
 
 \item{n_cores}{Positive whole number. \code{1} uses base R and does not require
 BiocParallel.}

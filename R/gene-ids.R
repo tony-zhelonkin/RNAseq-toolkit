@@ -1,38 +1,3 @@
-#' Normalise a species name for gene-identifier operations
-#'
-#' @param species Character(1), one of the accepted human or mouse aliases.
-#' @return A list containing the common name, scientific name and organism
-#'   annotation package.
-#' @keywords internal
-.gene_id_species <- function(species) {
-  if (!is.character(species) || length(species) != 1L || is.na(species) ||
-        !nzchar(trimws(species))) {
-    stop("`species` must be one non-empty string: \"human\", ",
-         "\"Homo sapiens\", \"hsa\", \"mouse\", \"Mus musculus\", or ",
-         "\"mmu\".", call. = FALSE)
-  }
-
-  key <- gsub("[ _]+", "_", tolower(trimws(species)))
-  if (key %in% c("human", "homo_sapiens", "hsa")) {
-    return(list(
-      common = "human",
-      scientific = "Homo sapiens",
-      orgdb = "org.Hs.eg.db"
-    ))
-  }
-  if (key %in% c("mouse", "mus_musculus", "mmu")) {
-    return(list(
-      common = "mouse",
-      scientific = "Mus musculus",
-      orgdb = "org.Mm.eg.db"
-    ))
-  }
-
-  stop("`species` must be one of \"human\", \"Homo sapiens\", \"hsa\", ",
-       "\"mouse\", \"Mus musculus\", or \"mmu\"; got \"", species, "\".",
-       call. = FALSE)
-}
-
 #' Warn about gene identifiers that did not map
 #'
 #' @param unmapped Character vector of unmapped identifiers.
@@ -76,7 +41,7 @@
 #' }
 #' @export
 gene_to_entrez <- function(symbols, species = "human", multi_vals = "first") {
-  sp <- .gene_id_species(species)
+  sp <- .species(species)
   if (!is.character(symbols) || anyNA(symbols) || any(!nzchar(symbols))) {
     stop("`symbols` must be a character vector of non-missing, non-empty ",
          "gene symbols.", call. = FALSE)
@@ -136,7 +101,7 @@ gene_to_entrez <- function(symbols, species = "human", multi_vals = "first") {
 #' }
 #' @export
 entrez_to_gene <- function(entrez, species = "human") {
-  sp <- .gene_id_species(species)
+  sp <- .species(species)
   if ((!is.character(entrez) && !is.numeric(entrez)) || anyNA(entrez)) {
     stop("`entrez` must be an integer, numeric, or character vector of ",
          "non-missing Entrez identifiers.", call. = FALSE)

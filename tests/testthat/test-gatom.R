@@ -232,10 +232,14 @@ test_that("gatom_refs() validates species", {
 test_that("gatom_refs() names the missing file and how to fetch it", {
   empty <- tempfile("gatomrefs"); dir.create(empty)
   on.exit(unlink(empty, recursive = TRUE), add = TRUE)
+  testthat::local_mocked_bindings(
+    .gatom_search_dirs = function(dir, download, default_dir) dir,
+    .package = "bulkiRNA"
+  )
   err <- tryCatch(gatom_refs("Mus musculus", dir = empty),
                   error = function(e) conditionMessage(e))
   expect_match(err, "org.Mm.eg.gatom.anno.rds")
-  expect_match(err, "download_gatom_references\\(species = \"Mus_musculus\"")
+  expect_match(err, "gatom_download_refs\\(species = \"Mus_musculus\"")
   expect_match(err, empty, fixed = TRUE)
 })
 

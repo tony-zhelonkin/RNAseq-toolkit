@@ -12,12 +12,12 @@ gatom_refs(
 )
 }
 \arguments{
-\item{species}{Character(1), \code{"Homo sapiens"} or \code{"Mus musculus"}.}
+\item{species}{Character(1) human or mouse species alias.}
 
 \item{dir}{Character(1) directory to search first, or \code{NULL}.}
 
 \item{download}{Logical(1); if \code{TRUE}, missing files are fetched with
-\code{\link[=download_gatom_references]{download_gatom_references()}} into \code{dir} (default
+\code{\link[=gatom_download_refs]{gatom_download_refs()}} into \code{dir} (default
 \code{"00_data/references/gatom"}) before resolving.}
 
 \item{network}{Character(1) network flavour, either \code{"kegg"} or
@@ -32,7 +32,7 @@ GATOM needs three files: an atom-transition network, a metabolite database
 and a species-specific organism annotation. They are too large to bundle,
 so they are resolved from disk. Search order is an explicit \code{dir} first,
 then the staged container path \verb{/opt/gatom-refs}, then
-\code{\link[=download_gatom_references]{download_gatom_references()}}'s default \code{dest_dir}
+\code{\link[=gatom_download_refs]{gatom_download_refs()}}'s default \code{dir}
 (\code{"00_data/references/gatom"}) -- note that the staged copy therefore wins
 over that default. With \code{download = TRUE} the download destination is
 searched first, so a fresh fetch is never shadowed by the staged copy.

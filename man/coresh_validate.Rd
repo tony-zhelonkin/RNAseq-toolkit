@@ -9,7 +9,7 @@ coresh_validate(chunk_dir = NULL, species = "human")
 \arguments{
 \item{chunk_dir}{Optional explicit path to an \code{hsa} or \code{mmu} chunk directory.}
 
-\item{species}{One of \code{"human"}, \code{"hsa"}, \code{"mouse"}, or \code{"mmu"}.}
+\item{species}{A human or mouse alias accepted by \code{\link[=.species]{.species()}}.}
 }
 \value{
 Invisibly, a tibble with columns \code{check}, \code{ok}, and \code{detail}.

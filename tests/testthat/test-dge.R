@@ -62,5 +62,19 @@ test_that("annotate_genes threads a named input_gene_name through", {
 })
 
 test_that("annotate_genes validates species", {
-  expect_error(annotate_genes("ENSMUSG1", species = "mouse"), "'arg' should be")
+  expect_error(
+    annotate_genes("ENSMUSG1", species = "rat"),
+    "`species` must be one of"
+  )
+})
+
+test_that("annotate_genes accepts common aliases and retained partial matches", {
+  skip_if_not_installed("org.Hs.eg.db")
+  skip_if_not_installed("AnnotationDbi")
+
+  common <- annotate_genes("ENSG00000141510", species = "human",
+                           use_biomart = FALSE)
+  partial <- annotate_genes("ENSG00000141510", species = "Homo",
+                            use_biomart = FALSE)
+  expect_identical(common, partial)
 })

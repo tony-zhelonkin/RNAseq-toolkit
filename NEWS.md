@@ -1,3 +1,22 @@
+# bulkiRNA 0.5.0.9000
+
+## API
+
+* `gatom_download_refs(dir = )` is the layer-prefixed GATOM reference
+  downloader. The frozen `download_gatom_references(dest_dir = )` name remains
+  as a deprecated compatibility shim until 1.0.0.
+
+* Human and mouse species aliases now resolve through one internal contract.
+  All species-taking functions accept `human`, `Homo sapiens`, `hsa`, `mouse`,
+  `Mus musculus`, and `mmu`, including separator and case variants.
+  `annotate_genes()` retains its historical partial scientific-name matching,
+  while user-supplied custom `gs_db` species labels remain supported.
+
+* A recognised alias is now normalised in the `gs_db` `species` attribute:
+  `gsdb_register(species = "mouse")` records `"Mus musculus"` where it
+  previously recorded `"mouse"`. An unrecognised label is still recorded as
+  given, with underscores replaced by spaces.
+
 # bulkiRNA 0.5.0
 
 The package version is the unit of reproducibility (ADR-001), so the changes

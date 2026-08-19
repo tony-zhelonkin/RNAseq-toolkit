@@ -13,7 +13,8 @@
 Character(1) with underscores replaced by spaces.
 }
 \description{
-Accepts \code{"Mus musculus"} or \code{"Mus_musculus"} and returns the spaced form
-used by the \code{gs_db} \code{species} attribute.
+Known aliases are normalized through \code{\link[=.species]{.species()}}. Unknown non-empty labels
+remain supported for user-supplied databases and have underscores replaced
+by spaces.
 }
 \keyword{internal}

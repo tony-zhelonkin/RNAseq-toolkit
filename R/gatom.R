@@ -19,30 +19,13 @@
 #' @keywords internal
 NULL
 
-.gatom_species <- function(species) {
-  key <- gsub("[ _]+", "_", tolower(trimws(species)))
-  switch(
-    key,
-    homo_sapiens = list(name = "Homo sapiens", short = "Hs",
-                        download = "Homo_sapiens"),
-    human        = list(name = "Homo sapiens", short = "Hs",
-                        download = "Homo_sapiens"),
-    mus_musculus = list(name = "Mus musculus", short = "Mm",
-                        download = "Mus_musculus"),
-    mouse        = list(name = "Mus musculus", short = "Mm",
-                        download = "Mus_musculus"),
-    stop("`species` must be one of \"Homo sapiens\", \"Mus musculus\"; got \"",
-         species, "\".", call. = FALSE)
-  )
-}
-
 #' Locate the GATOM reference files
 #'
 #' GATOM needs three files: an atom-transition network, a metabolite database
 #' and a species-specific organism annotation. They are too large to bundle,
 #' so they are resolved from disk. Search order is an explicit `dir` first,
 #' then the staged container path `/opt/gatom-refs`, then
-#' [download_gatom_references()]'s default `dest_dir`
+#' [gatom_download_refs()]'s default `dir`
 #' (`"00_data/references/gatom"`) -- note that the staged copy therefore wins
 #' over that default. With `download = TRUE` the download destination is
 #' searched first, so a fresh fetch is never shadowed by the staged copy.
@@ -51,10 +34,10 @@ NULL
 #' deliberate: `gatom::makeMetabolicGraph()` needs `met.db` even when
 #' `met.de = NULL`, and omitting it breaks topology loading silently.
 #'
-#' @param species Character(1), `"Homo sapiens"` or `"Mus musculus"`.
+#' @param species Character(1) human or mouse species alias.
 #' @param dir Character(1) directory to search first, or `NULL`.
 #' @param download Logical(1); if `TRUE`, missing files are fetched with
-#'   [download_gatom_references()] into `dir` (default
+#'   [gatom_download_refs()] into `dir` (default
 #'   `"00_data/references/gatom"`) before resolving.
 #' @param network Character(1) network flavour, either `"kegg"` or
 #'   `"combined"`.
@@ -69,7 +52,7 @@ NULL
 #' @export
 gatom_refs <- function(species = "Homo sapiens", dir = NULL,
                        download = FALSE, network = "kegg") {
-  sp <- .gatom_species(species)
+  sp <- .species(species)
   if (!is.character(network) || length(network) != 1L || is.na(network) ||
         !network %in% c("kegg", "combined")) {
     stop("`network` must be one of \"kegg\", \"combined\"; got ",
@@ -87,14 +70,14 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
   wanted <- c(
     network  = sprintf("network.%s.rds", network),
     met_db   = sprintf("met.%s.db.rds", network),
-    org_anno = sprintf("org.%s.eg.gatom.anno.rds", sp$short)
+    org_anno = sprintf("org.%s.eg.gatom.anno.rds", sp$gatom_short)
   )
 
   dl_dir <- dir %||% default_dir
   if (isTRUE(download)) {
-    download_gatom_references(
-      dest_dir = dl_dir,
-      species = sp$download,
+    gatom_download_refs(
+      dir = dl_dir,
+      species = sp$gatom_download,
       networks = network
     )
   }
@@ -112,8 +95,8 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
       "GATOM reference file(s) not found: ",
       paste(sprintf("`%s`", missing), collapse = ", "), ".\n",
       "Searched: ", paste(search_dirs, collapse = ", "), ".\n",
-      "Fetch them with download_gatom_references(species = \"",
-      sp$download, "\", networks = \"", network, "\", dest_dir = \"",
+      "Fetch them with gatom_download_refs(species = \"",
+      sp$gatom_download, "\", networks = \"", network, "\", dir = \"",
       dir %||% default_dir,
       "\"), then pass that directory as `dir`.",
       call. = FALSE
@@ -125,7 +108,7 @@ gatom_refs <- function(species = "Homo sapiens", dir = NULL,
       network  = readRDS(found[["network"]]),
       met_db   = readRDS(found[["met_db"]]),
       org_anno = readRDS(found[["org_anno"]]),
-      species  = sp$name,
+      species  = sp$scientific,
       files    = found
     ),
     class = "gatom_refs"

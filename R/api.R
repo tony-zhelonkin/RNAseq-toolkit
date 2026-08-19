@@ -84,8 +84,8 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
       "de_volcano_grid"
     ),
     gatom = c(
-      "download_gatom_references", "gatom_de", "gatom_genes",
-      "gatom_module", "gatom_refs", "gatom_save_html"
+      "gatom_de", "gatom_download_refs", "gatom_genes", "gatom_module",
+      "gatom_refs", "gatom_save_html"
     ),
     `top-level` = c(
       "annotate_genes", "build_dge", "bulkirna_api",
@@ -112,7 +112,7 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
     "gsea_running_sum_plot", "list_reference_dbs", "list_to_term2gene",
     "load_reference_db", "normalize_gsea_results", "parse_gmx",
     "parse_mitoxplorer", "plot_all_gsea_results", "run_gsea",
-    "run_gsea_analysis", "save_gsea_log"
+    "run_gsea_analysis", "save_gsea_log", "download_gatom_references"
   )
 
   stable_names <- unlist(stable, use.names = FALSE)
@@ -122,6 +122,7 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   deprecated_layer <- sub("_.*$", "", deprecated)
   known_layers <- c("gs", "gsdb", "de", "gatom", "coresh", "gsea")
   deprecated_layer[!deprecated_layer %in% known_layers] <- "top-level"
+  deprecated_layer[deprecated == "download_gatom_references"] <- "gatom"
   layer <- c(
     rep(names(stable), lengths(stable)),
     rep(names(experimental), lengths(experimental)),

@@ -7,7 +7,7 @@
 .coresh_species_code(species)
 }
 \arguments{
-\item{species}{One of \code{"human"}, \code{"hsa"}, \code{"mouse"}, or \code{"mmu"}.}
+\item{species}{A human or mouse alias accepted by \code{\link[=.species]{.species()}}.}
 }
 \value{
 \code{"hsa"} or \code{"mmu"}.
