@@ -83,7 +83,7 @@ capability. Six steps, in order.
 | **S3** | **Argument-name consistency audit.** One spelling per concept across every live export: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and admits only the curated vocabulary; one shared `.species()` resolver |
 | **S4** | ✅ **done with S1** — `removed_in` is `1.0.0` for every shim, stated in `MIGRATION.md`. **Set the deprecation clock.** The shims exist because consumer call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
 | **S5** | **Return-type and error-message consistency.** Every compute function returns a tibble; every renderer returns a ggplot; every validation error names the fix. Mostly true already — this step is the audit that proves it and the tests that keep it true. | Tests assert the class of every export's return on the shipped fixture |
-| **S6** | **`R CMD check` stays at zero notes, and vignettes build.** One vignette per live layer: gene sets, DE, GATOM, CoReSh. Each runnable on the shipped fixture with no network and no refcache. | `rcmdcheck` in the image, 0/0/0, vignettes built |
+| **S6** | 🟡 **implemented 2026-08-19; gate awaiting an R-capable runner.** `R CMD check` stays at zero notes, and vignettes build. One vignette per live layer: gene sets, DE, GATOM, CoReSh. **The phrase "each runnable on the shipped fixture" is unmet and superseded; see §16.** | `rcmdcheck` in the image, 0/0/0, vignettes built |
 
 **What Phase 8 deliberately does not do:** rename anything frozen, remove any shim, or add any
 function other than `bulkirna_api()`.
@@ -1226,3 +1226,51 @@ as `.ref_path()` warning when `current` is not a symlink rather than recording t
 | G4 `gs_coregulation()` | ✅ golden gate deliberately not met, stronger check substituted |
 | G5 sweep against GEO titles | ✅ 7 of top 10 hypoxia or HIF |
 | **G5 web UI** | **🚫 needs a browser — the owner's step, and the only remaining external falsifier** |
+
+---
+
+## 16. S6 — four layer vignettes, with the runnable gate corrected (2026-08-19)
+
+Four vignettes and their build plumbing are implemented. `DESCRIPTION` now declares
+`VignetteBuilder: knitr`, with `knitr` and `rmarkdown` in `Suggests`. The current development image
+contains knitr 1.51 and rmarkdown 2.31, so a future build failure is not expected to be a missing
+builder. **No R or Docker was available to the implementing agent, so no vignette has been shown to
+build and S6's `R CMD check` gate remains open.**
+
+### The phrase "each runnable on the shipped fixture" is unmet and superseded
+
+Both `tests/fixtures/` and `data/` are excluded by `.Rbuildignore`. A built vignette can reach neither
+the count fixture nor the source reference tree. Moving either into the build would violate the
+fixture ownership rule, and shipping a new counts payload solely for documentation would permanently
+grow the package without an analysis need. The gate as written is therefore impossible.
+
+The replacement is stronger where the package has data and honest where it does not:
+
+| Layer | Build-time state | Data and reason |
+|---|---|---|
+| Gene sets | **evaluated** | `gsdb_load()` reads real MitoPathways sets from shipped `inst/extdata`; a synthetic rank vector carries a deliberately planted signal in one of those sets. `gsdb_from_file()` and `gsdb_register()` demonstrate the other provider boundaries without network access. |
+| DE | **evaluated** | The vignette constructs a labelled synthetic count matrix with 20 four-fold-up and 20 four-fold-down genes, then runs `build_dge()`, limma-trend, `gs_ranks()`, `de_pca()` and `de_volcano()`. No fixture or external file is needed. |
+| GATOM | `eval = FALSE` for analysis | The optional packages plus about 24 MB of network reference files are prerequisites. The vignette gives the real download, resolution, DE validation, seeded solve, edge-gene extraction and HTML-render calls without inventing output. |
+| CoReSh | `eval = FALSE` for analysis | The search needs the roughly 20 GB chunk tree, `qs2`, organism annotation and, for parallel work, BiocParallel. The current image lacks `qs2`. The vignette gives preflight, search, `(gse, gpl)` convergence, provider construction, enrichment and render calls without pretending the compendium ships. |
+
+`inst/extdata/` is the one genuinely runnable shipped data layer. It is not build-ignored and contains
+the processed MitoPathways, mitoXplorer, unified mitochondrial and TransportDB databases plus the
+master-table schema and metadata registry.
+
+### Why the two unevaluated guides are still vignettes
+
+GATOM and CoReSh belong in `browseVignettes("bulkiRNA")` even though their analysis chunks cannot run
+at package build time. Their documentation value is the order of operations and the boundary between
+reference preparation, compute and render; moving them to internal `docs/` would hide that workflow
+from installed-package users. They contain copy-pasteable calls, state every prerequisite before the
+first dependent call, and show no fabricated output. That makes their limitation visible rather than
+turning an unavailable external input into a false package-build claim.
+
+### Expected check risks
+
+The vignette boilerplate includes index entries, engine declarations and UTF-8 declarations. The
+evaluated work is intentionally small and offline. The remaining unknowns are execution unknowns:
+whether every evaluated call behaves in the built namespace, whether optional-package availability
+is identical under the check library, and whether rendered figures or generated vignette artifacts
+trigger a check note. Only `devtools::document()`, `devtools::test()`, the golden verifier and
+`rcmdcheck::rcmdcheck()` in the image can close those questions.
