@@ -143,12 +143,12 @@ survives as an open question in `03_DEFERRED.md`.
 | 6 Retire the submodule | ⬜ |
 | 7 Distribution | ⬜ |
 | **8 Stabilize the surface** | 🟡 S1 ✅ S2 ✅ S3 ✅ S4 ✅ · **S5, S6 open** |
-| **9 One CoReSh/GESECA run** | 🟡 G1 ✅ G2 ✅ G4 ✅ G5 half · **G3 open** |
+| **9 One CoReSh/GESECA run** | 🟡 G1–G4 ✅ · **G5's web-UI half open (needs a browser)** |
 | 10–11 Activity layer, WGCNA, uniform surface | 🚫 parked by decision |
 
 ### What Phase 8–9 delivered so far
 
-- **`bulkirna_api()`** — 78 exports with lifecycle and signature-freeze as *independent* axes:
+- **`bulkirna_api()`** — 79 exports with lifecycle and signature-freeze as *independent* axes:
   46 stable, 11 experimental, and 21 deprecated, with 24 signature-frozen names. All deprecated
   names are removed in `1.0.0`. Its load-bearing test compares the registry against `NAMESPACE`
   in both directions at test time.
@@ -179,11 +179,8 @@ degradation pathway — at rank 4. Validated against biology, not against itself
 1. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step. It is the only remaining
    independent check on the CoReSh port.
-2. **G3** — `gsdb_coresh()` on `.ref_path("coresh")`, recording the snapshot tag in the
-   `gs_db` provenance that G2 added. Its gate cannot be byte agreement with DC-nexus's stored
-   GMT: that artefact's input chunks no longer exist, and its companion provenance file recorded
-   each query's score rather than each hit's. Gate it on the loading-level agreement plus a
-   fresh end-to-end run.
+2. **S5 and S6** — the return-type and error-message audit, then one vignette per live layer with
+   `R CMD check` staying at 0/0/0. These are the last two open steps of Phase 8.
 4. **Finish Phase 4 — STING-JR first.** It is also the TF reference project, so migrating it
    puts its conventions in front of us before the activity layer is designed. Two unmigrated
    consumers are what keep the deprecated shims alive, so this is on the critical path to

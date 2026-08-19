@@ -1158,3 +1158,71 @@ The first two came from the reviewer, the third from taking its threshold litera
 checking the reviewer. **The ones that took longest to surface were the ones where a sentence sounded
 true** — which is the argument for the whole exercise, and for measuring one's own prose as well as
 one's code.
+
+---
+
+## 15. G3 — `gsdb_coresh()` (2026-08-19)
+
+**Phase 9 is now complete except G5's browser half.** `gsdb_coresh()` composes `coresh_search()` and
+`coresh_sets()` into one provider returning a `gs_db` with `database = "coresh"`, so a CoReSh-derived
+database is obtained and consumed exactly as an MSigDB one is. **1,680 tests passing, golden 20/20,
+`R CMD check` 0/0/0, 79 exports.**
+
+### The gate, run end to end on the live compendium
+
+C4's original gate — byte agreement with DC-nexus's stored GMT — is void for the reasons in §10, so the
+replacement was mostly compositional, since G2 already pinned the numerics against the reference
+implementation on 63 of 63 hits.
+
+Three real queries against `syn66227307_20260721`, and the check that matters:
+
+```
+Gate 1: provider and hand composition identical, including provenance: TRUE
+<gs_db> CoReSh-derived gene sets [coresh]  (Homo sapiens, symbol)
+13 sets, 561 unique genes, size 50-50 (median 50)
+Provenance: source=coresh; snapshot=syn66227307_20260721;
+            chunk_dir=/refcache/coresh/current/preprocessed_chunks/hsa;
+            species=Homo sapiens; n_chunks=89; queries=iron_uptake(5),
+            ferroptosis(4), heme(4); top_hits=5; top_n=50; min_size=15;
+            max_size=500; jaccard_threshold=0.8
+```
+
+`gs_test()` then returned a valid `gs_result` on it with no renderer change. **The provider adds no
+computation of its own**, which is what "it enters at the provider layer and bends nothing" has to mean
+in practice rather than in prose.
+
+**ADR-004's second real exercise, and it lands where the ADR asked**: the snapshot tag is in the
+object's provenance, not the log.
+
+### The defect, and it was my instruction that caused it
+
+The first version recorded the queries **and the entire selected-hits table as `dput()` text** —
+several kilobytes of escaped R code in every `print()`, carried through every subset.
+
+The agent's reasoning was sound and is in the code: database provenance is constrained to atomic
+scalars, so serializing was the only way to fit a list and a data frame into it. **The error was in my
+brief**, which said a `gs_db` whose provenance names a snapshot but not the query set cannot be
+reproduced from its own record. Taken together with the scalar constraint, that instruction forces
+exactly the blob that was written. **It satisfied the validator by defeating the purpose of the field it
+was validating.**
+
+So the fix was to correct the instruction. Provenance now records query **names with their sizes**
+(`iron_uptake(5), ferroptosis(4), heme(4)`), the hits table is gone because `set_provenance` already
+ties each set to its `query_name`, `gse`, `gpl`, `loading_cutoff` and `rank_in_coresh`, and both
+functions document plainly that **the exact Entrez ids stay with the caller**. I declined a digest of
+the query ids: base R has no object hash and `digest` is not a dependency, so it would mean a new
+`Suggests` for a provenance nicety.
+
+**An honest gap a reader can see beats a blob that looks like completeness.** That is the same principle
+as `.ref_path()` warning when `current` is not a symlink rather than recording the literal string.
+
+### What Phase 9 looks like finished
+
+| Step | State |
+|---|---|
+| G1 p-value path | ✅ |
+| G2 set-building layer | ✅ gate superseded, replacement met |
+| G3 provider | ✅ |
+| G4 `gs_coregulation()` | ✅ golden gate deliberately not met, stronger check substituted |
+| G5 sweep against GEO titles | ✅ 7 of top 10 hypoxia or HIF |
+| **G5 web UI** | **🚫 needs a browser — the owner's step, and the only remaining external falsifier** |
