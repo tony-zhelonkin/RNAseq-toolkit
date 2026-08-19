@@ -1,7 +1,7 @@
 # bulkiRNA — handoff and plan of record
 
-**Updated:** 2026-08-14 · **Branch:** `feat/bulkirna-package` · **Version:** `v0.5.0` tagged
-**State:** 1385 tests passing · golden 20/20 · `R CMD check` 0/0/0 · 74 exports
+**Updated:** 2026-08-18 · **Branch:** `feat/bulkirna-package` · **Version:** `v0.5.0` tagged
+**State:** review fixes in flight; gates require a fresh run · 78 exports
 
 This is the entry point. Everything else is reachable from here.
 
@@ -148,11 +148,10 @@ survives as an open question in `03_DEFERRED.md`.
 
 ### What Phase 8–9 delivered so far
 
-- **`bulkirna_api()`** — 78 exports with lifecycle and signature-freeze as *independent* axes,
-  because 20 of the 24 frozen names are also deprecated. 46 stable, 8 experimental, 20
-  deprecated, all removed in `1.0.0`. Its load-bearing test compares the registry against
-  `NAMESPACE` in both directions at test time. 46 stable, 10 experimental, 21 deprecated after
-  S2/S3 and G2.
+- **`bulkirna_api()`** — 78 exports with lifecycle and signature-freeze as *independent* axes:
+  46 stable, 11 experimental, and 21 deprecated, with 24 signature-frozen names. All deprecated
+  names are removed in `1.0.0`. Its load-bearing test compares the registry against `NAMESPACE`
+  in both directions at test time.
 - **`bulkirna_stochastic()`** — the five functions that consume randomness, each seed argument,
   default and source of randomness. `write_session_provenance()` records `RNGkind()`.
 - **`R/rng.R`** — the only place allowed to mutate RNG state, with a parse-tree test that fails
@@ -187,7 +186,8 @@ degradation pathway — at rank 4. Validated against biology, not against itself
    fresh end-to-end run.
 4. **Finish Phase 4 — STING-JR first.** It is also the TF reference project, so migrating it
    puts its conventions in front of us before the activity layer is designed. Two unmigrated
-   consumers are what keep the 20 shims alive, so this is on the critical path to `v1.0.0`.
+   consumers are what keep the deprecated shims alive, so this is on the critical path to
+   `v1.0.0`.
 5. **S5, S6** — return-type audit and one vignette per layer.
 
 **Then** reconsider Phases 10–11 with `03_DEFERRED.md` in hand.

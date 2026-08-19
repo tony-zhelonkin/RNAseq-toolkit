@@ -16,7 +16,12 @@ name_audit_exports <- function() {
 
 test_that("every live export has a layer prefix or a reasoned exception", {
   exports <- name_audit_exports()
-  skip_if(is.null(exports), "NAMESPACE not reachable from the test dir")
+  if (is.null(exports)) {
+    skip(paste(
+      "Source-tree-only name audit: R/ and NAMESPACE are unavailable",
+      "when tests run against the installed package."
+    ))
+  }
   api <- bulkirna_api(quiet = TRUE)
   live <- intersect(exports, api$name[api$lifecycle != "deprecated"])
 
@@ -36,51 +41,83 @@ test_that("every live export has a layer prefix or a reasoned exception", {
     # Presentation names follow R/ggplot vocabulary and remain intentionally short.
     format_pathway_name = "general label formatter",
     theme_bulki = "house theme parallel to ggplot2 theme names",
-    # Package metadata already carries the package name as its namespace.
+    # The bulkirna_ prefix marks package-wide metadata and dependency checks.
     bulkirna_api = "package metadata",
-    bulkirna_check_deps = "package metadata",
+    bulkirna_check_deps = "package-wide dependency inspection",
     bulkirna_stochastic = "package metadata"
   )
   prefixed <- grepl("^(gsdb_|gs_|de_|gatom_|coresh_)", live)
   observed <- sort(live[!prefixed])
 
-  expect_true(all(nzchar(top_level)))
   expect_identical(observed, sort(names(top_level)))
 })
 
-test_that("live export formals use the audited argument vocabulary", {
+test_that("live export formals use the complete audited vocabulary", {
   exports <- name_audit_exports()
-  skip_if(is.null(exports), "NAMESPACE not reachable from the test dir")
+  if (is.null(exports)) {
+    skip(paste(
+      "Source-tree-only argument audit: R/ and NAMESPACE are unavailable",
+      "when tests run against the installed package."
+    ))
+  }
   api <- bulkirna_api(quiet = TRUE)
   live <- intersect(exports, api$name[api$lifecycle != "deprecated"])
 
-  forbidden <- list(
-    species = c("organism", "organism_name", "species_name"),
-    db = c("gene_sets", "genesets", "gene_set_db"),
-    contrast = c("comparison", "contrast_name"),
-    seed = c("random_seed", "rng_seed"),
-    quiet = "silent",
-    verbose = "verbosity",
-    path = c("file", "filepath", "file_path", "filename"),
-    min_size = c("minSize", "minsize"),
-    max_size = c("maxSize", "maxsize"),
-    n_cores = c("cores", "ncores", "n_workers", "workers"),
-    dir = c("directory", "dest_dir", "out_dir", "output_dir")
+  allowed <- c(
+    "...", "B_cutoff", "aes_x", "annotate_counts", "baseMean", "base_family",
+    "base_size", "base_theme", "biomart_host", "biomart_version", "by",
+    "by_contrast", "by_direction", "cache", "caption", "center", "chunk_dir",
+    "chunk_path", "coef", "collapse", "collection", "color_palette",
+    "colour_by", "colours", "compare", "contrast", "count_mat", "data",
+    "database", "database_label", "database_labels", "db", "db_species", "de",
+    "de_results", "decision_by", "df", "dge", "dir", "direction", "download",
+    "dpi", "drop", "drop_empty", "ens_ids", "ensembl_version", "entity_type",
+    "entrez", "eps", "error", "expr", "facet", "fc_cutoff", "fdr_cutoff",
+    "features", "fit", "fixed_p_boundary", "formats", "gene2reaction_extra",
+    "genes", "genes_df", "genome_build", "gpl", "grid", "gse_id", "gsea_param",
+    "height", "highlight", "highlight_gene", "id", "input_gene_name",
+    "jaccard_threshold", "k_gene", "k_met", "kcdf", "keep_first_caption",
+    "label", "label_method", "label_size", "labels", "legend_pos",
+    "legend_position", "lifecycle", "limits", "log2FC", "m", "max.overlaps",
+    "max_genes", "max_name_length", "max_size", "met_de", "method", "metric",
+    "metric_label", "min_genes", "min_queries", "min_size", "multi_vals", "n",
+    "n_cores", "n_top", "name", "network", "networks", "norm_method", "obj",
+    "orientation", "overview", "overwrite", "p_cutoff", "p_value", "padj",
+    "padj_max", "palette", "panel_heights", "path", "pathway_id",
+    "pathway_names", "pathways", "pattern", "per", "plot", "plots",
+    "point_size", "prefix", "prune", "pval", "pvalues", "queries", "query",
+    "quiet", "ranking", "ranks", "rebuild", "refs", "required_cols", "res",
+    "round_nonint", "sample_col_candidates", "sample_data", "sample_size",
+    "samples_df", "scale", "schema_version", "seed", "sets", "shape_by",
+    "show_grid", "show_quadrant_counts", "size_range", "solver", "sort_by",
+    "species", "stat", "stat_as_nes", "strip_prefix", "subcollection",
+    "subtitle", "symbol_by", "symbols", "table", "text", "title", "top",
+    "top_hits", "top_n", "unique_genes", "universe", "use_biomart",
+    "use_formatting", "verbose", "width", "wrap_width", "x", "x_breaks",
+    "xlim_abs", "y_padding", "ylim_abs"
   )
-
-  offenders <- unlist(lapply(live, function(name) {
-    formal_names <- names(formals(getExportedValue("bulkiRNA", name)))
-    bad <- intersect(formal_names, unlist(forbidden, use.names = FALSE))
-    if (!length(bad)) return(character())
-    paste0(name, "(", bad, ")")
-  }), use.names = FALSE)
+  required <- c(
+    "species", "db", "contrast", "seed", "quiet", "verbose", "path",
+    "min_size", "max_size", "n_cores", "dir"
+  )
+  observed <- sort(unique(unlist(lapply(live, function(name) {
+    names(formals(getExportedValue("bulkiRNA", name)))
+  }), use.names = FALSE)))
+  unexpected <- setdiff(observed, allowed)
+  unused <- setdiff(allowed, observed)
 
   expect_identical(
-    sort(offenders),
+    unexpected,
     character(0L),
-    info = paste(
-      "Use species, db, contrast, seed, quiet, verbose, path, min_size,",
-      "max_size, n_cores, or dir according to the audited concept."
-    )
+    info = "Every new formal spelling needs an explicit name-audit decision."
+  )
+  expect_identical(
+    unused,
+    character(0L),
+    info = "Remove formal spellings from the vocabulary when they leave the API."
+  )
+  expect_true(
+    all(required %in% observed),
+    info = "The canonical cross-layer formals must remain present."
   )
 })

@@ -68,7 +68,7 @@ test_that("annotate_genes validates species", {
   )
 })
 
-test_that("annotate_genes accepts common aliases and retained partial matches", {
+test_that("annotate_genes uses human annotation for aliases and partial matches", {
   skip_if_not_installed("org.Hs.eg.db")
   skip_if_not_installed("AnnotationDbi")
 
@@ -76,5 +76,17 @@ test_that("annotate_genes accepts common aliases and retained partial matches", 
                            use_biomart = FALSE)
   partial <- annotate_genes("ENSG00000141510", species = "Homo",
                             use_biomart = FALSE)
+
+  expect_identical(common$Symbol, "TP53")
+  expect_identical(common$ENTREZID, "7157")
+  expect_identical(partial$Symbol, "TP53")
+  expect_identical(partial$ENTREZID, "7157")
   expect_identical(common, partial)
+})
+
+test_that("annotate_genes rejects an absent species", {
+  expect_error(
+    annotate_genes("ENSG00000141510", species = NULL, use_biomart = FALSE),
+    "`species` must be one of"
+  )
 })

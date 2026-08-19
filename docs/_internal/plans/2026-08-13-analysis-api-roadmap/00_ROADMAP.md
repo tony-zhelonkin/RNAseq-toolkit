@@ -24,12 +24,11 @@ The first draft of this roadmap proposed three new subsystems. The owner's call:
 That is the right call and it is worth saying why, because the argument is not only about
 appetite.
 
-**The package has 74 exports, 20 of which are deprecated shims, and no stability contract at
-all.** Nothing says which names are safe to build on. Meanwhile 24 exports are frozen by an
-explicit promise, 5 `coresh_*` functions are two days old and unproven against a consumer, and
-13 inherited live exports sit outside every layer prefix. Adding `tf_activity()` on top of that would
-mean a consumer cannot tell a settled name from a provisional one — which is exactly the
-failure the refactor was meant to end, reintroduced one level up.
+**The package needed a stability contract.** Nothing said which names were safe to build on.
+Meanwhile 24 exports were frozen by an explicit promise, the `coresh_*` functions were new and
+unproven against a consumer, and inherited live exports sat outside every layer prefix. Adding
+`tf_activity()` on top of that would mean a consumer could not tell a settled name from a
+provisional one, which was the failure the refactor was meant to end.
 
 **And the second reason is sharper.** The activity and network layers are where the
 methodological drift is worst, which makes them the most valuable to unify and the most
@@ -47,12 +46,12 @@ proves the surface is actually usable rather than merely tidy.
 | Fact | Value |
 |---|---|
 | Version | `v0.5.0`, tagged and pushed |
-| Exports | **74** — 54 live, **20 deprecated shims** |
-| Live exports under an analysis-layer prefix | 39 (`gs_` 17, `gsdb_` 6, `de_` 6, `gatom_` 5, `coresh_` 5) |
-| Other live exports | **15** — the 13 inherited S2 targets plus `bulkirna_api()` and `bulkirna_stochastic()` from S1 |
-| Tests | 1060 passing, 0 failing, 5 skipped |
-| Golden baselines | 20/20 |
-| **`R CMD check`** | **0 errors, 0 warnings, 1 note** — and the note was a `NEWS.md` heading, now fixed |
+| Exports | **78** — 57 live, **21 deprecated shims** |
+| Live exports under an analysis-layer prefix | 43 (`gs_` 18, `gsdb_` 6, `de_` 6, `gatom_` 6, `coresh_` 7) |
+| Other live exports | **14** — 12 retained inherited names plus `bulkirna_api()` and `bulkirna_stochastic()` |
+| Tests | Fresh run required after the name-audit review fixes |
+| Golden baselines | Fresh run required |
+| **`R CMD check`** | Fresh run required |
 | Consumers migrated | 1 of 3 (`14839-DM-cGAS`) |
 
 The check result is better than I expected and it changes the character of Phase 8: this is
@@ -79,10 +78,10 @@ capability. Six steps, in order.
 
 | Step | Work | Gate |
 |---|---|---|
-| **S1** | ✅ **done 2026-08-13.** `bulkirna_api()` ships the contract as a table. **Write the stability contract.** Three tiers: `stable` (the 24 frozen plus anything a migrated consumer depends on), `experimental` (the 5 `coresh_*`, the 3 gene-id functions — may change without a major bump), `deprecated` (the 20 shims, with a removal version). Publish it as a vignette and a machine-readable table, and make `bulkirna_api()` return it. | A test asserts every export carries exactly one tier, so a new export cannot be added without classifying it |
+| **S1** | ✅ **done 2026-08-13.** `bulkirna_api()` ships the contract as a table. **Write the stability contract.** Three tiers: `stable`, `experimental`, and `deprecated`, with lifecycle separate from the 24-name signature freeze. Publish it as a vignette and a machine-readable table, and make `bulkirna_api()` return it. | A test asserts every export carries exactly one tier, so a new export cannot be added without classifying it |
 | **S2** | **Name audit on the 13 unprefixed exports.** Decide per name: keep as a deliberate top-level verb, or move under a prefix with a shim. `download_gatom_references` → `gatom_download_refs` is the clear one, because it already belongs to a family whose other five members are prefixed. `ensure_dir` is a utility that probably should not be exported at all. | Every decision recorded with a reason in the contract vignette; no silent renames |
-| **S3** | **Argument-name consistency audit.** One spelling per concept across all 54 live exports: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and fails on a known-bad spelling; one shared `.species()` resolver |
-| **S4** | ✅ **done with S1** — `removed_in` is `1.0.0` for all 20 shims, stated in `MIGRATION.md`. **Set the deprecation clock.** The 20 shims exist because 64 call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay — but with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
+| **S3** | **Argument-name consistency audit.** One spelling per concept across every live export: `species`, `db`, `contrast`, `seed`, `quiet`, `verbose`, `path`, `min_size`/`max_size`. Today `gs_test()` and `coresh_search()` do not agree on everything, and the species aliases accepted by `gatom_refs()`, `gsdb_msigdb()` and `gene_to_entrez()` were each written separately. | A test enumerates formals across exports and admits only the curated vocabulary; one shared `.species()` resolver |
+| **S4** | ✅ **done with S1** — `removed_in` is `1.0.0` for every shim, stated in `MIGRATION.md`. **Set the deprecation clock.** The shims exist because consumer call sites could not migrate at once. Two of three consumers are still unmigrated, so they stay with a named removal version (`v1.0.0`) and a warning that says it. | `MIGRATION.md` states the removal version; a test asserts every shim warns |
 | **S5** | **Return-type and error-message consistency.** Every compute function returns a tibble; every renderer returns a ggplot; every validation error names the fix. Mostly true already — this step is the audit that proves it and the tests that keep it true. | Tests assert the class of every export's return on the shipped fixture |
 | **S6** | **`R CMD check` stays at zero notes, and vignettes build.** One vignette per live layer: gene sets, DE, GATOM, CoReSh. Each runnable on the shipped fixture with no network and no refcache. | `rcmdcheck` in the image, 0/0/0, vignettes built |
 
@@ -158,7 +157,7 @@ is how plans rot. It moves to the deferred document as an open question.
    weaker than an independent implementation and stronger than nothing. G5 remains the only
    external falsifier and it is still open.
 5. Then finish **Phase 4** — STING-JR, then DC-nexus. Two unmigrated consumers are what keep
-   the 20 shims alive, so this is on the critical path to `v1.0.0`.
+   the deprecated shims alive, so this is on the critical path to `v1.0.0`.
 
 **Open, none of it blocking:** the image pin still says `bulkiRNA@v0.4.0`; `qs2` is absent
 from `scdock-r-dev:v0.5.13` and every chunk reader needs it; `10_gatom_modules.R`'s combined
@@ -176,9 +175,9 @@ sequencing would be wrong.
 
 **The cost of not stabilizing first**, which is why it is right anyway. Three consumers are
 mid-migration, and every one of them is currently free to depend on a two-day-old
-`coresh_match()` signature with no way to know it is provisional. The 20 shims have no removal
-date, so they are permanent by default. Adding three subsystems to that would make the
-package's own surface the next thing needing a refactor.
+`coresh_match()` signature with no way to know it is provisional. At that point the deprecated
+shims had no removal date, so they were permanent by default. Adding three subsystems to that
+would make the package's own surface the next thing needing a refactor.
 
 **The alternative — stabilize *and* build in parallel.** Rejected. The audits in S2, S3 and S5
 are exactly the kind of work that a moving surface invalidates; doing them while adding
@@ -194,19 +193,18 @@ implementation".
 ## 7. S1 and G1 as executed (2026-08-13)
 
 Two stages, each written by a delegated agent in an isolated clone, gated here, and read by an
-independent reviewer. Package state: **1212 tests passing, golden 20/20, `R CMD check` 0/0/0,
-73 exports.**
+independent reviewer. The checkpoint gates were **1212 tests passing, golden 20/20, and
+`R CMD check` 0/0/0**. The registry has grown since that checkpoint.
 
 ### S1 — the contract exists
 
 `bulkirna_api()` returns one row per export with `name`, `layer`, `lifecycle`, `frozen`,
-`superseded_by`, `removed_in`. 45 stable, 8 experimental, 20 deprecated, 24 frozen, all shims
-removed in `1.0.0`.
+`superseded_by`, `removed_in`. The current registry has 46 stable, 11 experimental, 21
+deprecated, and 24 frozen names; all shims are removed in `1.0.0`.
 
-**The two-axis design was the right call and the numbers prove it:** 20 of the 24
-signature-frozen names are also deprecated, so a single tier column would have had to lie about
-one or the other. `frozen ∖ deprecated` is exactly `{build_dge, download_gatom_references,
-ensure_dir, format_pathway_name}` — the four original toolkit names that remain the real API.
+**The two-axis design was the right call:** 21 of the 24 signature-frozen names are now
+deprecated, so a single tier column would have to lie about one axis or the other.
+`frozen ∖ deprecated` is exactly `{build_dge, ensure_dir, format_pathway_name}`.
 
 The load-bearing test compares the registry against the `NAMESPACE` in both directions at test
 time, so an export cannot be added without classifying it. The reviewer verified this is not
@@ -446,8 +444,9 @@ explain.
 ## 10. S2, S3 and G2 as executed (2026-08-18)
 
 Two stages in parallel, each written by a delegated agent in an isolated clone, each gated and
-reviewed here. Package state: **1,465 tests passing, golden 20/20, `R CMD check` 0/0/0, 77
-exports** — 46 stable, 10 experimental, 21 deprecated.
+reviewed here. The current package surface is **78 exports: 46 stable, 11 experimental, and 21
+deprecated**. The checkpoint gates recorded here predate this review-fix pass and require a
+fresh run.
 
 The delegated agents had no Docker socket, so **every gate in this section was run by me**, not by
 the agent that wrote the code. Both agents were told to claim no gate as passing, and neither did.
@@ -455,7 +454,7 @@ the agent that wrote the code. Both agents were told to claim no gate as passing
 ### S2 — the 13 unprefixed exports, and only one moves
 
 `04_NAME_AUDIT.md` records all thirteen decisions with reasons. `download_gatom_references` →
-**`gatom_download_refs`**, with the frozen name kept as the 21st deprecated shim: five other
+**`gatom_download_refs`**, with the frozen name kept as a deprecated shim: five other
 members of its family are prefixed and it was the only one that was not.
 
 `ensure_dir` stays `stable`, and that decision changed on evidence — the consumer inventory still

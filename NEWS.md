@@ -35,6 +35,11 @@
   previously recorded `"mouse"`. An unrecognised label is still recorded as
   given, with underscores replaced by spaces.
 
+* `annotate_genes(species = NULL)` now errors instead of silently selecting
+  `"Mus musculus"`, which was the first choice returned by its historical
+  `match.arg()` call. This catches unset configuration values before they can
+  annotate human genes through the mouse annotation package.
+
 ## Reproducibility
 
 * `gs_coregulation()` pins GESECA's stochastic work through the package RNG

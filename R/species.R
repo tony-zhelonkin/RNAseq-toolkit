@@ -19,6 +19,9 @@
   }
   if (!is.character(species) || length(species) != 1L || is.na(species) ||
       !nzchar(species)) {
+    if (allow_custom) {
+      stop("`species` must be a single non-empty string.", call. = FALSE)
+    }
     stop(
       "`species` must be one of \"human\", \"Homo sapiens\", \"hsa\", ",
       "\"mouse\", \"Mus musculus\", or \"mmu\".",
@@ -34,9 +37,14 @@
     "mouse"
   } else {
     # match.arg() accepted any unambiguous, case-sensitive prefix of its two
-    # scientific choices. Preserve that part of annotate_genes()'s contract.
-    partial <- names(scientific)[startsWith(scientific, species)]
-    if (length(partial) == 1L) partial else NA_character_
+    # scientific choices. Preserve that part of annotate_genes()'s strict
+    # contract without rewriting a custom provider label.
+    if (!allow_custom) {
+      partial <- names(scientific)[startsWith(scientific, species)]
+      if (length(partial) == 1L) partial else NA_character_
+    } else {
+      NA_character_
+    }
   }
 
   if (!is.na(common)) {
@@ -77,7 +85,7 @@
 
   stop(
     "`species` must be one of \"human\", \"Homo sapiens\", \"hsa\", ",
-    "\"mouse\", \"Mus musculus\", or \"mmu\"; got ", sQuote(species), ".",
+    "\"mouse\", \"Mus musculus\", or \"mmu\"; got \"", species, "\".",
     call. = FALSE
   )
 }

@@ -71,7 +71,12 @@ test_that("only rng.R mutates RNG state", {
       break
     }
   }
-  skip_if(is.null(r_dir), "package R/ sources not reachable from the test dir")
+  if (is.null(r_dir)) {
+    skip(paste(
+      "Source-tree-only RNG ownership audit: package R/ sources are",
+      "unavailable when tests run against the installed package."
+    ))
+  }
 
   call_name <- function(call) {
     head <- call[[1L]]

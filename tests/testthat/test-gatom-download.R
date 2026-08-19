@@ -11,14 +11,55 @@ test_that("download_gatom_references keeps its frozen formals", {
 })
 
 test_that("download_gatom_references is a deprecated compatibility shim", {
-  expect_warning(
-    try(download_gatom_references(networks = character()), silent = TRUE),
-    class = "deprecatedWarning"
+  deprecation <- NULL
+  try(
+    withCallingHandlers(
+      download_gatom_references(networks = character()),
+      warning = function(w) {
+        if (inherits(w, "deprecatedWarning")) deprecation <<- w
+        invokeRestart("muffleWarning")
+      }
+    ),
+    silent = TRUE
   )
+  expect_s3_class(deprecation, "deprecatedWarning")
+  expect_match(conditionMessage(deprecation), "gatom_download_refs", fixed = TRUE)
+  expect_false(grepl("bulkiRNA-deprecated", conditionMessage(deprecation),
+                     fixed = TRUE))
   expect_identical(
     names(formals(gatom_download_refs)),
     c("dir", "species", "networks", "overwrite")
   )
+})
+
+test_that("download_gatom_references forwards its destination", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  dest <- tempfile("gatom-shim-")
+  on.exit(unlink(dest, recursive = TRUE), add = TRUE)
+  destinations <- character()
+
+  testthat::local_mocked_bindings(
+    download.file = function(url, destfile, ...) {
+      destinations <<- c(destinations, destfile)
+      writeLines("payload", destfile)
+      0L
+    },
+    .package = "utils"
+  )
+
+  expect_warning(
+    suppressMessages(
+      paths <- download_gatom_references(
+        dest_dir = dest,
+        species = "Homo_sapiens",
+        networks = "kegg"
+      )
+    ),
+    class = "deprecatedWarning"
+  )
+  expect_true(length(destinations) > 0L)
+  expect_true(all(dirname(destinations) == dest))
+  expect_true(all(dirname(paths) == dest))
 })
 
 test_that("an unsupported species fails before anything is written", {

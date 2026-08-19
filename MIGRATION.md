@@ -12,7 +12,7 @@ For projects that `source()`d the toolkit from a submodule.
 - `deprecated` remains callable and warns, but is scheduled for removal in **v1.0.0**.
 
 The separate `frozen` column records the 24 signatures inherited from the script library. A
-frozen name is not necessarily recommended: all 20 deprecated shims are frozen so their old
+frozen name is not necessarily recommended: all deprecated shims are frozen so their old
 calls remain reproducible until removal. `superseded_by` may describe a sequence or technique,
 and says plainly when part of an old behaviour has no replacement.
 

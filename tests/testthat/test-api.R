@@ -8,7 +8,7 @@ test_that("the API registry covers the complete namespace exactly once", {
     c("name", "layer", "lifecycle", "frozen", "stochastic", "superseded_by",
       "removed_in")
   )
-  expect_equal(nrow(api), 78L)
+  expect_equal(nrow(api), length(exports))
   expect_equal(anyDuplicated(api$name), 0L)
   expect_setequal(api$name, exports)
   expect_identical(api$name, sort(api$name))
@@ -17,21 +17,10 @@ test_that("the API registry covers the complete namespace exactly once", {
 test_that("each export has one stability lifecycle and one layer", {
   api <- bulkirna_api(quiet = TRUE)
 
-  expect_equal(sum(api$lifecycle == "deprecated"), 21L)
-  expect_equal(sum(api$lifecycle == "experimental"), 11L)
-  expect_equal(sum(api$lifecycle == "stable"), 46L)
   expect_false(anyNA(api$lifecycle))
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
-  expect_equal(nrow(api), 78L)
-  expect_equal(sum(api$layer == "gs"), 18L)
-  expect_equal(sum(api$layer == "gsdb"), 6L)
-  expect_equal(sum(api$layer == "de"), 6L)
-  expect_equal(sum(api$layer == "gatom"), 7L)
-  expect_equal(sum(api$layer == "coresh"), 7L)
-  expect_equal(sum(api$layer == "gsea"), 4L)
-  expect_equal(sum(api$layer == "top-level"), 30L)
   expect_identical(
     api$layer[api$name == "download_gatom_references"],
     "gatom"
@@ -67,7 +56,7 @@ test_that("the historical signature freeze remains an independent axis", {
     "list_reference_dbs", "download_gatom_references"
   )
 
-  expect_equal(sum(api$frozen), 24L)
+  expect_equal(sum(api$frozen), length(frozen))
   expect_setequal(api$name[api$frozen], frozen)
   expect_true(all(api$frozen[api$lifecycle == "deprecated"]))
   expect_setequal(
@@ -81,7 +70,6 @@ test_that("deprecated metadata names a successor and removal version", {
   deprecated <- api[api$lifecycle == "deprecated", ]
   maintained <- api[api$lifecycle != "deprecated", ]
 
-  expect_equal(nrow(deprecated), 21L)
   expect_true(all(!is.na(deprecated$superseded_by)))
   expect_true(all(nzchar(deprecated$superseded_by)))
   expect_true(all(deprecated$removed_in == "1.0.0"))
@@ -91,14 +79,13 @@ test_that("deprecated metadata names a successor and removal version", {
 
 test_that("machine-readable successors come from the deprecation calls", {
   api <- bulkirna_api(quiet = TRUE)
-  # Six shims use `.Deprecated(msg = )` and so carry no machine-readable
-  # target; the other fifteen are parsed out of the call itself.
+  # Message-only shims carry no machine-readable target; every other target is
+  # parsed out of the call itself.
   message_only <- c(
     "filter_by_size", "parse_mitoxplorer", "convert_human_to_mouse",
     "plot_all_gsea_results", "save_gsea_log", "empty_gsea_tibble"
   )
   machine_readable <- setdiff(api$name[api$lifecycle == "deprecated"], message_only)
-  expect_length(machine_readable, 15L)
 
   # One literal anchor, so the loop below cannot pass with a helper that reads
   # the wrong argument and still agrees with itself.
@@ -184,11 +171,24 @@ test_that("every deprecated export warns before doing any work", {
   for (name in deprecated) {
     fun <- getExportedValue("bulkiRNA", name)
     # The test above establishes that this is the shim's first statement.
-    # Evaluate only that statement: this proves the real warning fires without
-    # allowing any delegated work in this or a future shim to run.
+    # Install a body-truncated copy under the real shim name. This preserves
+    # .Deprecated()'s call-derived `old` value without allowing delegated work
+    # in this or a future shim to run.
     deprecation_call <- body(fun)[[2L]]
+    warning_fun <- fun
+    body(warning_fun) <- as.call(list(as.name("{"), deprecation_call))
+    shim_env <- new.env(parent = environment(fun))
+    assign(name, warning_fun, envir = shim_env)
+    # Both shim forms name themselves, in two spellings: `.Deprecated("target")`
+    # produces `'name' is deprecated` from the call, and the six message-only
+    # shims write `` `name()` is deprecated `` in their own prose. Matching the
+    # bare name covers both, and still fails if the truncated body loses the
+    # call-derived `old` value and the warning reads `'.Deprecated' is
+    # deprecated` instead.
     expect_warning(
-      eval(deprecation_call, envir = environment(fun)),
+      eval(call(name), envir = shim_env),
+      name,
+      fixed = TRUE,
       class = "deprecatedWarning"
     )
   }

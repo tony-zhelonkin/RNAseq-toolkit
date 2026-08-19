@@ -185,7 +185,7 @@ R runs in a container.
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache \
-  -v /path/to/.msigdb-cache:/cache -v "$PWD":/pkg -w /pkg scdock-r-dev:v0.5.11 \
+  -v /path/to/.msigdb-cache:/cache -v "$PWD":/pkg -w /pkg scdock-r-dev:v0.5.13 \
   Rscript -e 'devtools::test(".")'
 ```
 
@@ -195,7 +195,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/cache \
 Two gates guard every commit:
 
 ```r
-devtools::test(".")                     # 915 pass / 0 fail
+devtools::test(".")
 ```
 ```bash
 Rscript tests/golden/verify_golden.R    # 20/20, exit 0

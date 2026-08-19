@@ -120,7 +120,7 @@ download_gatom_references <- function(
     networks = c("kegg", "combined"),
     overwrite = FALSE
 ) {
-  .Deprecated(new = "gatom_download_refs", package = "bulkiRNA")
+  .Deprecated(new = "gatom_download_refs")
   gatom_download_refs(
     dir = dest_dir,
     species = species,

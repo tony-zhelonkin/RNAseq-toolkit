@@ -39,6 +39,33 @@ test_that("the shared species resolver accepts every historical alias", {
   )
 })
 
+test_that("the shared species records pin every representation", {
+  expect_identical(
+    bulkiRNA:::.species("human"),
+    list(
+      common = "human",
+      scientific = "Homo sapiens",
+      code = "hsa",
+      orgdb = "org.Hs.eg.db",
+      biomart_dataset = "hsapiens_gene_ensembl",
+      gatom_short = "Hs",
+      gatom_download = "Homo_sapiens"
+    )
+  )
+  expect_identical(
+    bulkiRNA:::.species("mouse"),
+    list(
+      common = "mouse",
+      scientific = "Mus musculus",
+      code = "mmu",
+      orgdb = "org.Mm.eg.db",
+      biomart_dataset = "mmusculus_gene_ensembl",
+      gatom_short = "Mm",
+      gatom_download = "Mus_musculus"
+    )
+  )
+})
+
 test_that("scientific-name partial matching remains available", {
   expect_identical(
     bulkiRNA:::.species("Homo")$scientific,
@@ -66,8 +93,23 @@ test_that("custom species remain reachable only through the gs_db formatter", {
     bulkiRNA:::.gsdb_species_label("Danio_rerio"),
     "Danio rerio"
   )
+  expect_identical(bulkiRNA:::.gsdb_species_label("Mus"), "Mus")
+  expect_identical(bulkiRNA:::.species("Homo")$scientific, "Homo sapiens")
+  expect_error(
+    bulkiRNA:::.gsdb_species_label(9606L),
+    "`species` must be a single non-empty string",
+    fixed = TRUE
+  )
   expect_error(
     bulkiRNA:::.species("Danio_rerio"),
     "`species` must be one of"
+  )
+})
+
+test_that("strict species errors use stable quotes", {
+  expect_error(
+    bulkiRNA:::.species("rat"),
+    'got "rat".',
+    fixed = TRUE
   )
 })

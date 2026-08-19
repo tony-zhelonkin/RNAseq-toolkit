@@ -13,7 +13,7 @@
 #'   removal in the version recorded in `removed_in`.
 #'
 #' `frozen` records the 24 signatures carried forward from the script-library
-#' API. It does not mean that a function is recommended: all 20 deprecated
+#' API. It does not mean that a function is recommended: all deprecated
 #' shims are frozen until their documented removal. Conversely, most stable
 #' functions were introduced after the freeze and therefore have
 #' `frozen = FALSE`.
