@@ -781,3 +781,110 @@ Its process point stands and the tables above now reflect it. §5 said run **G5 
 that was not done, because G5's remaining half needs a browser. G2's stated gate reads as passed and
 was not met. Both are now recorded as unmet-and-superseded with the evidence attached, rather than
 left to look green.
+
+---
+
+## 13. The independent review of S2/S3 (2026-08-18)
+
+The second reviewer's verdict: **the change is sound.** All 14 field reads across the six migrated
+call sites are correct, no `NA` can reach a filename, and the alias-by-alias comparison found the
+consolidation to be a strict widening with one exception. It also found nine things worth fixing, all
+now closed. **1,601 tests passing, golden 20/20, `R CMD check` 0/0/0.**
+
+### The blocking finding was documentation contradicting the code it ships with
+
+`R/api.R:16` said "all **20** deprecated shims are frozen" while the registry in that same file
+returned **21**, and `R/api.R`'s roxygen ships as `man/bulkirna_api.Rd`. `MIGRATION.md` contradicted
+itself twenty lines apart. Both were touched by the change; these two lines were not.
+
+The lesson is not "update the count". It is that **a hardcoded count in prose is what created the
+problem.** Counts in tests now derive from the registry, and the prose says "all deprecated shims"
+where the number added nothing.
+
+### Three things the audit should have asserted and did not
+
+| Gap | Measured failure |
+|---|---|
+| `biomart_dataset` asserted **nowhere** in 1,596 tests | Swap the human and mouse marts in `R/species.R`; every test passes, golden stays 20/20, and `annotate_genes(species = "human")` silently queries the **mouse** mart |
+| `test-dge.R:79` compared two spellings of one species to each other | Point human's `orgdb` at `org.Mm.eg.db`; both spellings still agree, so the test passes while every human annotation comes from the mouse database |
+| Nothing checked the shim forwards `dest_dir` to `dir` | Drop the forwarding; every test passes, and `download_gatom_references(dest_dir = "/scratch/refs")` writes 16 MB into the repo-relative default — **the same failure this audit round already had to chase** |
+
+All three are the wrong-result-not-error class. A resolver whose purpose is to map one concept to
+seven representations now has all seven pinned for both species.
+
+### Two behaviours in the resolver were wrong, both verified before fixing
+
+**Its error message named the wrong fix.** `.gsdb_species_label(NA)` reported that `species` must be
+one of six human and mouse aliases, on the one path that genuinely accepts any non-empty string. The
+message it replaced was correct. `CONVENTIONS.md` §5 asks an error to name the fix; this one named a
+different function's.
+
+**And it silently promoted a genus to a species.** Partial matching ran before the custom branch, so
+`.species("Mus", allow_custom = TRUE)` returned `"Mus musculus"` where the old code returned `"Mus"`.
+`gsdb_register(species = "Mus")` therefore stored a claim the user did not make, and it reached
+`gs_result$species`. Partial matching exists only to preserve `match.arg()`'s contract in
+`annotate_genes()`, which never asks for custom species, so it now applies only when
+`allow_custom = FALSE`. Verified after: `"Mus"` stays `"Mus"`, `"Homo"` still resolves to human.
+
+`04_NAME_AUDIT.md`'s claim that an unknown label "only has underscores changed to spaces" was false
+for that case, and is fixed.
+
+### The narrowing, and it is the one we want
+
+`annotate_genes(species = NULL)` used to return `"Mus musculus"`, because `match.arg()` returns
+`choices[1L]` for `NULL`. It now errors. So `annotate_genes(ids, species = cfg$species)` with an
+unset config key silently meant mouse yesterday and aborts today, which catches the mistake before it
+annotates human genes through the mouse package. `NEWS.md` records it, per the freeze rule that a
+corrected result is not a breaking change but is written down.
+
+### The vocabulary test had shallow teeth, and the fix is a different shape
+
+S3's stated goal is "one spelling per concept". The test was a **25-name blacklist**, so
+`target_dir`, `sp` and `rand_seed` all passed, and it never asserted that a canonical name was
+*present* anywhere. It is now an **audited 178-name vocabulary that every live formal must belong
+to**, plus required canonical formals — so any new spelling fails until it is adopted or renamed.
+That is the difference between a blacklist and a contract.
+
+Three candidate unifications came out of building it and were **deliberately not renamed**, because
+that is a decision rather than a cleanup: `top`/`top_n`/`n_top`, `color_palette`/`colours`/`palette`,
+and four non-snake-case formals (`B_cutoff`, `baseMean`, `log2FC`, `max.overlaps`).
+
+The layer-coverage test was checked and left alone: it does have teeth, and `test-api.R`'s
+registry-versus-`NAMESPACE` comparison closes the drift hole that would otherwise let an unregistered
+export slip past it.
+
+### A gap in what "R CMD check 0/0/0" covers
+
+**Both source-tree enforcement tests skip under `R CMD check`**, because an installed package has no
+`.R` files to parse — and that includes `test-stochastic.R`'s parse-tree test, the invariant
+`AGENTS.md` advertises most confidently. The skip is correct; the silence about it was not. Both now
+say why they skipped, so nobody reads a green check as covering them. **They run under
+`devtools::test()` only, and that is now stated where the gates are listed.**
+
+### Smaller things closed
+
+The deprecation warning pointed at `help("bulkiRNA-deprecated")`, which does not exist — it was the
+only one of 21 shims passing `package =`. `R/gsdb-gatom.R`, which no longer held any `gsdb_*`
+function, is now `R/gatom-download.R`. `04_NAME_AUDIT.md`'s reason for keeping `bulkirna_check_deps`
+was an argument for the opposite conclusion and is rewritten. And `sQuote()` in the resolver's error
+became escaped quotes, matching `CONVENTIONS.md` §5.
+
+### It also strengthened the audit's own evidence
+
+Checked against `sciagent-rna/docs/data/used-functions.tsv`: `ensure_dir` appears in exactly the two
+unmigrated consumers, so that "keep" row's premise is precisely true. **`download_gatom_references` is
+absent from the inventory entirely — zero consumer call sites**, which is a better argument for the
+rename than the family-consistency one the document gave. `annotate_genes`, `gene_to_entrez`,
+`entrez_to_gene` and `filter_confounder_genes` are also absent, so their "keep" rows rest purely on
+the conceptual argument, which stands: there is no annotation or gene-id layer in the four-layer
+architecture, and a rename would mean inventing one.
+
+### On this review, and on the last one
+
+Both reviewers were wrong in detail and right in substance, and both times the agent fixing the
+findings said which: here, that not every `annotate_genes()` test passes `use_biomart = FALSE`, that
+the species record has seven fields rather than six, and that the existing `skip_if()` calls did have
+reasons — merely ones too vague to expose the coverage gap. **The finding underneath each still held.**
+The useful review is the one that names, for each test it does *not* fault, the change that would
+break it. Both did that, and between them they found four assertions that could not fail and two code
+paths with no coverage at all.
