@@ -14,7 +14,7 @@ coresh_convergence(ranking, top_n = 10L, min_queries = 2L)
 \item{min_queries}{Positive whole number of distinct agreeing queries.}
 }
 \value{
-A tibble with \code{gse}, \code{n_queries}, comma-joined \code{queries},
+A tibble with \code{gse}, \code{gpl}, \code{n_queries}, comma-joined \code{queries},
 \code{best_rank}, and \code{mean_pct_var}, ordered by agreement and best rank.
 }
 \description{
@@ -23,6 +23,7 @@ Find datasets supported by multiple CoReSh queries
 \examples{
 ranking <- tibble::tibble(
   query_name = c("a", "b"), gse = c("GSE1", "GSE1"),
+  gpl = c("GPL1", "GPL1"),
   pct_var = c(4, 6), rank = c(1L, 2L)
 )
 coresh_convergence(ranking)

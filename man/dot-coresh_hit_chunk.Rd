@@ -12,7 +12,7 @@
 \item{index}{A tibble returned by \code{\link[=coresh_chunks]{coresh_chunks()}}.}
 }
 \value{
-A chunk path, or \code{NA_character_} when the hit is not indexed.
+A list containing the unique \code{chunk} path and selected \code{gpl}.
 }
 \description{
 Find the indexed chunk for one CoReSh hit

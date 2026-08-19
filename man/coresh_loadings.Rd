@@ -4,7 +4,7 @@
 \alias{coresh_loadings}
 \title{Extract gene loadings for one CoReSh hit}
 \usage{
-coresh_loadings(chunk_path, gse_id, query, n_top = 50L)
+coresh_loadings(chunk_path, gse_id, query, n_top = 50L, gpl = NULL)
 }
 \arguments{
 \item{chunk_path}{Path to one \verb{*_full_objects.qs2} CoReSh chunk.}
@@ -14,10 +14,15 @@ coresh_loadings(chunk_path, gse_id, query, n_top = 50L)
 \item{query}{A non-empty integer vector of Entrez IDs.}
 
 \item{n_top}{Positive whole number of loadings to retain.}
+
+\item{gpl}{Optional GEO platform accession. When omitted and the GSE occurs
+on more than one platform in the chunk, the first platform in
+locale-independent radix order is used with a warning.}
 }
 \value{
-A tibble with \code{entrez}, signed \code{loading}, and absolute-loading
-\code{rank}, ordered from largest to smallest absolute loading.
+A tibble with \code{gse}, \code{gpl}, \code{entrez}, signed \code{loading}, and
+absolute-loading \code{rank}, ordered from largest to smallest absolute
+loading.
 }
 \description{
 Projects every gene in a CoReSh dataset onto the unit-normalized profile of
@@ -30,6 +35,8 @@ symbols by \code{\link[=coresh_sets]{coresh_sets()}}.
 }
 \examples{
 \dontrun{
-coresh_loadings("001_full_objects.qs2", "GSE123", c(1L, 2L, 3L))
+coresh_loadings(
+  "001_full_objects.qs2", "GSE123", c(1L, 2L, 3L), gpl = "GPL570"
+)
 }
 }

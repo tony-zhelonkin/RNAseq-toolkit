@@ -28,6 +28,8 @@ surface. Stability and the historical signature freeze are separate axes:
 a major release, apart from removals that completed a documented
 deprecation cycle.
 \item \code{experimental} functions may change or be removed without a major release.
+CoReSh dataset-taking functions use the \verb{(gse, gpl)} pair as the dataset
+key; a GSE accession alone is not unique in that compendium.
 \item \code{deprecated} functions remain callable and warn, but are scheduled for
 removal in the version recorded in \code{removed_in}.
 }

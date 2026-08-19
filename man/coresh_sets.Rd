@@ -19,7 +19,9 @@ coresh_sets(
 \arguments{
 \item{top_hits}{A data frame returned by \code{\link[=coresh_search]{coresh_search()}}, usually filtered
 to the desired number of hits per query. Required columns are
-\code{query_name}, \code{gse}, and \code{rank}; \code{gpl} is used when present.}
+\code{query_name}, \code{gse}, and \code{rank}; \code{gpl} selects the exact dataset when
+present. For a historical table without \code{gpl}, an ambiguous accession
+warns and uses the radix-first available platform.}
 
 \item{queries}{A non-empty named list of integer Entrez vectors.}
 
@@ -40,7 +42,7 @@ the always-reported failure count.}
 \value{
 A \code{\link[=gs_db]{gs_db()}} with database-level \code{provenance} and a set-keyed
 \code{set_provenance} tibble. The latter contains \code{set_name}, \code{query_name},
-\code{gse}, \code{chunk_path}, \code{loading_cutoff}, and \code{rank_in_coresh}.
+\code{gse}, \code{gpl}, \code{chunk_path}, \code{loading_cutoff}, and \code{rank_in_coresh}.
 }
 \description{
 For every hit, \code{\link[=coresh_loadings]{coresh_loadings()}} extracts the strongest gene loadings and
