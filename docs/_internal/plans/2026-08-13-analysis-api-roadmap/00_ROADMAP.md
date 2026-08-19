@@ -99,7 +99,7 @@ Small, and it is the acceptance test for Phase 8. See
 | Step | Work | Gate |
 |---|---|---|
 | **G1** | ✅ **done 2026-08-13.** Route `coresh_match(pvalues = TRUE)` to `fgsea::geseca()` — `center = FALSE`, `scale = FALSE`, `make.unique()`d rownames, stored `totalVar` kept for `pct_var`, `log2err` carried into the result. Restore p-value ordering in `coresh_search()`. Delete the guard. | p-values on real chunks; agreement with `gesecaCpp` within summed `log2err` on ≥7 of 8 datasets; both rankings reproduce the vignette's shape |
-| **G2** | `coresh_loadings()` and `coresh_sets()` — the rest of C3. | Set names and memberships match DC_hum_verse's existing GMT |
+| **G2** | ✅ **done 2026-08-18.** `coresh_loadings()` and `coresh_sets()` — the rest of C3. | **The gate as written is unmet and superseded.** 28 of 58 set memberships match DC_hum_verse's GMT; the 24 that differ are explained by chunk content that no longer exists, established four ways in §10. The gate it was replaced by: the loading projection is identical to the reference on 63 of 63 comparable real hits |
 | **G3** | `gsdb_coresh()` (C4), on `.ref_path("coresh")`, recording the snapshot tag. | Byte-level agreement on set contents |
 | **G4** | `gs_coregulation()` — GESECA as a first-class verb on any expression matrix, returning a `gs_result` with `stat_type = "pct_var"`. **Its own verb, not a `gs_test()` method**: it takes a matrix where `gs_test()` takes ranks, and a shared signature would lie about the input. | Existing `gs_plot_*` renderers work unchanged; a golden baseline added |
 | **G5** | 🟡 **half done** — the `pct_var` sweep ran and validated against GEO; the web-UI comparison is outstanding. The end-to-end reference run: `HALLMARK_HYPOXIA` against the mouse and human compendia, compared against the web UI at <https://alserglab.wustl.edu/coresh>. | Top accessions agree with the web UI. Two independent implementations agreeing beats any unit test |
@@ -152,6 +152,11 @@ is how plans rot. It moves to the deferred document as an open question.
 3. **S2 and S3** together — both are name decisions and both touch the same 13 exports.
 4. **G5 early, not last.** It needs no new code beyond G1 and it is the only check that can
    falsify the port. Run it as soon as G1 lands, before G2–G4 build on top.
+   **This sequencing was not followed.** G2 and G4 landed while G5's web-UI half was still open,
+   because that half needs a browser and is the owner's step. The mitigation was to gate G2 on
+   agreement with the reference implementation rather than on internal consistency, which is
+   weaker than an independent implementation and stronger than nothing. G5 remains the only
+   external falsifier and it is still open.
 5. Then finish **Phase 4** — STING-JR, then DC-nexus. Two unmigrated consumers are what keep
    the 20 shims alive, so this is on the critical path to `v1.0.0`.
 
@@ -671,3 +676,83 @@ ten times: a fifth species handler I had missed, a `gs_db` provenance premise of
 in three ways, a `stat_type` vocabulary that would have had to be invented, a golden-case
 registration that my own read-only rule forbade, and six earlier. Not one was wrong. The cost was
 one round each; the alternative in every case was a plausible answer with no basis.
+
+---
+
+## 12. The independent review of G2, and what it found (2026-08-18)
+
+An Opus reviewer read the merged set-building layer. It confirmed the ported math in detail and
+found **two real defects, three assertions that cannot fail, and one uncovered line that matters**.
+Recording it here because most of it is about *how* the code was verified, not what it computes.
+
+### What it confirmed, with its own measurements
+
+- **Tie order and the `n_top` boundary are not a defect.** `order(-abs(x), method = "radix")` and
+  the reference's `order(abs(x), decreasing = TRUE)` are identical *including tie order* — radix is
+  stable in both directions, verified in R 4.5.3 on `c(5, 1, 5, 3, 5)`. `E %*% (profile / norm)` is
+  bit-identical to the reference's two-step form.
+- **NA and duplicated Entrez handling is better than the reference**, not merely equal: `query` is
+  validated non-`NA` and the rownames are integer, so `match()` cannot false-match `NA` to `NA`,
+  which the reference's `na.omit(match(...))` could.
+- **The compendium numbers reproduce independently.** 42,465 unique accessions, 1,635 on more than
+  one platform, and **zero repeated `(gse, gpl)` pairs** — so the composite key is in fact a key.
+- **The `gs_db` provenance change is sound**, including the paths the tests miss: a zero-set database
+  with a zero-row `set_provenance`, a base-`data.frame` `set_provenance`, and `db[0]`.
+
+### It tried to falsify "the input data no longer exists" and could not
+
+This is the part worth reading. §10's conclusion rested on my 63-of-63 loading agreement, and the
+reviewer identified the one deviation that check **structurally cannot detect**: `coresh_loadings()`
+de-duplicates the query where the reference double-weighted a repeated id in `colSums()`. Feeding
+the same query object to both implementations makes the deviation cancel.
+
+So it tested the deviation directly against the real stored queries: all 16, k = 2–25, **zero
+duplicates and zero NAs**, and `sym2ent()` never de-duplicated either. Ruled out. Its second
+alternative — the wrong platform for a duplicated accession — explains at most 3 of the 24 differing
+sets, since only 3 of the 58 accessions are multi-platform. Query provably identical and loadings
+differing means `E1024` differs.
+
+**A verification that cannot see a known deviation is not a verification of that deviation.** I had
+the right measurement and the wrong confidence in its scope.
+
+### The defect that matters: the honest-failure hole moved rather than closed
+
+`coresh_sets()` counted **extractions**, not **sets**. A hit that extracted cleanly and then fell
+outside `min_size`/`max_size` was dropped by a bare `next` — uncounted, unmessaged, and absent from
+`failures`, so the total-failure `stop()` could not fire. Reproduced before acting:
+
+```
+coresh_sets(hits, list(q = 1:5L), n_top = 5L, min_size = 15L)
+→ RESULT class: gs_db  sets: 0  -- no error, no message
+```
+
+**The G2 work closed the reference's `tryCatch`/`"skip:"` hole and reopened it one step downstream**,
+which is worse than leaving it, because the code now looks like it handles the case. The ways in are
+ordinary: retired Entrez ids, a species mismatch reaching `entrez_to_gene()`, an `n_top` smaller than
+`min_size` — which was unsatisfiable and unvalidated — or duplicate-collapse-plus-NA-drop on a real
+dataset like the fixture's `na_ids` object.
+
+### And the blind spot repeated itself one layer up
+
+`mapped_ids <- loadings$entrez[!is.na(loadings$entrez)]` had **zero coverage**: both `coresh_sets()`
+tests mocked `coresh_loadings()` *and* `entrez_to_gene()`, so no test ever passed an `NA` id to
+symbol mapping. Delete the guard and the suite still passes; without it, every hit in an
+NA-carrying dataset errors.
+
+§8 recorded "a hand-built fixture contains only what its author imagined" and answered it with a
+real-data fixture. **This is the same lesson at the next level: a real fixture proves nothing if the
+test mocks past it.** Three assertions were also unfalsifiable — an `expect_identical(first, again)`
+on a pure function, an `all(is.finite())` that holds for any implementation, and a
+duplicate-and-NA test that asserted neither property in its name, comparing instead against an
+inline re-derivation that would have made the same mistake.
+
+### On reviewing
+
+The reviewer named, for each of the tests it did *not* fault, the change that would break it — and
+found two code paths working but untested, by hand. That is a more useful shape of review than a
+list of suspicions: it says what the suite actually holds.
+
+Its process point stands and the tables above now reflect it. §5 said run **G5 before G2–G4**, and
+that was not done, because G5's remaining half needs a browser. G2's stated gate reads as passed and
+was not met. Both are now recorded as unmet-and-superseded with the evidence attached, rather than
+left to look green.
