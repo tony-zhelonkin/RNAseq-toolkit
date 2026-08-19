@@ -1044,3 +1044,50 @@ until the day it passes.** An audit that has always had exceptions has never run
 
 **1,606 tests passing, golden 20/20, `R CMD check` 0/0/0.** "One spelling per concept" is now a fact
 about the API rather than a goal in a document.
+
+### The counting method, not the count
+
+The `gs_plot_heatmap()` blind spot was in the *method* both the audit and I used, and the reviewer
+volunteered that it was theirs too: verifying "exactly 12 live exports expose `species`" and "exactly 4
+expose `dir`" by walking `formals()` on exported names uses the same technique with the same hole.
+
+So I checked whether it cost anything, since asserting it did not would repeat the mistake. Across all
+**8 registered S3 methods**, only `gs_plot_heatmap`'s two hide formals; every other method takes `...`
+plus display arguments, and `gs_test` declares `db` on the generic. **No method conceals a `species` or
+`dir` formal.** The 12 and the 4 stand — by the distribution of methods in this package, not by the
+soundness of the method used. Those are different claims and only the first was ever true.
+
+Then the same check found a live gap. Of the twelve formals declared only on a method,
+**`group` and `samples` were not in the audited vocabulary at all**, because `observed` walked exports
+only. The audit claimed to cover the live public surface and missed two names. `observed` now includes
+the formals of every S3 method registered for an exported generic, resolved through the namespace
+method table rather than by stripping a dot-suffix — `dplyr_reconstruct.gs_result` and
+`tbl_sum.gs_result` have dots in the generic. `group` and `samples` are classified, and the
+heatmap-specific spelling check the earlier round added is **removed as redundant**: an assertion that
+looks like a guard and guards nothing is worse than no assertion.
+
+### Every allowlist had only ever run non-empty
+
+The generalisation of §14's empty-list defect, and the reason it is worth acting on before `v1.0.0`
+rather than during it. Every test comparing an observed set against a curated allowlist — `top_level`,
+the non-snake-case exceptions, `frozen ∧ stable`, the message-only shim list, and **the deprecated-shim
+lists, which empty at `1.0.0`** — had run only with that list non-empty. None had demonstrated it
+passes when the thing it guards against is finally absent. At `1.0.0` the 21 shims go and
+`bulkirna_api(lifecycle = "deprecated")` returns zero rows, so several comparisons meet zero for the
+first time during a release.
+
+Those comparisons now run through **one shape-stable helper, called with both the real allowlist and an
+empty one**, so the empty path is exercised by the same code rather than by a parallel
+reimplementation — which would have been a second thing to keep in sync.
+
+**Measured rather than predicted**, both directions:
+
+| Check | Result |
+|---|---|
+| Empty the deprecated tier, simulating `v1.0.0` | **57 assertions pass, 0 fail** |
+| Drop one live export from its allowlist | **Fails, naming `theme_bulki`** |
+
+The second matters as much as the first: a helper that tolerates zero could have been written to
+tolerate everything.
+
+**1,621 tests passing, golden 20/20, `R CMD check` 0/0/0.**
