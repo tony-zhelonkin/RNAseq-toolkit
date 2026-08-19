@@ -56,7 +56,14 @@ Rscript tests/golden/verify_golden.R    # must exit 0
 Plus `rcmdcheck::rcmdcheck()` for anything touching the package surface. It is currently
 **0 errors, 0 warnings, 0 notes** and must stay there. It catches what `devtools::test()`
 cannot: `tests/fixtures/` is `.Rbuildignore`d, so a fixture-backed test must *skip* in the
-built package rather than error.
+built package rather than error. It also catches stale `man/` and a semantic conflict between
+two branches that each pass on their own — run it after every merge, not only after an edit.
+
+**The two gates do not cover the same things, in both directions.** The enforcement tests that
+parse `R/` — the RNG-ownership test and the name audit — **skip under `R CMD check`**, because an
+installed package has no `.R` files. So a green check does not mean the invariants hold; only
+`devtools::test()` checks them. Both skips say so out loud. `qs2` is a declared `Suggests` and is
+absent from the image, so `R CMD check` needs a scratch library mounted at `R_LIBS`.
 
 ## Off-limits
 
