@@ -942,9 +942,42 @@ guards exactly two concepts — and it costs 234 lines where the flat list cost 
 
 It is kept rather than reverted because it is a strict superset of the flat list's properties and
 because the exception check is what found the defect below. But **§13's claim that this is "the
-difference between a blacklist and a contract" was too strong, and is corrected here.** The cheap
-escape moved from appending a name to declaring a false singleton concept, and with 157 singletons
-already present, a 158th looks entirely normal.
+difference between a blacklist and a contract" was too strong, and so was my first correction of it.**
+
+I wrote that the cheap escape "moved from appending a name to declaring a false singleton concept".
+That is still wrong, and the reviewer measured why. The multi-spelling assertion only bites if an
+author volunteers the collision by adding the name *inside* an existing concept. The path an author
+actually takes is the `unexpected` failure, whose own message offers the way out — *"Classify each
+under an existing concept or add a new reasoned concept."* Appending `"n_features"` to the 102-name
+alphabetical vector satisfies it in one line, under a sentence somebody else wrote, and the
+multi-spelling assertion never sees it because the name is now its own singleton. **No false claim is
+required. The cheapest move is still appending a name**, and the trace it leaves — one line added to an
+alphabetical list of 102 — is the same trace the flat vector left.
+
+The mechanism is the `single_use()` helper. `top_level` has teeth because the name is the key and the
+reason is the value, so appending means writing a sentence. `single_use(formals, reason)` maps one
+shared reason across ~100 names, which removes exactly that property. And the reason-quality assertion
+— that every reason is a one-line non-empty string — iterates **174 concepts holding 9 distinct
+strings**, so it is satisfied by construction for anything appended. That check is close to
+assert-nothing in its present form.
+
+Measured at HEAD, after the unification: **174 concepts for 174 formals, all singletons**, 9 distinct
+reasons, **168 of 174 formals under a reason shared with other formals**, and 157 in the two
+boilerplate buckets. So the multi-spelling assertion now has **no live subject at all** — it guards
+against reintroducing a second spelling, which is worth having, but it cannot fire on the append path.
+
+### What the grouping does buy, measured rather than asserted
+
+Three properties are real and none existed in the flat list:
+
+- **The snake_case check derives its offenders from the data by regex** and cross-checks a four-name
+  reasoned allowlist. It cannot be appended to without writing a reason.
+- **"Each audited formal belongs to exactly one concept"** is a genuine assertion.
+- **The bidirectional anti-rot check survives per-concept.**
+
+Everything else the grouping claims is aspiration. If the 234 lines ever need to shrink, the honest
+reduction — the reviewer's, and I agree — is to collapse the two boilerplate buckets back to a flat
+vector and keep those three: most of the value at a fraction of the cost.
 
 ### Test 3 — the fourth-spelling check passed on the path it covered
 
@@ -972,7 +1005,20 @@ stops the test failing. That was the right instinct. Measured across every live 
 | non-snake-case | `B_cutoff`, `baseMean`, `log2FC`, `max.overlaps` | none | 0 |
 
 Both reasons said "frozen signatures". None of the affected signatures is frozen, and none of the
-exports appears in `used-functions.tsv`. The original measurement found 17 explicit formal/export
+exports appears in `used-functions.tsv`.
+
+**The defect is isolated to these two exceptions, and saying so matters.** The reviewer checked the
+*other* keep decisions against the same standard — the 13 rows in `04_NAME_AUDIT.md` — and they hold.
+`ensure_dir`'s "two unmigrated consumers call it directly" is exactly true: 2 files, in
+`DC-nexus/DC_Dictionary` and `STING-JR/mouse_anchor`, which are precisely the two unmigrated
+consumers. So "the audit cited a constraint that does not exist" would be the wrong summary; the
+audit's thirteen rows did not, and the enforcement test's two exceptions did.
+
+**And that asymmetry is the general lesson, independent of these two.** A table row in a plan document
+is inert: if its premise is false, the row is merely wrong. **An exception inside an enforcement test
+is load-bearing** — a false premise there does active work, holding open the one gap the test exists to
+close, under a sentence that reads as though the question were settled. Audit the reasons attached to
+exceptions before the reasons attached to decisions. The original measurement found 17 explicit formal/export
 occurrences. Source inspection before the rename found two more public argument paths:
 `gs_plot_heatmap()` declares `top` and `colours` on its `gs_result` and `gs_matrix` methods, reached
 through the exported generic's `...`. The same inventory check returned zero call sites for that
@@ -982,8 +1028,11 @@ That finding exposed a limit in the enforcement test: walking `formals()` on exp
 not see method formals hidden behind `...`. The test now checks the two heatmap method signatures for
 the retired spellings explicitly.
 
-The owner decided on 2026-08-19 to unify the result limit on `top_n` and the colour palette on
-`palette`. All affected formals were renamed in place, including the heatmap methods, so positional
+**Zero measured cost is an argument that the unification *can* be done, not that it *should*.**
+`top`, `top_n` and `n_top` may each read correctly in their own context, and that is a judgement about
+the owner's own API rather than a defect in it. What the measurement settled was only that nothing
+prevented it; the preference was still theirs. The owner decided on 2026-08-19 to unify the result
+limit on `top_n` and the colour palette on `palette`. All affected formals were renamed in place, including the heatmap methods, so positional
 callers remain unaffected. No argument-level deprecation aliases were added. The two multi-spelling
 exceptions were removed; only the four upstream non-snake-case exceptions remain.
 
