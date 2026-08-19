@@ -19,6 +19,10 @@
 #'   description (e.g. MSigDB's `gs_description`), or `NULL` when a provider
 #'   has none. Unlike `pathway_names` this is not guaranteed to cover every
 #'   id. Carried through `[.gs_db` like every other attribute.
+#' - `set_provenance` -- optional data frame with exactly one row per set and a
+#'   unique `set_name` key. It is subset with the database.
+#' - `provenance` -- optional one-row data frame or named list of scalar values
+#'   describing the database as a whole. It is carried through subsetting.
 #'
 #' Empty sets are dropped at construction, genes are de-duplicated within a
 #' set, and set ids must be unique.
@@ -33,6 +37,10 @@
 #' @param gene_id_type Character(1); only `"symbol"` is supported.
 #' @param pathway_descriptions Named character of longer descriptions, or
 #'   `NULL` when the provider has none. Not required to cover every id.
+#' @param set_provenance A data frame with one row per set and a unique
+#'   `set_name` column, or `NULL`.
+#' @param provenance A one-row data frame or named list of scalar values, or
+#'   `NULL`.
 #' @return A `gs_db` object.
 #' @keywords internal
 gs_db <- function(sets,
@@ -41,7 +49,9 @@ gs_db <- function(sets,
                   pathway_names = NULL,
                   database_label = NULL,
                   gene_id_type = "symbol",
-                  pathway_descriptions = NULL) {
+                  pathway_descriptions = NULL,
+                  set_provenance = NULL,
+                  provenance = NULL) {
   if (!is.list(sets) || (length(sets) > 0L && is.null(names(sets)))) {
     stop("`sets` must be a named list of character vectors.", call. = FALSE)
   }
@@ -95,6 +105,12 @@ gs_db <- function(sets,
     }
   }
 
+  provenance <- .gsdb_validate_provenance(provenance)
+  set_provenance <- .gsdb_validate_set_provenance(
+    set_provenance,
+    names(sets)
+  )
+
   structure(
     sets,
     pathway_names  = pathway_names,
@@ -103,8 +119,71 @@ gs_db <- function(sets,
     species        = species,
     gene_id_type   = gene_id_type,
     pathway_descriptions = pathway_descriptions,
+    set_provenance = set_provenance,
+    provenance     = provenance,
     class          = "gs_db"
   )
+}
+
+#' Validate database-level provenance
+#'
+#' @param provenance A one-row data frame, named list, or `NULL`.
+#' @return `provenance`, unchanged.
+#' @keywords internal
+.gsdb_validate_provenance <- function(provenance) {
+  if (is.null(provenance)) return(NULL)
+
+  if (is.data.frame(provenance)) {
+    if (nrow(provenance) != 1L || !ncol(provenance) ||
+        anyNA(names(provenance)) || any(!nzchar(names(provenance))) ||
+        anyDuplicated(names(provenance))) {
+      stop("`provenance` must be a one-row data frame with unique, ",
+           "non-empty column names.", call. = FALSE)
+    }
+    return(provenance)
+  }
+
+  if (!is.list(provenance) || !length(provenance) ||
+      is.null(names(provenance)) || anyNA(names(provenance)) ||
+      any(!nzchar(names(provenance))) || anyDuplicated(names(provenance)) ||
+      any(!vapply(provenance, function(x) is.atomic(x) && length(x) == 1L,
+                  logical(1L)))) {
+    stop("`provenance` must be a one-row data frame or a named list of ",
+         "scalar values.", call. = FALSE)
+  }
+  provenance
+}
+
+#' Validate set-level provenance
+#'
+#' @param set_provenance A set-keyed data frame or `NULL`.
+#' @param set_names Character vector of retained set names.
+#' @return `set_provenance`, ordered to match `set_names`.
+#' @keywords internal
+.gsdb_validate_set_provenance <- function(set_provenance, set_names) {
+  if (is.null(set_provenance)) return(NULL)
+  if (!is.data.frame(set_provenance) ||
+      !"set_name" %in% names(set_provenance)) {
+    stop("`set_provenance` must be a data frame with a `set_name` column.",
+         call. = FALSE)
+  }
+  keys <- set_provenance$set_name
+  if (!is.character(keys) || anyNA(keys) || any(!nzchar(keys)) ||
+      anyDuplicated(keys)) {
+    stop("`set_provenance$set_name` must contain unique, non-missing, ",
+         "non-empty strings.", call. = FALSE)
+  }
+  missing <- setdiff(set_names, keys)
+  extra <- setdiff(keys, set_names)
+  if (length(missing) || length(extra)) {
+    stop("`set_provenance$set_name` must match the retained set names ",
+         "exactly; missing: ",
+         if (length(missing)) paste(missing, collapse = ", ") else "none",
+         "; extra: ",
+         if (length(extra)) paste(extra, collapse = ", ") else "none", ".",
+         call. = FALSE)
+  }
+  set_provenance[match(set_names, keys), , drop = FALSE]
 }
 
 #' Is this a `gs_db`?
@@ -180,6 +259,20 @@ print.gs_db <- function(x, ...) {
                 min(sizes), max(sizes), stats::median(sizes)))
   }
   cat("\n")
+  provenance <- attr(x, "provenance")
+  if (!is.null(provenance)) {
+    values <- if (is.data.frame(provenance)) {
+      as.list(provenance[1L, , drop = FALSE])
+    } else {
+      provenance
+    }
+    rendered <- vapply(values, function(value) {
+      if (is.na(value)) "NA" else as.character(value)
+    }, character(1L))
+    cat("Provenance: ",
+        paste0(names(rendered), "=", rendered, collapse = "; "), "\n",
+        sep = "")
+  }
   if (length(x)) {
     show <- utils::head(names(x), 3L)
     for (nm in show) {
@@ -223,6 +316,14 @@ summary.gs_db <- function(object, ...) {
     }
   }
   sets <- unclass(x)[i]
+  set_provenance <- attr(x, "set_provenance")
+  if (!is.null(set_provenance)) {
+    set_provenance <- set_provenance[
+      match(names(sets), set_provenance$set_name),
+      ,
+      drop = FALSE
+    ]
+  }
   gs_db(
     sets,
     database       = attr(x, "database"),
@@ -230,7 +331,9 @@ summary.gs_db <- function(object, ...) {
     pathway_names  = attr(x, "pathway_names"),
     database_label = attr(x, "database_label"),
     gene_id_type   = attr(x, "gene_id_type"),
-    pathway_descriptions = attr(x, "pathway_descriptions")
+    pathway_descriptions = attr(x, "pathway_descriptions"),
+    set_provenance = set_provenance,
+    provenance = attr(x, "provenance")
   )
 }
 

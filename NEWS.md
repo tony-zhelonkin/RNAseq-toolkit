@@ -1,3 +1,21 @@
+# bulkiRNA 0.5.0.9000
+
+## CoReSh
+
+* `coresh_loadings()` projects a CoReSh expression object onto a normalized
+  query profile and returns the strongest absolute gene loadings.
+
+* `coresh_sets()` turns ranked CoReSh hits into a `gs_db`, filters and
+  deterministically de-duplicates the derived sets, distinguishes a valid
+  empty result from a completely failed extraction, and records both database-
+  and set-level provenance.
+
+## Gene-set databases
+
+* `gs_db()` accepts generic database provenance and set-keyed provenance.
+  Both survive subsetting, while set-level rows are restricted and reordered
+  to the retained sets. `gsdb_info()` surfaces both records for a `gs_db`.
+
 # bulkiRNA 0.5.0
 
 The package version is the unit of reproducibility (ADR-001), so the changes

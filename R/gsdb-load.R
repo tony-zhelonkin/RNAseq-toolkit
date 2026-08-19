@@ -129,16 +129,28 @@ gsdb_list <- function() {
 
 #' Metadata and citations for one reference database
 #'
-#' @param database Character(1) database key, e.g. `"mito_unified"`. See
-#'   [gsdb_list()].
-#' @return A list of the `METADATA.yaml` fields for `database`, with
-#'   `citations_path` and `citations_text` added when a `CITATIONS.bib`
-#'   ships alongside the data.
+#' @param database Character(1) database key, e.g. `"mito_unified"`, or a
+#'   [gs_db()] object. See [gsdb_list()].
+#' @return For a registry key, a list of the `METADATA.yaml` fields for
+#'   `database`, with `citations_path` and `citations_text` added when a
+#'   `CITATIONS.bib` ships alongside the data. For a `gs_db`, a list of its
+#'   identifying fields, set count, database provenance, and set provenance.
 #' @examples
 #' info <- gsdb_info("mitopathways")
 #' info$name
 #' @export
 gsdb_info <- function(database) {
+  if (is_gs_db(database)) {
+    return(list(
+      database = attr(database, "database"),
+      database_label = attr(database, "database_label"),
+      species = attr(database, "species"),
+      gene_id_type = attr(database, "gene_id_type"),
+      n_sets = length(database),
+      provenance = attr(database, "provenance"),
+      set_provenance = attr(database, "set_provenance")
+    ))
+  }
   meta <- .gsdb_metadata()
   if (!is.character(database) || length(database) != 1L) {
     stop("`database` must be a single database name; see `gsdb_list()`.",

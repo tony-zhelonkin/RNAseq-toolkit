@@ -138,7 +138,7 @@ from CRAN.
 
 ## Legacy names
 
-20 of the 74 exports are shims for the old script-library API. Each one works, warns once,
+20 of the 76 exports are shims for the old script-library API. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`

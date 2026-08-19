@@ -8,7 +8,7 @@ test_that("the API registry covers the complete namespace exactly once", {
     c("name", "layer", "lifecycle", "frozen", "stochastic", "superseded_by",
       "removed_in")
   )
-  expect_equal(nrow(api), 74L)
+  expect_equal(nrow(api), 76L)
   expect_equal(anyDuplicated(api$name), 0L)
   expect_setequal(api$name, exports)
   expect_identical(api$name, sort(api$name))
@@ -18,18 +18,18 @@ test_that("each export has one stability lifecycle and one layer", {
   api <- bulkirna_api(quiet = TRUE)
 
   expect_equal(sum(api$lifecycle == "deprecated"), 20L)
-  expect_equal(sum(api$lifecycle == "experimental"), 8L)
+  expect_equal(sum(api$lifecycle == "experimental"), 10L)
   expect_equal(sum(api$lifecycle == "stable"), 46L)
   expect_false(anyNA(api$lifecycle))
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
-  expect_equal(nrow(api), 74L)
+  expect_equal(nrow(api), 76L)
   expect_equal(sum(api$layer == "gs"), 17L)
   expect_equal(sum(api$layer == "gsdb"), 6L)
   expect_equal(sum(api$layer == "de"), 6L)
   expect_equal(sum(api$layer == "gatom"), 6L)
-  expect_equal(sum(api$layer == "coresh"), 5L)
+  expect_equal(sum(api$layer == "coresh"), 7L)
   expect_equal(sum(api$layer == "gsea"), 4L)
   expect_equal(sum(api$layer == "top-level"), 30L)
   expect_identical(
@@ -44,9 +44,9 @@ test_that("each export has one stability lifecycle and one layer", {
 test_that("experimental status is limited to CoReSh and gene-id helpers", {
   api <- bulkirna_api(quiet = TRUE)
   experimental <- c(
-    "coresh_chunks", "coresh_convergence", "coresh_match", "coresh_search",
-    "coresh_validate", "entrez_to_gene", "filter_confounder_genes",
-    "gene_to_entrez"
+    "coresh_chunks", "coresh_convergence", "coresh_loadings", "coresh_match",
+    "coresh_search", "coresh_sets", "coresh_validate", "entrez_to_gene",
+    "filter_confounder_genes", "gene_to_entrez"
   )
 
   expect_setequal(api$name[api$lifecycle == "experimental"], experimental)

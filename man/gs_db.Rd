@@ -11,7 +11,9 @@ gs_db(
   pathway_names = NULL,
   database_label = NULL,
   gene_id_type = "symbol",
-  pathway_descriptions = NULL
+  pathway_descriptions = NULL,
+  set_provenance = NULL,
+  provenance = NULL
 )
 }
 \arguments{
@@ -31,6 +33,12 @@ to derive them from the ids.}
 
 \item{pathway_descriptions}{Named character of longer descriptions, or
 \code{NULL} when the provider has none. Not required to cover every id.}
+
+\item{set_provenance}{A data frame with one row per set and a unique
+\code{set_name} column, or \code{NULL}.}
+
+\item{provenance}{A one-row data frame or named list of scalar values, or
+\code{NULL}.}
 }
 \value{
 A \code{gs_db} object.
@@ -56,6 +64,10 @@ prettify from here; the data layer never depends on it.
 description (e.g. MSigDB's \code{gs_description}), or \code{NULL} when a provider
 has none. Unlike \code{pathway_names} this is not guaranteed to cover every
 id. Carried through \verb{[.gs_db} like every other attribute.
+\item \code{set_provenance} -- optional data frame with exactly one row per set and a
+unique \code{set_name} key. It is subset with the database.
+\item \code{provenance} -- optional one-row data frame or named list of scalar values
+describing the database as a whole. It is carried through subsetting.
 }
 
 Empty sets are dropped at construction, genes are de-duplicated within a
