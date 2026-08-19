@@ -901,3 +901,83 @@ reasons — merely ones too vague to expose the coverage gap. **The finding unde
 The useful review is the one that names, for each test it does *not* fault, the change that would
 break it. Both did that, and between them they found four assertions that could not fail and two code
 paths with no coverage at all.
+
+---
+
+## 14. Measuring the concept grouping against the criteria set for it (2026-08-19)
+
+The reviewer set three falsifiable tests for §13's grouped vocabulary before it landed, rather than
+judging the structure by eye. All three are now run. **One passes, one fails by a wide margin, and
+the third found a defect in the exceptions themselves.**
+
+### Test 1 — did the bidirectional check survive? Yes
+
+The concern was that `setdiff(vocabulary, observed)` is one line over a flat vector and needs an
+`unlist()` over a grouped structure, so the refactor could trade a real property for a nominal one
+and rot silently. It did not: `test-name-audit.R:190-194` flattens the grouping into `audited` and
+asserts **both** `setdiff(observed, audited)` and `setdiff(audited, observed)` are empty. A formal
+that leaves the API must leave its concept by name.
+
+### Test 2 — what fraction landed in the not-an-audited-concept group? 88%, and the threshold was 67%
+
+The reviewer's own numbers: 30 of 178 would mean the grouping bought something real, 120 would mean
+the enumeration had relocated. Measured:
+
+| Formals | Reason group |
+|---|---|
+| **102** | "API-specific input, one spelling, does not compete with another audited concept" |
+| **55** | "renderer or presentation input, one spelling, controls one distinct aesthetic" |
+| 11 | the canonical cross-layer concepts |
+| 6 | the two multi-spelling concepts |
+| 4 | upstream non-snake-case spellings |
+
+**157 of 178 sit in two generic buckets** — 88%, well past the 120 the reviewer named as failure. 174
+concepts for 178 formals means the structure is very nearly one concept per formal.
+
+So the honest verdict is the one the reviewer predicted: **the enumeration mostly relocated.** Two
+boilerplate reason strings covering 157 names are not reasons, they are a category label. What the
+grouping genuinely adds over the flat list is narrow — the multi-spelling exception check, which
+guards exactly two concepts — and it costs 234 lines where the flat list cost 30.
+
+It is kept rather than reverted because it is a strict superset of the flat list's properties and
+because the exception check is what found the defect below. But **§13's claim that this is "the
+difference between a blacklist and a contract" was too strong, and is corrected here.** The cheap
+escape moved from appending a name to declaring a false singleton concept, and with 157 singletons
+already present, a 158th looks entirely normal.
+
+### Test 3 — the fourth-spelling check passes on the path it covers
+
+Planted `n_features` in `result_limit`:
+
+```
+`result_limit` has [n_features, n_top, top, top_n]; its exception records [n_top, top, top_n].
+A concept may have multiple spellings only when that exact set is a reasoned exception.
+Reject the new spelling or deliberately revise the exception.
+```
+
+That is a classification. But it only fires for a name classified into an existing multi-spelling
+concept, which is the one path an author trying to get a name through would not choose.
+
+### The defect: both multi-spelling exceptions were argued from a false premise
+
+The reviewer asked for the three unrenamed concepts to be named, on the grounds that **a recorded
+exception in an enforcement test is load-bearing in a way a table row is not** — it is the thing that
+stops the test failing. That was the right instinct. Measured across every live export:
+
+| Concept | Spellings and their exports | Frozen? | Consumer call sites |
+|---|---|---|---|
+| `result_limit` | `top` (`gs_leading_edge`, `gs_plot_bar`, `gs_plot_dot`, `gs_plot_running`), `top_n` (`coresh_convergence`, `de_bfc_plot`, `de_md_plot`, `de_volcano`), `n_top` (`coresh_loadings`, `coresh_sets`) | **none of the 10** | **0** |
+| `colour_palette` | `color_palette` (4 `de_*`), `colours` (`gs_plot_bar`, `gs_plot_dot`), `palette` (`gs_plot_running`) | **none of the 7** | **0** |
+| non-snake-case | `B_cutoff`, `baseMean`, `log2FC`, `max.overlaps` | none | 0 |
+
+Both reasons said "frozen signatures". **Not one of those seventeen exports is signature-frozen**, and
+not one appears in `used-functions.tsv`. So the constraint the exceptions cited does not exist, and
+the unification they excuse would cost nothing to perform.
+
+The reasons are corrected to say what is true: this is an unmade naming decision, not a constraint.
+The non-snake-case four keep their exception on the argument that actually holds — they match limma,
+DESeq2, GATOM and ggrepel spellings — which was never about frozenness.
+
+**Whether to unify them is the owner's call**, because it is a naming preference in their own API and
+S3's promise was one spelling per concept. It is recorded here as open, with the cost measured at
+zero, rather than settled in a test.

@@ -78,20 +78,28 @@ test_that("live export formals use the complete audited vocabulary", {
       result_limit = concept(
         c("top", "top_n", "n_top"),
         paste(
-          "Frozen signatures use three spellings for the number of results",
-          "to retain."
+          "Three spellings for the number of results to retain. None of the",
+          "ten exports carrying them is signature-frozen and none appears in",
+          "the consumer inventory, so unifying them is an unmade decision",
+          "rather than a cost. Recorded as an exception so the test states",
+          "what is true; see 04_NAME_AUDIT.md."
         )
       ),
       colour_palette = concept(
         c("color_palette", "colours", "palette"),
         paste(
-          "Frozen signatures and upstream plotting vocabulary use three",
-          "spellings for a colour palette."
+          "Three spellings for a colour palette. As with `result_limit`,",
+          "none of the seven exports carrying them is frozen and none has a",
+          "consumer call site, so this is an unmade naming decision, not a",
+          "constraint; see 04_NAME_AUDIT.md."
         )
       ),
       b_statistic_cutoff = concept(
         "B_cutoff",
-        "The established plotting API preserves limma's uppercase B statistic."
+        paste(
+          "limma names this statistic `B`, and the argument reads as that",
+          "statistic's cutoff. Not frozen; kept to match upstream."
+        )
       ),
       mean_expression = concept(
         "baseMean",
