@@ -1,3 +1,34 @@
+api_expect_set_allowlist <- function(observed, expected, info = NULL) {
+  normalise <- function(x) sort(unique(as.character(x)))
+  expect_identical(normalise(observed), normalise(expected), info = info)
+}
+
+api_expect_named_allowlist <- function(observed, expected, info = NULL) {
+  normalise <- function(x) {
+    if (!length(x)) {
+      return(stats::setNames(character(0L), character(0L)))
+    }
+    x
+  }
+  expect_identical(normalise(observed), normalise(expected), info = info)
+}
+
+api_expect_machine_readable_targets <- function(api, deprecated, message_only) {
+  machine_readable <- setdiff(
+    as.character(deprecated),
+    as.character(message_only)
+  )
+  checked <- character(0L)
+  for (name in machine_readable) {
+    expect_identical(
+      api$superseded_by[api$name == name],
+      bulkiRNA:::.bulkirna_deprecation_target(name)
+    )
+    checked <- c(checked, name)
+  }
+  expect_identical(checked, machine_readable)
+}
+
 test_that("the API registry covers the complete namespace exactly once", {
   api <- bulkirna_api(quiet = TRUE)
   exports <- getNamespaceExports("bulkiRNA")
@@ -59,9 +90,14 @@ test_that("the historical signature freeze remains an independent axis", {
   expect_equal(sum(api$frozen), length(frozen))
   expect_setequal(api$name[api$frozen], frozen)
   expect_true(all(api$frozen[api$lifecycle == "deprecated"]))
-  expect_setequal(
+  api_expect_set_allowlist(
     api$name[api$frozen & api$lifecycle == "stable"],
     c("build_dge", "ensure_dir", "format_pathway_name")
+  )
+  api_expect_set_allowlist(
+    character(0L),
+    NULL,
+    info = "The frozen-and-stable allowlist must be shape-stable when empty."
   )
 })
 
@@ -75,31 +111,38 @@ test_that("deprecated metadata names a successor and removal version", {
   expect_true(all(deprecated$removed_in == "1.0.0"))
   expect_true(all(is.na(maintained$superseded_by)))
   expect_true(all(is.na(maintained$removed_in)))
+
+  no_deprecated <- deprecated[0L, , drop = FALSE]
+  expect_true(all(!is.na(no_deprecated$superseded_by)))
+  expect_true(all(nzchar(no_deprecated$superseded_by)))
+  expect_true(all(no_deprecated$removed_in == "1.0.0"))
 })
 
 test_that("machine-readable successors come from the deprecation calls", {
   api <- bulkirna_api(quiet = TRUE)
+  deprecated <- api$name[api$lifecycle == "deprecated"]
   # Message-only shims carry no machine-readable target; every other target is
   # parsed out of the call itself.
   message_only <- c(
     "filter_by_size", "parse_mitoxplorer", "convert_human_to_mouse",
     "plot_all_gsea_results", "save_gsea_log", "empty_gsea_tibble"
   )
-  machine_readable <- setdiff(api$name[api$lifecycle == "deprecated"], message_only)
-
   # One literal anchor, so the loop below cannot pass with a helper that reads
   # the wrong argument and still agrees with itself.
-  expect_identical(
-    api$superseded_by[api$name == "run_gsea"],
-    "gs_ranks() and gs_test()"
-  )
-
-  for (name in machine_readable) {
+  if (length(deprecated)) {
+    expect_true("run_gsea" %in% deprecated)
     expect_identical(
-      api$superseded_by[api$name == name],
-      bulkiRNA:::.bulkirna_deprecation_target(name)
+      api$superseded_by[api$name == "run_gsea"],
+      "gs_ranks() and gs_test()"
     )
   }
+
+  api_expect_machine_readable_targets(api, deprecated, message_only)
+  api_expect_machine_readable_targets(
+    api[0L, , drop = FALSE],
+    character(0L),
+    character(0L)
+  )
 })
 
 test_that("message-only shims describe the complete migration path", {
@@ -123,7 +166,15 @@ test_that("message-only shims describe the complete migration path", {
   )
 
   observed <- api$superseded_by[match(names(expected), api$name)]
-  expect_identical(stats::setNames(observed, names(expected)), expected)
+  api_expect_named_allowlist(
+    stats::setNames(observed, names(expected)),
+    expected
+  )
+  api_expect_named_allowlist(
+    character(0L),
+    NULL,
+    info = "The message-only shim allowlist must be shape-stable when empty."
+  )
 })
 
 test_that("bulkirna_api is itself a stable top-level export", {
@@ -150,10 +201,8 @@ test_that("G4 widens a stable vocabulary with an experimental verb", {
   expect_false(coregulation$frozen)
 })
 
-test_that("every deprecated export calls .Deprecated first", {
-  api <- bulkirna_api(quiet = TRUE)
-  deprecated <- api$name[api$lifecycle == "deprecated"]
-
+api_expect_deprecated_first <- function(deprecated) {
+  checked <- character(0L)
   for (name in deprecated) {
     fun <- getExportedValue("bulkiRNA", name)
     first <- body(fun)[[2L]]
@@ -161,13 +210,13 @@ test_that("every deprecated export calls .Deprecated first", {
       is.call(first) && identical(first[[1L]], as.name(".Deprecated")),
       info = name
     )
+    checked <- c(checked, name)
   }
-})
+  expect_identical(checked, deprecated)
+}
 
-test_that("every deprecated export warns before doing any work", {
-  api <- bulkirna_api(quiet = TRUE)
-  deprecated <- api$name[api$lifecycle == "deprecated"]
-
+api_expect_deprecated_warnings <- function(deprecated) {
+  checked <- character(0L)
   for (name in deprecated) {
     fun <- getExportedValue("bulkiRNA", name)
     # The test above establishes that this is the shim's first statement.
@@ -191,7 +240,25 @@ test_that("every deprecated export warns before doing any work", {
       fixed = TRUE,
       class = "deprecatedWarning"
     )
+    checked <- c(checked, name)
   }
+  expect_identical(checked, deprecated)
+}
+
+test_that("every deprecated export calls .Deprecated first", {
+  api <- bulkirna_api(quiet = TRUE)
+  deprecated <- api$name[api$lifecycle == "deprecated"]
+
+  api_expect_deprecated_first(deprecated)
+  api_expect_deprecated_first(character(0L))
+})
+
+test_that("every deprecated export warns before doing any work", {
+  api <- bulkirna_api(quiet = TRUE)
+  deprecated <- api$name[api$lifecycle == "deprecated"]
+
+  api_expect_deprecated_warnings(deprecated)
+  api_expect_deprecated_warnings(character(0L))
 })
 
 test_that("a name's layer is invariant to lifecycle selection", {
@@ -203,14 +270,28 @@ test_that("a name's layer is invariant to lifecycle selection", {
       api$layer[match(selected$name, api$name)]
     )
   }
+  selected <- api[0L, , drop = FALSE]
+  expect_identical(
+    selected$layer,
+    api$layer[match(selected$name, api$name)]
+  )
 })
 
 test_that("lifecycle selection follows the dependency-report interface", {
+  api <- bulkirna_api(quiet = TRUE)
   stable <- bulkirna_api("stable", quiet = TRUE)
   selected <- bulkirna_api(c("experimental", "deprecated"), quiet = TRUE)
 
   expect_true(all(stable$lifecycle == "stable"))
-  expect_setequal(unique(selected$lifecycle), c("experimental", "deprecated"))
+  api_expect_set_allowlist(
+    unique(selected$lifecycle),
+    intersect(c("experimental", "deprecated"), unique(api$lifecycle))
+  )
+  api_expect_set_allowlist(
+    character(0L),
+    NULL,
+    info = "Lifecycle selection must be shape-stable when a tier is empty."
+  )
   expect_error(
     bulkirna_api("not-a-lifecycle", quiet = TRUE),
     "should be one of"

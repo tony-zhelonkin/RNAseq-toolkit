@@ -14,6 +14,46 @@ name_audit_exports <- function() {
   sub("^export\\((.*)\\)$", "\\1", grep("^export\\(", lines, value = TRUE))
 }
 
+name_audit_method_formals <- function(exports) {
+  namespace <- asNamespace("bulkiRNA")
+  method_table <- get(
+    ".__S3MethodsTable__.",
+    envir = namespace,
+    inherits = FALSE
+  )
+  method_names <- ls(envir = method_table, all.names = TRUE)
+
+  unique(unlist(lapply(method_names, function(method_name) {
+    method <- get(method_name, envir = method_table, inherits = FALSE)
+    exported_generics <- exports[vapply(exports, function(generic) {
+      prefix <- paste0(generic, ".")
+      if (!startsWith(method_name, prefix)) return(FALSE)
+      class <- substring(method_name, nchar(prefix) + 1L)
+      registered <- getS3method(
+        generic,
+        class,
+        optional = TRUE,
+        envir = namespace
+      )
+      identical(registered, method)
+    }, logical(1L))]
+    if (!length(exported_generics)) return(character(0L))
+
+    # A complete exported-name prefix, verified against the registered method,
+    # avoids truncating the generic at the method name's first dot. Prefer the
+    # longest verified prefix if one generic name prefixes another.
+    generic <- exported_generics[[which.max(nchar(exported_generics))]]
+    class <- substring(method_name, nchar(generic) + 2L)
+    names(formals(getS3method(generic, class, envir = namespace)))
+  }), use.names = FALSE))
+}
+
+name_audit_expect_allowlist <- function(observed, allowlist, info = NULL) {
+  expected <- names(allowlist)
+  if (is.null(expected)) expected <- character(0L)
+  expect_identical(sort(as.character(observed)), sort(expected), info = info)
+}
+
 test_that("every live export has a layer prefix or a reasoned exception", {
   exports <- name_audit_exports()
   if (is.null(exports)) {
@@ -49,7 +89,12 @@ test_that("every live export has a layer prefix or a reasoned exception", {
   prefixed <- grepl("^(gsdb_|gs_|de_|gatom_|coresh_)", live)
   observed <- sort(live[!prefixed])
 
-  expect_identical(observed, sort(names(top_level)))
+  name_audit_expect_allowlist(observed, top_level)
+  name_audit_expect_allowlist(
+    character(0L),
+    NULL,
+    info = "The top-level exception check must be shape-stable when empty."
+  )
 })
 
 test_that("live export formals use the complete audited vocabulary", {
@@ -107,6 +152,20 @@ test_that("live export formals use the complete audited vocabulary", {
       label_overlap_limit = concept(
         "max.overlaps",
         "The plotting API forwards ggrepel's upstream formal unchanged."
+      ),
+      sample_group = concept(
+        "group",
+        paste(
+          "This renderer input names the sample annotation used to facet a",
+          "score heatmap."
+        )
+      ),
+      sample_selection = concept(
+        "samples",
+        paste(
+          "This renderer input selects and orders the samples displayed in a",
+          "score heatmap."
+        )
       )
     ),
     single_use(
@@ -178,17 +237,11 @@ test_that("live export formals use the complete audited vocabulary", {
     "species", "db", "contrast", "seed", "quiet", "verbose", "path",
     "min_size", "max_size", "n_cores", "dir"
   )
-  observed <- sort(unique(unlist(lapply(live, function(name) {
+  export_formals <- unlist(lapply(live, function(name) {
     names(formals(getExportedValue("bulkiRNA", name)))
-  }), use.names = FALSE)))
-  heatmap_method_formals <- sort(unique(unlist(lapply(
-    c("gs_result", "gs_matrix"),
-    function(class) names(formals(getS3method("gs_plot_heatmap", class)))
-  ), use.names = FALSE)))
-  heatmap_method_concept_formals <- intersect(
-    heatmap_method_formals,
-    c("top", "top_n", "n_top", "color_palette", "colours", "palette")
-  )
+  }), use.names = FALSE)
+  method_formals <- name_audit_method_formals(live)
+  observed <- sort(unique(c(export_formals, method_formals)))
   assignments <- unlist(lapply(argument_concepts, `[[`, "formals"),
                         use.names = FALSE)
   audited <- sort(unique(assignments))
@@ -278,20 +331,20 @@ test_that("live export formals use the complete audited vocabulary", {
       "the exception."
     )
   )
-  expect_identical(
-    heatmap_method_concept_formals,
-    c("palette", "top_n"),
-    info = paste(
-      "Public S3 method formals reached through `...` must use the same",
-      "result-limit and palette spellings as their exported generic."
-    )
-  )
-  expect_identical(
-    sort(non_snake_case),
-    sort(names(non_snake_case_exceptions)),
+  name_audit_expect_allowlist(
+    non_snake_case,
+    non_snake_case_exceptions,
     info = paste(
       "Every non-snake-case formal needs a recorded upstream/frozen",
       "reason."
+    )
+  )
+  name_audit_expect_allowlist(
+    character(0L),
+    NULL,
+    info = paste(
+      "The non-snake-case exception check must be shape-stable when no",
+      "exceptions remain."
     )
   )
   expect_true(
