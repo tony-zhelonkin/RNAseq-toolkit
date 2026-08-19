@@ -122,6 +122,87 @@ test_that("pathway_descriptions survives subsetting instead of vanishing", {
                    "pathway_descriptions"))
 })
 
+test_that("database and set provenance survive subsetting", {
+  set_provenance <- tibble::tibble(
+    set_name = c("A", "B", "C"),
+    source_row = c(11L, 22L, 33L)
+  )
+  provenance <- list(
+    source = "test-snapshot",
+    snapshot = "snapshot-20260818"
+  )
+  db <- bulkiRNA:::gs_db(
+    list(A = "a", B = "b", C = "c"),
+    database = "d",
+    species = "Mus musculus",
+    set_provenance = set_provenance,
+    provenance = provenance
+  )
+
+  sub <- db["B"]
+  expect_identical(attr(sub, "provenance"), provenance)
+  expect_identical(attr(sub, "set_provenance")$set_name, "B")
+
+  info <- gsdb_info(sub)
+  expect_identical(info$provenance, provenance)
+  expect_identical(info$set_provenance$set_name, "B")
+  printed <- capture.output(print(sub))
+  expect_identical(sum(grepl("^Provenance:", printed)), 1L)
+  expect_true(any(grepl("snapshot=snapshot-20260818", printed, fixed = TRUE)))
+})
+
+test_that("set provenance is restricted and reordered to retained sets", {
+  set_provenance <- tibble::tibble(
+    set_name = c("A", "B", "C"),
+    source_row = c(11L, 22L, 33L)
+  )
+  db <- bulkiRNA:::gs_db(
+    list(A = "a", B = "b", C = "c"),
+    database = "d",
+    species = "Mus musculus",
+    set_provenance = set_provenance,
+    provenance = list(snapshot = "snapshot-20260818")
+  )
+
+  sub <- db[c("C", "A")]
+  expect_identical(
+    attr(sub, "set_provenance"),
+    set_provenance[c(3L, 1L), ]
+  )
+  expect_identical(attr(sub, "set_provenance")$set_name, c("C", "A"))
+})
+
+test_that("gs_db rejects provenance that cannot be read or keyed", {
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a"), database = "d", species = "Mus musculus",
+      provenance = c("snapshot", "current")
+    ),
+    "one-row data frame or a named list"
+  )
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a"), database = "d", species = "Mus musculus",
+      provenance = list(source = c("one", "two"))
+    ),
+    "scalar values"
+  )
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a", B = "b"), database = "d", species = "Mus musculus",
+      set_provenance = data.frame(set_name = "A")
+    ),
+    "must match the retained set names"
+  )
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a"), database = "d", species = "Mus musculus",
+      set_provenance = data.frame(set_name = c("A", "A"))
+    ),
+    "must contain unique"
+  )
+})
+
 test_that("subsetting a gs_db by an unknown name errors about the index, not `sets`", {
   db <- bulkiRNA:::gs_db(list(A = "a"), database = "d", species = "Mus musculus")
   expect_error(db["nope"], "not in this database")

@@ -97,8 +97,8 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
 
   experimental <- list(
     coresh = c(
-      "coresh_chunks", "coresh_convergence", "coresh_match",
-      "coresh_search", "coresh_validate"
+      "coresh_chunks", "coresh_convergence", "coresh_loadings",
+      "coresh_match", "coresh_search", "coresh_sets", "coresh_validate"
     ),
     `top-level` = c(
       "entrez_to_gene", "filter_confounder_genes", "gene_to_entrez"

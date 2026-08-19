@@ -138,7 +138,7 @@ from CRAN.
 
 ## Legacy names
 
-21 of the 75 exports are shims for superseded API names. Each one works, warns once,
+21 of the 77 exports are shims for superseded API names. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`

@@ -7,13 +7,14 @@
 gsdb_info(database)
 }
 \arguments{
-\item{database}{Character(1) database key, e.g. \code{"mito_unified"}. See
-\code{\link[=gsdb_list]{gsdb_list()}}.}
+\item{database}{Character(1) database key, e.g. \code{"mito_unified"}, or a
+\code{\link[=gs_db]{gs_db()}} object. See \code{\link[=gsdb_list]{gsdb_list()}}.}
 }
 \value{
-A list of the \code{METADATA.yaml} fields for \code{database}, with
-\code{citations_path} and \code{citations_text} added when a \code{CITATIONS.bib}
-ships alongside the data.
+For a registry key, a list of the \code{METADATA.yaml} fields for
+\code{database}, with \code{citations_path} and \code{citations_text} added when a
+\code{CITATIONS.bib} ships alongside the data. For a \code{gs_db}, a list of its
+identifying fields, set count, database provenance, and set provenance.
 }
 \description{
 Metadata and citations for one reference database
