@@ -752,6 +752,32 @@ The reviewer named, for each of the tests it did *not* fault, the change that wo
 found two code paths working but untested, by hand. That is a more useful shape of review than a
 list of suspicions: it says what the suite actually holds.
 
+### What was fixed in response
+
+All of it, in one round, gated here. **1,596 tests passing, golden 20/20, `R CMD check` 0/0/0.**
+Size drops are counted and always reported, a zero-set outcome always says so, and
+`min_size > n_top` now errors — `min_size` (15) must not exceed `n_top` (5); symbol mapping can only
+retain or reduce the extracted genes. The taxonomy separates a lookup miss, an extraction failure and
+a name collision. The NA guard is exercised by a test that runs the extraction for real on the
+`na_ids` fixture object and stubs only the mapper. Provenance survives the human-to-mouse rebuild,
+its `data.frame` branch validates column types, and `gsdb_info()`'s two shapes now share their
+common columns.
+
+Verified after the fix, both paths:
+
+```
+min_size 15 > n_top 5  → `min_size` (15) must not exceed `n_top` (5); symbol mapping can only ...
+a legitimate zero-set  → size filter dropped 1 of 1 hits outside [1, 2] genes.
+                       → 1 hits attempted, 0 sets produced.
+```
+
+**Four of the reviewer's readings were wrong in detail, and the agent fixing them said so** rather
+than working around them: there is no `coresh_score()` in this package (the comparison is
+`coresh_match()`), the finite-loading assertion was redundant rather than strictly unfalsifiable,
+`coresh_loadings()` retains missing reference ids on purpose so NA removal belongs to `coresh_sets()`,
+and there is no GMT round-trip to lose provenance through — the only real reconstruction loss was the
+species conversion. The finding underneath each was still valid.
+
 Its process point stands and the tables above now reflect it. §5 said run **G5 before G2–G4**, and
 that was not done, because G5's remaining half needs a browser. G2's stated gate reads as passed and
 was not met. Both are now recorded as unmet-and-superseded with the evidence attached, rather than
