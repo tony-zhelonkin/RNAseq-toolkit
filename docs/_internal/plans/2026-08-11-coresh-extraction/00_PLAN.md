@@ -1,6 +1,6 @@
 # CoReSh: extraction plan, and the package-versus-skill decision
 
-**Date:** 2026-08-11 · **Status:** plan of record; C0-C2 done, C3 half done, C4 next, C5/C6 blocked. §10/§11's p-value conclusion is **corrected by §12** — read §12 first.
+**Date:** 2026-08-11 · **Status:** plan of record; C0-C3 done, C4 next, C5/C6 blocked. See §13 for C3's second half. §10/§11's p-value conclusion is **corrected by §12** — read §12 first.
 **Parent:** [../2026-08-10-bulkirna-package/00_INDEX.md](../2026-08-10-bulkirna-package/00_INDEX.md) — this
 document is Phase 4's CoReSh branch, and it also opens the Phase 5 (skills) question.
 
@@ -665,3 +665,35 @@ The work is scheduled as **G1** in
 [../2026-08-13-analysis-api-roadmap/00_ROADMAP.md](../2026-08-13-analysis-api-roadmap/00_ROADMAP.md),
 §3, which also opens `gs_coregulation()` as a first-class verb — GESECA takes a matrix and no
 contrast, so it complements DE-driven GSEA rather than competing with it.
+
+
+---
+
+## 13. C3 completed (2026-08-18) — the set-building layer
+
+`coresh_loadings()` and `coresh_sets()` landed as roadmap step G2. See
+[../2026-08-13-analysis-api-roadmap/00_ROADMAP.md](../2026-08-13-analysis-api-roadmap/00_ROADMAP.md)
+§10 for the full record. In brief:
+
+- The ported math is **identical to the reference on 63 of 63 comparable real hits** — same top-50
+  Entrez ids, same order.
+- §2's latent defects are discharged: no `options()` memoization, no `digest` dependency, no
+  global-environment guard, and provenance is a table rather than a re-parse of set names, so
+  `1.11:453`'s `max(which(grepl("^GSE", ...)))` returning `-Inf` has no analogue here.
+- The Jaccard rule is now explicit — keep the higher-ranked hit — where the reference dropped
+  whichever set came later in the input.
+- `gs_db()` gained `provenance` and `set_provenance`, both surviving subsetting.
+
+**Two findings that change what C4 has to do.**
+
+`gsdb_coresh()` cannot be gated against DC-nexus's stored GMT the way §C4 assumes. That GMT dates
+from 2026-04-25 and the earliest surviving chunk snapshot is the `_migrated` rewrite of 2026-04-30;
+28 of 58 sets still match exactly, but the 24 that differ are explained by chunk content that no
+longer exists, verified four ways rather than assumed. Its `coresh_provenance.csv` cannot arbitrate
+either: it holds 13 distinct `pctVar` values across 58 rows, having recorded each query's score
+rather than each hit's. **C4's gate has to be the loading-level agreement above plus a fresh
+end-to-end run, not byte agreement with a stored artefact.**
+
+And **a GSE accession is not a unique key**: 1,635 of 42,465 human accessions appear more than once
+on different platforms, sometimes in different chunk files, and the first-match lookup is therefore
+order-dependent. Fix that before `gsdb_coresh()` builds on it.

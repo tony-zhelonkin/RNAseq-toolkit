@@ -138,20 +138,21 @@ survives as an open question in `03_DEFERRED.md`.
 | 2 Prove the dev loop | ✅ against real data |
 | 3 Install into the image | ✅ `scdock-r-dev:v0.5.13`, 16/16 optional deps |
 | 4 Migrate heavy consumers | 🟡 `14839-DM-cGAS` done (5/5 scripts); **STING-JR and DC-nexus remain** |
-| 4c CoReSh extraction | 🟡 C0–C2 ✅ · C3 half · C4 open · C5/C6 🚫 blocked |
+| 4c CoReSh extraction | 🟡 C0–C3 ✅ · C4 open · C5/C6 🚫 blocked |
 | 5 Bind the skills | 🚫 blocked on the SciAgent-toolkit refactor |
 | 6 Retire the submodule | ⬜ |
 | 7 Distribution | ⬜ |
-| **8 Stabilize the surface** | 🟡 S1 ✅ S4 ✅ · **S2, S3, S5, S6 open** |
-| **9 One CoReSh/GESECA run** | 🟡 G1 ✅ G5 half · **G2, G3, G4 open** |
+| **8 Stabilize the surface** | 🟡 S1 ✅ S2 ✅ S3 ✅ S4 ✅ · **S5, S6 open** |
+| **9 One CoReSh/GESECA run** | 🟡 G1 ✅ G2 ✅ G5 half · **G3, G4 open** |
 | 10–11 Activity layer, WGCNA, uniform surface | 🚫 parked by decision |
 
 ### What Phase 8–9 delivered so far
 
-- **`bulkirna_api()`** — 74 exports with lifecycle and signature-freeze as *independent* axes,
+- **`bulkirna_api()`** — 77 exports with lifecycle and signature-freeze as *independent* axes,
   because 20 of the 24 frozen names are also deprecated. 46 stable, 8 experimental, 20
   deprecated, all removed in `1.0.0`. Its load-bearing test compares the registry against
-  `NAMESPACE` in both directions at test time.
+  `NAMESPACE` in both directions at test time. 46 stable, 10 experimental, 21 deprecated after
+  S2/S3 and G2.
 - **`bulkirna_stochastic()`** — the five functions that consume randomness, each seed argument,
   default and source of randomness. `write_session_provenance()` records `RNGkind()`.
 - **`R/rng.R`** — the only place allowed to mutate RNG state, with a parse-tree test that fails
@@ -174,11 +175,14 @@ degradation pathway — at rank 4. Validated against biology, not against itself
 1. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step. It is the only remaining
    independent check on the CoReSh port.
-2. **S2 and S3 together** — the 13 unprefixed live exports and the argument-name audit. Both are
-   name decisions over the same functions. `download_gatom_references` → `gatom_download_refs`
-   is the clear one; `ensure_dir` probably should not be exported. Frozen names need a shim
-   rather than a rename.
-3. **G2–G4** — `coresh_loadings()`/`coresh_sets()`, then `gsdb_coresh()`, then
+2. **A GSE is not a unique key in the CoReSh compendium.** 1,635 of 42,465 human accessions
+   appear more than once, the same accession on a different platform, sometimes in a different
+   chunk file. `coresh_loadings()` takes the first `gseId` match, so which dataset you get
+   depends on chunk file ordering. `coresh_chunks()` already returns `gpl`; the lookup needs to
+   use it, which means an optional `gpl` argument and a warning when a bare accession is
+   ambiguous. This is a silent-wrongness defect on 3.7% of accessions and it is the first thing
+   to do.
+3. **G3 and G4** — `gsdb_coresh()` on `.ref_path("coresh")` recording the snapshot tag, then
    `gs_coregulation()` as its own verb (it takes a matrix where `gs_test()` takes ranks, so a
    shared signature would lie about the input).
 4. **Finish Phase 4 — STING-JR first.** It is also the TF reference project, so migrating it
@@ -195,7 +199,16 @@ degradation pathway — at rank 4. Validated against biology, not against itself
 - The image still pins `bulkiRNA@v0.4.0` (`scbio-docker/docker/base/R/install_core.R:174`), so
   nobody using `scdock-r-dev:v0.5.13` has the GATOM reproducibility fix. A 150-minute rebuild
   for it is a judgement call.
-- `qs2` is absent from the image; every CoReSh chunk reader needs it.
+- `qs2` is absent from the image; every CoReSh chunk reader needs it, and `R CMD check` now
+  needs it too, since it is a declared `Suggests`. Until the image carries it, the check has to
+  run with a scratch library mounted at `R_LIBS`.
+- The consumer GMT that G2 was gated against is **not reproducible from any snapshot on disk**:
+  it predates the earliest surviving chunk rewrite. Its companion `coresh_provenance.csv` is
+  also wrong — 13 distinct `pctVar` values across 58 rows, one per query rather than per hit.
+- `gatom_download_refs()` still defaults to the repo-relative `00_data/references/gatom`. It is
+  the historical default and the frozen shim must keep it, but a downloader whose default
+  destination is relative to the working directory is how the test suite ended up writing 16 MB
+  into `tests/testthat/`.
 - `10_gatom_modules.R`'s combined-network path still calls `gatom::` directly.
 - `14839-DM-cGAS` is uncommitted, with the moved GATOM numbers in it. Committing in a tree
   holding live research data is the owner's call.

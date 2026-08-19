@@ -435,3 +435,146 @@ comparisons that would pass on empty p-value vectors, one `all()` that would pas
 and one in the new code: `paste0()` recycles a zero-length vector to `""` when another argument is
 longer, so the offender message built `": "` on the passing case and failed the test it existed to
 explain.
+
+---
+
+## 10. S2, S3 and G2 as executed (2026-08-18)
+
+Two stages in parallel, each written by a delegated agent in an isolated clone, each gated and
+reviewed here. Package state: **1,465 tests passing, golden 20/20, `R CMD check` 0/0/0, 77
+exports** — 46 stable, 10 experimental, 21 deprecated.
+
+The delegated agents had no Docker socket, so **every gate in this section was run by me**, not by
+the agent that wrote the code. Both agents were told to claim no gate as passing, and neither did.
+
+### S2 — the 13 unprefixed exports, and only one moves
+
+`04_NAME_AUDIT.md` records all thirteen decisions with reasons. `download_gatom_references` →
+**`gatom_download_refs`**, with the frozen name kept as the 21st deprecated shim: five other
+members of its family are prefixed and it was the only one that was not.
+
+`ensure_dir` stays `stable`, and that decision changed on evidence — the consumer inventory still
+lists two unmigrated callers, so un-exporting it would break a project mid-migration. The other
+eleven read correctly as top-level verbs and are recorded as deliberate keeps rather than
+oversights.
+
+### S3 — five species handlers, disagreeing about what a species is
+
+I briefed four sites. The agent found a **fifth** and stopped to say so before writing anything:
+`annotate_genes()` in `R/dge.R` had its own `match.arg()` plus two `switch()` calls, accepting only
+the scientific spellings.
+
+| Site | Accepted before |
+|---|---|
+| `.gene_id_species()` | six aliases, case- and separator-insensitive |
+| `.coresh_species_code()` | four exact, **case-sensitive**; rejected `"Homo sapiens"` |
+| `.gatom_species()` | aliases, but its error named only the scientific spellings |
+| `.gsdb_species_label()` | any non-empty string |
+| `annotate_genes()` | scientific spellings only |
+
+So `gene_to_entrez(species = "Homo sapiens")` worked while `coresh_search(species = "Homo
+sapiens")` errored — same package, same session, same species.
+
+`R/species.R` is now the single owner, in the way `R/rng.R` owns seeding. Every alias any of the
+five accepted is still accepted; `annotate_genes()` keeps the partial scientific-name matching
+`match.arg()` gave it for free, and `.gsdb_species_label()` keeps a path for a user-supplied
+custom species. **One visible consequence, recorded in `NEWS.md`:** a recognised alias is now
+normalised into the `gs_db` `species` attribute, so `gsdb_register(species = "mouse")` records
+`"Mus musculus"`.
+
+### The landmine the rename exposed, which is the most useful finding of the pass
+
+Making the downloader a shim turned one existing test into a 16 MB download.
+
+`test-api.R` loops over every deprecated export and calls it **bare** to prove it warns. The
+downloader's defaults are `dir = "00_data/references/gatom"`, `species = "Mus_musculus"`,
+`networks = c("kegg", "combined")` — so the suite fetched real reference files from
+`artyomovlab.wustl.edu` into a **repo-relative** directory. `test-api.R` sorts before
+`test-gatom.R`, and `gatom_refs()` searches that same relative default third, so an assertion that
+an empty directory produces a missing-file error found real files and **returned successfully
+instead of erroring**.
+
+Three separate defects in one failure: a test reaching the network unskipped, a test writing into
+the working directory, and an unrelated assertion in another file inverting its result because of
+it. And the general shape: **a generic "call every shim" loop is only safe while every shim happens
+to be harmless when called bare**, which was a property nobody was maintaining.
+
+The loop now evaluates only the `.Deprecated()` call, so it still proves the warning fires while
+the delegated work is unreachable. `test-gatom.R` mocks the existing `.gatom_search_dirs()` seam
+rather than depending on what is on disk. And `helper-state.R` plus `test-zzzz-workdir.R` fail the
+suite if any test leaves a new entry in the working directory, with `testthat::set_state_inspector()`
+naming the individual test that leaked. `_snaps/` and `Rplots.pdf` are excluded as testthat's and
+the graphics device's own, with the reason written next to the exclusion.
+
+An audit of the other twenty shims found no second one that writes or reaches the network.
+
+### G2 — the set-building layer, verified against the reference rather than itself
+
+`coresh_loadings()` and `coresh_sets()` port `extract_gene_loadings.R`. Four things changed because
+a package is not a script: the package-local chunk index instead of a second index memoized into
+`options()`; provenance carried as a table instead of recovered by re-parsing `CORESH_<query>_<gse>`
+set names; Jaccard deduplication keeping the higher-ranked hit by an explicit rule, so the result
+no longer depends on input order; and a run that fails everywhere stopping rather than reporting a
+clean empty result.
+
+**The gate: on 63 of 63 comparable real hits, `coresh_loadings()` returns the identical top-50
+Entrez ids in the identical order as the reference formula computed inline.** Twelve hits were not
+comparable — the accession is absent from the current snapshot, or fewer than three query genes are
+present.
+
+`gs_db()` gained `provenance` and `set_provenance`. The agent stopped and reported that my brief's
+premise was false — `gsdb_msigdb()` records no provenance, `gs_db()` had no such field, and
+`[.gs_db` rebuilds from a fixed attribute list and would silently drop anything else. The decision:
+make it generic and make it survive subsetting, with `set_provenance` subset to the sets that
+remain. A snapshot tag that vanishes on the first `db[1:10]` is worse than no tag, because the
+object still looks provenanced — the same failure `.ref_path()` had when it recorded the literal
+string `"current"`.
+
+### Against the consumer's stored GMT: 58 sets, and why 24 differ
+
+| Outcome | Sets |
+|---|---|
+| Identical | 28 |
+| Same membership, different order | 2 |
+| Different membership | 24 |
+| Missing from ours / extra in ours | 1 / 1 |
+
+The missing/extra pair is the **deliberate dedup rule change**: two sets overlapping at Jaccard
+0.923, where the reference dropped the later one and we keep the higher-ranked one.
+
+The 24 are **not** attributable to the port, and this took four measurements to establish rather
+than assert:
+
+1. **Not the snapshot.** `syn66227307_20260430_migrated` and `syn66227307_20260721` produce
+   byte-identical output. I ran the whole comparison against both.
+2. **Not a boundary shift.** Genes the stored GMT ranked in its top 50 rank **59 to 8,933** today.
+   No cutoff change does that.
+3. **Not the symbol mapping.** On one differing set, the reference formula run on today's chunks
+   agrees with `coresh_loadings()` on 50 of 50 and with the stored GMT on 32 of 50. The divergence
+   is upstream of both implementations.
+4. **Not the compendium score either, and the stored provenance cannot arbitrate.**
+   `coresh_provenance.csv` holds **13 distinct `pctVar` values across 58 rows** — one per query,
+   repeated across all of that query's hits. It recorded the query's score, not the hit's, so it
+   cannot be compared against anything.
+
+The GMT is dated 2026-04-25 and the earliest surviving snapshot is the `_migrated` rewrite of
+2026-04-30. **The chunks that produced it no longer exist**, so it is not reproducible from
+anything on disk — by us or by the script that wrote it.
+
+### A compendium defect found on the way, not yet fixed
+
+**1,635 of 42,465 human GSE accessions appear more than once**, the same accession on a different
+platform (`gplId`), sometimes in a different chunk file. Both the reference script and
+`coresh_loadings()` take the first match by `gseId` alone, so *which dataset you get depends on
+chunk file ordering*. `coresh_chunks()` already returns a `gpl` column and `coresh_sets()` already
+orders by it when present, so the index is not the problem — the lookup is. A GSE is not a unique
+key in this compendium and the API currently pretends it is. Scheduled below rather than fixed
+here, because it changes a signature.
+
+### The merge, and the conflict git could not see
+
+The two stages merged with three textual conflicts, all counts. The fourth was invisible to git
+because the two sides touched **different files**: `R/coresh-sets.R` called `.gene_id_species()`,
+which the audit had deleted in favour of `.species()`. `devtools::test()` passed on each branch
+*and on the merge*, because `load_all()` had both definitions in scope. Only `R CMD check` on the
+built package caught it. **Parallel stages need the built-package gate, not the fast one.**
