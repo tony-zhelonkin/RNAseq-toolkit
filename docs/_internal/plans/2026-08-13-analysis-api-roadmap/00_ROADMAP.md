@@ -1122,3 +1122,39 @@ stay empty**, so the same inversion happens to them: `test-api.R`'s message-only
 `frozen ∧ stable` set and the deprecated-metadata assertions all become permanent empty-versus-empty
 comparisons. Doing that check now, while a non-empty case still exists to compare against, is the only
 time it can be done properly.
+
+### Two notes on how the empty-case work was checked
+
+**An invalid probe that nearly became a finding.** My first attempt at measuring the empty case emptied
+the non-snake-case exception list *while the four offenders still existed*, and the run halted. Reading
+that halt as a finding would have been a false positive — that state **should** fail, since the
+offenders are still there and no longer excused — and the edit had also broken the file's syntax, so
+the halt was not even the failure it appeared to be. It was caught by asking what the valid empty state
+actually is: offenders and exceptions both absent.
+
+That is `AGENTS.md`'s "an empty result and a broken run must be distinguishable" from the other
+direction. Here a broken *probe* and a real defect were indistinguishable from the exit status alone,
+and the same discipline applies to the measurement as to the code being measured.
+
+**And an empty-case check needs a positive control.** "57 assertions pass, 0 fail" after emptying the
+deprecated tier cannot on its own distinguish a helper that correctly tolerates zero from one that
+tolerates everything. It is the paired negative — dropping `theme_bulki` from its allowlist and
+watching the same helper fail, naming it — that makes the first number mean anything. Neither run is
+worth much alone.
+
+### What the two reviews cost, and what only measurement found
+
+Four rounds of fixes across two reviews. **Four findings surfaced only because a claim was executed
+rather than read**, and the split is worth keeping:
+
+| Finding | Surfaced by |
+|---|---|
+| `biomart_dataset` asserted nowhere; swapping the marts passes 1,596 tests | reading the change adversarially |
+| Two exceptions citing frozen signatures across 17 non-frozen exports | reading the change adversarially |
+| 157 of 178 formals in two boilerplate buckets, against a 120 threshold | counting instead of reading the structure |
+| `group` and `samples` unaudited, behind a generic's `...` | executing a claim that had only been asserted |
+
+The first two came from the reviewer, the third from taking its threshold literally, the fourth from
+checking the reviewer. **The ones that took longest to surface were the ones where a sentence sounded
+true** — which is the argument for the whole exercise, and for measuring one's own prose as well as
+one's code.

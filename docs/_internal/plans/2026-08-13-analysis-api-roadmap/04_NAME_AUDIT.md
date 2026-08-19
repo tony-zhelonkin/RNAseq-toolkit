@@ -39,8 +39,19 @@ by the same enforcement allowlist.
 
 ## S3: measured argument vocabulary
 
-This table was measured from the formals of all 57 live exports. Counts are
-functions exposing the formal after S2; deprecated shims are excluded.
+This table was measured from the formals of all 57 live exports **plus the
+formals of every S3 method registered for an exported generic**, resolved
+through the namespace method table. Counts are functions exposing the formal
+after S2; deprecated shims are excluded.
+
+The method matters, and the first version of this sentence recorded the one that
+had a gap: walking `formals()` on exported names alone cannot see an argument
+declared on an S3 method behind a generic's `...`, which is how `group` and
+`samples` on `gs_plot_heatmap.gs_matrix` went unaudited. **Every count below was
+rechecked under the corrected method and none moved** — no method conceals a
+`species`, `dir` or other cross-layer formal; only `top_n` and `palette` gain
+occurrences, by two each, and neither appears in this table. So the numbers were
+right while the technique was not, and those are separate claims.
 
 | Concept | Canonical formal | Live exports | Finding |
 |---|---|---:|---|
