@@ -841,9 +841,22 @@ corrected result is not a breaking change but is written down.
 
 S3's stated goal is "one spelling per concept". The test was a **25-name blacklist**, so
 `target_dir`, `sp` and `rand_seed` all passed, and it never asserted that a canonical name was
-*present* anywhere. It is now an **audited 178-name vocabulary that every live formal must belong
-to**, plus required canonical formals — so any new spelling fails until it is adopted or renamed.
-That is the difference between a blacklist and a contract.
+*present* anywhere. The first replacement was a flat 178-name allowlist. That closed the set of
+spellings but did not model concepts: adding a spelling to the list was enough to make it policy.
+
+The vocabulary is now grouped into named argument concepts, each with a reason. Every live formal
+must belong to exactly one concept, every recorded spelling must remain in use, and the 11 canonical
+cross-layer formals must remain present. A concept may have multiple spellings only when the exact
+set is recorded as a reasoned exception. The four non-snake-case formals have a parallel exact
+exception record. Adding a fourth spelling to the result-limit concept therefore fails even after
+the author classifies it there; accepting it requires deliberately widening the exception.
+
+This remains a curated audit, not a type system for argument names. Domain-specific inputs and the
+renderer aesthetic surface are single-use concepts under shared reasons. An author can misclassify
+a synonym as a new singleton concept, and no structural test can infer that semantic mistake. That
+singleton bucket is where the residual enumeration lives: appending there is still the cheapest
+mechanical evasion. The test makes classification the cheapest honest fix; review still has to judge
+whether the classification is true.
 
 Three candidate unifications came out of building it and were **deliberately not renamed**, because
 that is a decision rather than a cleanup: `top`/`top_n`/`n_top`, `color_palette`/`colours`/`palette`,

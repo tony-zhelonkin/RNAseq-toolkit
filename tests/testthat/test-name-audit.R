@@ -63,38 +63,122 @@ test_that("live export formals use the complete audited vocabulary", {
   api <- bulkirna_api(quiet = TRUE)
   live <- intersect(exports, api$name[api$lifecycle != "deprecated"])
 
-  allowed <- c(
-    "...", "B_cutoff", "aes_x", "annotate_counts", "baseMean", "base_family",
-    "base_size", "base_theme", "biomart_host", "biomart_version", "by",
-    "by_contrast", "by_direction", "cache", "caption", "center", "chunk_dir",
-    "chunk_path", "coef", "collapse", "collection", "color_palette",
-    "colour_by", "colours", "compare", "contrast", "count_mat", "data",
-    "database", "database_label", "database_labels", "db", "db_species", "de",
-    "de_results", "decision_by", "df", "dge", "dir", "direction", "download",
-    "dpi", "drop", "drop_empty", "ens_ids", "ensembl_version", "entity_type",
-    "entrez", "eps", "error", "expr", "facet", "fc_cutoff", "fdr_cutoff",
-    "features", "fit", "fixed_p_boundary", "formats", "gene2reaction_extra",
-    "genes", "genes_df", "genome_build", "gpl", "grid", "gse_id", "gsea_param",
-    "height", "highlight", "highlight_gene", "id", "input_gene_name",
-    "jaccard_threshold", "k_gene", "k_met", "kcdf", "keep_first_caption",
-    "label", "label_method", "label_size", "labels", "legend_pos",
-    "legend_position", "lifecycle", "limits", "log2FC", "m", "max.overlaps",
-    "max_genes", "max_name_length", "max_size", "met_de", "method", "metric",
-    "metric_label", "min_genes", "min_queries", "min_size", "multi_vals", "n",
-    "n_cores", "n_top", "name", "network", "networks", "norm_method", "obj",
-    "orientation", "overview", "overwrite", "p_cutoff", "p_value", "padj",
-    "padj_max", "palette", "panel_heights", "path", "pathway_id",
-    "pathway_names", "pathways", "pattern", "per", "plot", "plots",
-    "point_size", "prefix", "prune", "pval", "pvalues", "queries", "query",
-    "quiet", "ranking", "ranks", "rebuild", "refs", "required_cols", "res",
-    "round_nonint", "sample_col_candidates", "sample_data", "sample_size",
-    "samples_df", "scale", "schema_version", "seed", "sets", "shape_by",
-    "show_grid", "show_quadrant_counts", "size_range", "solver", "sort_by",
-    "species", "stat", "stat_as_nes", "strip_prefix", "subcollection",
-    "subtitle", "symbol_by", "symbols", "table", "text", "title", "top",
-    "top_hits", "top_n", "unique_genes", "universe", "use_biomart",
-    "use_formatting", "verbose", "width", "wrap_width", "x", "x_breaks",
-    "xlim_abs", "y_padding", "ylim_abs"
+  concept <- function(formals, reason) {
+    list(formals = formals, reason = reason)
+  }
+  single_use <- function(formals, reason) {
+    stats::setNames(
+      lapply(formals, function(formal) concept(formal, reason)),
+      formals
+    )
+  }
+
+  argument_concepts <- c(
+    list(
+      result_limit = concept(
+        c("top", "top_n", "n_top"),
+        paste(
+          "Frozen signatures use three spellings for the number of results",
+          "to retain."
+        )
+      ),
+      colour_palette = concept(
+        c("color_palette", "colours", "palette"),
+        paste(
+          "Frozen signatures and upstream plotting vocabulary use three",
+          "spellings for a colour palette."
+        )
+      ),
+      b_statistic_cutoff = concept(
+        "B_cutoff",
+        "The established plotting API preserves limma's uppercase B statistic."
+      ),
+      mean_expression = concept(
+        "baseMean",
+        "GATOM's DE input contract uses the upstream DESeq2 column spelling."
+      ),
+      log2_fold_change = concept(
+        "log2FC",
+        "GATOM's DE input contract uses the upstream GATOM column spelling."
+      ),
+      label_overlap_limit = concept(
+        "max.overlaps",
+        "The plotting API forwards ggrepel's upstream formal unchanged."
+      )
+    ),
+    single_use(
+      c(
+        "species", "db", "contrast", "seed", "quiet", "verbose", "path",
+        "min_size", "max_size", "n_cores", "dir"
+      ),
+      paste(
+        "This is the sole canonical spelling of a required cross-layer",
+        "concept."
+      )
+    ),
+    single_use(
+      c(
+        "...", "biomart_host", "biomart_version", "by", "by_contrast",
+        "by_direction", "cache", "center", "chunk_dir", "chunk_path", "coef",
+        "collapse", "collection", "compare", "count_mat", "data", "database",
+        "database_label", "db_species", "de", "de_results", "df", "dge",
+        "direction", "download", "drop", "drop_empty", "ens_ids",
+        "ensembl_version",
+        "entity_type", "entrez", "eps", "error", "expr", "fc_cutoff",
+        "fdr_cutoff", "features", "fit", "gene2reaction_extra", "genes",
+        "genes_df", "genome_build", "gpl", "gse_id", "gsea_param", "id",
+        "input_gene_name", "jaccard_threshold", "k_gene", "k_met", "kcdf",
+        "lifecycle", "m", "max_genes", "met_de", "method", "metric",
+        "min_genes", "min_queries", "multi_vals", "n", "name", "network",
+        "networks", "norm_method", "obj", "overwrite", "p_cutoff", "p_value",
+        "padj", "pathway_id", "pathway_names", "pathways", "pattern", "per",
+        "prefix", "pval", "pvalues", "queries", "query", "ranking", "ranks",
+        "rebuild", "refs", "required_cols", "res", "round_nonint",
+        "sample_col_candidates", "sample_data", "sample_size", "samples_df",
+        "schema_version", "sets", "solver", "stat", "subcollection", "symbols",
+        "table", "unique_genes", "universe", "use_biomart", "x"
+      ),
+      paste(
+        "This API-specific input has one spelling and does not compete with",
+        "another audited concept."
+      )
+    ),
+    single_use(
+      c(
+        "aes_x", "annotate_counts", "base_family", "base_size", "base_theme",
+        "caption", "colour_by", "database_labels", "decision_by", "dpi",
+        "facet", "fixed_p_boundary", "formats", "grid", "height", "highlight",
+        "highlight_gene", "keep_first_caption", "label", "label_method",
+        "label_size", "labels", "legend_pos", "legend_position", "limits",
+        "max_name_length", "metric_label", "orientation", "overview",
+        "padj_max", "panel_heights", "plot", "plots", "point_size", "prune",
+        "scale", "shape_by", "show_grid", "show_quadrant_counts", "size_range",
+        "sort_by", "stat_as_nes", "strip_prefix", "subtitle", "symbol_by",
+        "text", "title",
+        "top_hits", "use_formatting", "width", "wrap_width", "x_breaks",
+        "xlim_abs", "y_padding", "ylim_abs"
+      ),
+      paste(
+        "This renderer or presentation input has one spelling and controls",
+        "one distinct aesthetic or display choice."
+      )
+    )
+  )
+  multiple_spelling_exceptions <- list(
+    result_limit = concept(
+      c("top", "top_n", "n_top"),
+      "These spellings are fixed by three frozen public signatures."
+    ),
+    colour_palette = concept(
+      c("color_palette", "colours", "palette"),
+      "These spellings are fixed by public signatures and upstream vocabulary."
+    )
+  )
+  non_snake_case_exceptions <- c(
+    B_cutoff = "established limma B-statistic spelling",
+    baseMean = "upstream DESeq2 column spelling",
+    log2FC = "upstream GATOM column spelling",
+    max.overlaps = "upstream ggrepel formal"
   )
   required <- c(
     "species", "db", "contrast", "seed", "quiet", "verbose", "path",
@@ -103,18 +187,96 @@ test_that("live export formals use the complete audited vocabulary", {
   observed <- sort(unique(unlist(lapply(live, function(name) {
     names(formals(getExportedValue("bulkiRNA", name)))
   }), use.names = FALSE)))
-  unexpected <- setdiff(observed, allowed)
-  unused <- setdiff(allowed, observed)
+  assignments <- unlist(lapply(argument_concepts, `[[`, "formals"),
+                        use.names = FALSE)
+  audited <- sort(unique(assignments))
+  unexpected <- setdiff(observed, audited)
+  unused <- setdiff(audited, observed)
+  unused_concepts <- names(argument_concepts)[vapply(
+    argument_concepts,
+    function(x) any(x$formals %in% unused),
+    logical(1L)
+  )]
+  actual_multiple <- lapply(
+    argument_concepts[lengths(lapply(argument_concepts, `[[`, "formals")) > 1L],
+    function(x) sort(x$formals)
+  )
+  actual_multiple <- actual_multiple[sort(names(actual_multiple))]
+  expected_multiple <- lapply(
+    multiple_spelling_exceptions,
+    function(x) sort(x$formals)
+  )
+  expected_multiple <- expected_multiple[sort(names(expected_multiple))]
+  multiple_names <- union(names(actual_multiple), names(expected_multiple))
+  multiple_drift <- multiple_names[!vapply(multiple_names, function(name) {
+    identical(actual_multiple[[name]], expected_multiple[[name]])
+  }, logical(1L))]
+  multiple_details <- vapply(multiple_drift, function(name) {
+    actual <- actual_multiple[[name]]
+    expected <- expected_multiple[[name]]
+    if (is.null(actual)) actual <- character(0L)
+    if (is.null(expected)) expected <- character(0L)
+    paste0(
+      "`", name, "` has [", paste(actual, collapse = ", "),
+      "]; its exception records [", paste(expected, collapse = ", "), "]."
+    )
+  }, character(1L))
+  non_snake_case <- audited[
+    audited != "..." & !grepl("^[a-z][a-z0-9]*(_[a-z0-9]+)*$", audited)
+  ]
+  reasoned_groups <- c(argument_concepts, multiple_spelling_exceptions)
+
+  expect_true(
+    all(vapply(reasoned_groups, function(x) {
+      is.character(x$reason) && length(x$reason) == 1L &&
+        nzchar(x$reason) && !grepl("[\r\n]", x$reason)
+    }, logical(1L))) &&
+      all(nzchar(non_snake_case_exceptions)) &&
+      !any(grepl("[\r\n]", non_snake_case_exceptions)),
+    info = paste(
+      "Every argument concept and spelling exception needs a one-line",
+      "reason."
+    )
+  )
+  expect_identical(
+    sort(unique(assignments[duplicated(assignments)])),
+    character(0L),
+    info = "Each audited formal must belong to exactly one argument concept."
+  )
 
   expect_identical(
     unexpected,
     character(0L),
-    info = "Every new formal spelling needs an explicit name-audit decision."
+    info = paste(
+      "Unclassified formal(s):", paste(unexpected, collapse = ", "),
+      "Classify each under an existing concept or add a new reasoned concept."
+    )
   )
   expect_identical(
     unused,
     character(0L),
-    info = "Remove formal spellings from the vocabulary when they leave the API."
+    info = paste(
+      "Remove unused spelling(s) from concept(s):",
+      paste(unused_concepts, collapse = ", ")
+    )
+  )
+  expect_identical(
+    actual_multiple,
+    expected_multiple,
+    info = paste(
+      paste(multiple_details, collapse = " "),
+      "A concept may have multiple spellings only when that exact set is a",
+      "reasoned exception. Reject the new spelling or deliberately revise",
+      "the exception."
+    )
+  )
+  expect_identical(
+    sort(non_snake_case),
+    sort(names(non_snake_case_exceptions)),
+    info = paste(
+      "Every non-snake-case formal needs a recorded upstream/frozen",
+      "reason."
+    )
   )
   expect_true(
     all(required %in% observed),
