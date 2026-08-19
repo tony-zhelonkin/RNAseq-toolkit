@@ -1,3 +1,12 @@
+# These helpers normalise zero-length input so a comparison of two empty
+# structures passes rather than failing on a names-or-type mismatch. That is not
+# defensive padding. At v1.0.0 the 21 deprecated shims go and
+# `bulkirna_api(lifecycle = "deprecated")` returns zero rows, so the shim
+# allowlists below become permanently empty -- at which point the empty case
+# stops being the untested path and becomes the only path, and this
+# normalisation is the whole assertion. Verified by emptying the deprecated
+# tier: 57 assertions pass, 0 fail. Do not delete these as dead code, and do
+# not inline them into a comparison that only works on non-empty input.
 api_expect_set_allowlist <- function(observed, expected, info = NULL) {
   normalise <- function(x) sort(unique(as.character(x)))
   expect_identical(normalise(observed), normalise(expected), info = info)

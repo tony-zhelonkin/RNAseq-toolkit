@@ -1091,3 +1091,34 @@ The second matters as much as the first: a helper that tolerates zero could have
 tolerate everything.
 
 **1,621 tests passing, golden 20/20, `R CMD check` 0/0/0.**
+
+### The two findings interlock, and the fix is now load-bearing
+
+The reviewer's closing observation, which is a better statement of the lesson than either of us had:
+
+Since the unification there are 174 concepts for 174 formals, **all singletons**, so
+`multiple_spelling_exceptions` is literally `list()` and the multi-spelling assertion compares two
+empty structures. That is exactly the state that turned the suite red — and it is no longer a transient
+condition someone hit while emptying a list. **It is the permanent steady state of the test.**
+
+So the shape-normalisation is **load-bearing rather than incidental**: it is the only reason that
+assertion passes today, and it stays that way unless someone reintroduces a second spelling, which is
+the thing the assertion exists to prevent. An assertion whose success path is the empty case, guarding
+a condition that is currently absent, reads to the next person as a comparison of two empty structures
+— which is to say, as the most deletable line in the file.
+
+**The general form:** it is not only that a test with a permanent exception list has never run its
+success case. It is that **when the exception list finally empties, the empty case stops being the
+untested path and becomes the only path** — so the fix that made it work *is* the whole assertion, and
+it looks like dead code.
+
+That is a comment-in-the-code problem, not a documentation problem, so both sites now say so at the
+point of temptation: `named_list()` in `test-name-audit.R` and the two allowlist helpers in
+`test-api.R` carry "do not delete as dead code", with the reason and the measurement. The empty
+`multiple_spelling_exceptions` says it is the goal state rather than an unfinished list.
+
+And it sharpens where the pre-`1.0.0` check belongs. The deprecated-shim lists empty at `1.0.0` **and
+stay empty**, so the same inversion happens to them: `test-api.R`'s message-only list, the
+`frozen ∧ stable` set and the deprecated-metadata assertions all become permanent empty-versus-empty
+comparisons. Doing that check now, while a non-empty case still exists to compare against, is the only
+time it can be done properly.

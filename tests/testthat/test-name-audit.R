@@ -226,6 +226,9 @@ test_that("live export formals use the complete audited vocabulary", {
       )
     )
   )
+  # Empty on purpose, and it is the goal state rather than an unfinished list:
+  # every concept now has exactly one spelling. A new entry here is a decision
+  # to accept a second spelling for one concept, and needs a reason saying why.
   multiple_spelling_exceptions <- list()
   non_snake_case_exceptions <- c(
     B_cutoff = "established limma B-statistic spelling",
@@ -252,10 +255,20 @@ test_that("live export formals use the complete audited vocabulary", {
     function(x) any(x$formals %in% unused),
     logical(1L)
   )]
+  # DO NOT DELETE `named_list()` AS DEAD CODE. It is the only reason the
+  # assertion below passes today.
+  #
   # Both sides must be a *named* list even when empty. Subsetting an empty
   # named list by `sort(names(.))` yields one; `lapply()` over an empty
   # unnamed list does not, so the two compared unequal on the passing case --
   # which only appeared once the last multi-spelling exception went away.
+  #
+  # Since the argument unification there are 174 concepts for 174 formals, all
+  # singletons, so both sides are permanently empty and this normalisation *is*
+  # the assertion rather than a defensive edge case. It stops being load-bearing
+  # only if somebody reintroduces a second spelling for one concept -- which is
+  # the thing the assertion exists to prevent. So an empty-versus-empty
+  # comparison here is the success state, not a leftover.
   named_list <- function(x) {
     if (!length(x)) return(stats::setNames(list(), character(0L)))
     x[sort(names(x))]
