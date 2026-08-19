@@ -140,6 +140,12 @@ gs_db <- function(sets,
       stop("`provenance` must be a one-row data frame with unique, ",
            "non-empty column names.", call. = FALSE)
     }
+    if (any(!vapply(provenance, function(x) {
+      is.atomic(x) && length(x) == 1L
+    }, logical(1L)))) {
+      stop("`provenance` data-frame columns must each contain one atomic ",
+           "scalar value.", call. = FALSE)
+    }
     return(provenance)
   }
 

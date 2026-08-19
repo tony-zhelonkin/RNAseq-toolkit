@@ -10,7 +10,8 @@
 #'
 #' @param chunk_path Path to one `*_full_objects.qs2` CoReSh chunk.
 #' @param gse_id A single GEO series accession present in the chunk.
-#' @param query A non-empty integer vector of Entrez IDs.
+#' @param query A non-empty integer vector of Entrez IDs. Duplicate IDs are
+#'   removed with a message before loading extraction.
 #' @param n_top Positive whole number of loadings to retain.
 #' @param gpl Optional GEO platform accession. When omitted and the GSE occurs
 #'   on more than one platform in the chunk, the first platform in
@@ -49,7 +50,13 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
     stop("`query` must be a non-empty integer vector of Entrez IDs.",
          call. = FALSE)
   }
-  query <- unique(query)
+  deduplicated <- unique(query)
+  n_duplicates <- length(query) - length(deduplicated)
+  if (n_duplicates) {
+    message("Dropped ", n_duplicates, " duplicate Entrez ID",
+            if (n_duplicates == 1L) "" else "s", " from `query`.")
+  }
+  query <- deduplicated
   n_top <- .coresh_positive_integer(n_top, "n_top")
 
   chunk <- .coresh_read_chunk(chunk_path)
@@ -261,10 +268,11 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
 #' ranked hit wins, rather than whichever row the caller happened to supply
 #' first.
 #'
-#' Failures are counted separately from valid empty results. A partial run
-#' reports how many hits failed and returns its successful sets. If every
-#' attempted hit fails, the function stops instead of returning an apparently
-#' clean empty database.
+#' Chunk lookup failures, extraction or mapping failures, set-name collisions,
+#' and size-filtered drops are counted and reported separately. If every
+#' attempted extraction fails, the function stops. A run that extracts hits
+#' successfully but produces no in-range sets returns an empty database with
+#' an always-on message.
 #'
 #' @param top_hits A data frame returned by [coresh_search()], usually filtered
 #'   to the desired number of hits per query. Required columns are
@@ -278,8 +286,8 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
 #' @param min_size,max_size Positive whole-number set-size bounds.
 #' @param jaccard_threshold Numeric threshold in `[0, 1]`. A later, lower
 #'   priority set is removed when overlap is strictly greater than this value.
-#' @param verbose Logical. Report the reason for each failed hit in addition to
-#'   the always-reported failure count.
+#' @param verbose Logical. Report the reason for each skipped hit in addition
+#'   to the always-reported category counts.
 #' @return A [gs_db()] with database-level `provenance` and a set-keyed
 #'   `set_provenance` tibble. The latter contains `set_name`, `query_name`,
 #'   `gse`, `gpl`, `chunk_path`, `loading_cutoff`, and `rank_in_coresh`.
@@ -302,6 +310,11 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
   max_size <- .coresh_positive_integer(max_size, "max_size")
   if (min_size > max_size) {
     stop("`min_size` must not exceed `max_size`.", call. = FALSE)
+  }
+  if (min_size > n_top) {
+    stop("`min_size` (", min_size, ") must not exceed `n_top` (", n_top,
+         "); symbol mapping can only retain or reduce the `n_top` extracted ",
+         "genes.", call. = FALSE)
   }
   if (!is.numeric(jaccard_threshold) || length(jaccard_threshold) != 1L ||
       is.na(jaccard_threshold) || !is.finite(jaccard_threshold) ||
@@ -346,14 +359,20 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
 
   sets <- list()
   provenance_rows <- list()
-  failures <- character()
+  chunk_lookup_failures <- character()
+  extraction_failures <- character()
+  name_collisions <- character()
+  size_drops <- character()
   successful_extractions <- 0L
   for (i in seq_len(nrow(top_hits))) {
     row <- top_hits[i, , drop = FALSE]
     label <- paste0(row$query_name[[1L]], "/", row$gse[[1L]])
     location <- tryCatch(.coresh_hit_chunk(row, index), error = identity)
     if (inherits(location, "error")) {
-      failures <- c(failures, paste0(label, ": ", conditionMessage(location)))
+      chunk_lookup_failures <- c(
+        chunk_lookup_failures,
+        paste0(label, ": ", conditionMessage(location))
+      )
       next
     }
 
@@ -376,11 +395,19 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
       list(loadings = loadings, genes = genes, gpl = used_gpl)
     }, error = identity)
     if (inherits(built, "error")) {
-      failures <- c(failures, paste0(label, ": ", conditionMessage(built)))
+      extraction_failures <- c(
+        extraction_failures,
+        paste0(label, ": ", conditionMessage(built))
+      )
       next
     }
     successful_extractions <- successful_extractions + 1L
     if (length(built$genes) < min_size || length(built$genes) > max_size) {
+      size_drops <- c(
+        size_drops,
+        paste0(label, ": produced ", length(built$genes),
+               " genes, outside [", min_size, ", ", max_size, "]")
+      )
       next
     }
 
@@ -389,8 +416,8 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
       if (row$.name_with_gpl[[1L]]) paste0("_", built$gpl) else ""
     )
     if (set_name %in% names(sets)) {
-      failures <- c(
-        failures,
+      name_collisions <- c(
+        name_collisions,
         paste0(label, ": set name duplicates an earlier platform hit")
       )
       next
@@ -408,14 +435,37 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
   }
 
   if (nrow(top_hits) && successful_extractions == 0L) {
+    failures <- c(chunk_lookup_failures, extraction_failures)
     stop("`coresh_sets()` failed for all ", nrow(top_hits), " attempted hits: ",
          paste(failures, collapse = "; "), ".", call. = FALSE)
   }
-  if (length(failures)) {
-    message("coresh_sets(): skipped ", length(failures), " of ",
-            nrow(top_hits), " hits because extraction failed.")
+  if (length(chunk_lookup_failures)) {
+    message("coresh_sets(): chunk lookup failed for ",
+            length(chunk_lookup_failures), " of ", nrow(top_hits), " hits.")
     if (verbose) {
-      message(paste0("  - ", failures, collapse = "\n"))
+      message(paste0("  - ", chunk_lookup_failures, collapse = "\n"))
+    }
+  }
+  if (length(extraction_failures)) {
+    message("coresh_sets(): loading extraction or symbol mapping failed for ",
+            length(extraction_failures), " of ", nrow(top_hits), " hits.")
+    if (verbose) {
+      message(paste0("  - ", extraction_failures, collapse = "\n"))
+    }
+  }
+  if (length(name_collisions)) {
+    message("coresh_sets(): set-name collision skipped ",
+            length(name_collisions), " of ", nrow(top_hits), " hits.")
+    if (verbose) {
+      message(paste0("  - ", name_collisions, collapse = "\n"))
+    }
+  }
+  if (length(size_drops)) {
+    message("coresh_sets(): size filter dropped ", length(size_drops),
+            " of ", nrow(top_hits), " hits outside [", min_size, ", ",
+            max_size, "] genes.")
+    if (verbose) {
+      message(paste0("  - ", size_drops, collapse = "\n"))
     }
   }
 
@@ -423,6 +473,10 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
     keep <- .coresh_dedupe_sets(sets, jaccard_threshold)
     sets <- sets[keep]
     provenance_rows <- provenance_rows[keep]
+  }
+  if (!length(sets)) {
+    message("coresh_sets(): ", nrow(top_hits),
+            " hits attempted, 0 sets produced.")
   }
   set_provenance <- if (length(provenance_rows)) {
     dplyr::bind_rows(provenance_rows)

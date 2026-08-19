@@ -11,10 +11,12 @@ gsdb_info(database)
 \code{\link[=gs_db]{gs_db()}} object. See \code{\link[=gsdb_list]{gsdb_list()}}.}
 }
 \value{
-For a registry key, a list of the \code{METADATA.yaml} fields for
-\code{database}, with \code{citations_path} and \code{citations_text} added when a
-\code{CITATIONS.bib} ships alongside the data. For a \code{gs_db}, a list of its
-identifying fields, set count, database provenance, and set provenance.
+A list whose first two fields are always \code{database}, the registry
+key, and \code{name}, the display name. For a registry key, the remaining
+fields come from \code{METADATA.yaml}, with \code{citations_path} and
+\code{citations_text} added when a \code{CITATIONS.bib} ships alongside the data.
+For a \code{gs_db}, the remaining fields identify the object and report its set
+count, database provenance, and set provenance.
 }
 \description{
 Metadata and citations for one reference database

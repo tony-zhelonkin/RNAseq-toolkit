@@ -68,6 +68,11 @@
   empty result from a completely failed extraction, and records both database-
   and set-level provenance.
 
+* Jaccard de-duplication in `coresh_sets()` competes across queries in global
+  CoReSh rank order; the reference implementation competed in caller order,
+  which accounts for the one-missing/one-extra difference from the consumer's
+  stored GMT.
+
 ## Gene-set databases
 
 * `gs_db()` accepts generic database provenance and set-keyed provenance.
