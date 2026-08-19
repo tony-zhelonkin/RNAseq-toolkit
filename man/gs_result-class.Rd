@@ -17,14 +17,15 @@ Always present, always these types:
 \item{\code{database}}{character. Which \verb{gsdb_*} provider the set came from.}
 \item{\code{contrast}}{character. Comparison label, e.g. \code{"KO-WT"}. Pooling
 across contrasts is \code{rbind()}, not a separate code path.}
-\item{\code{method}}{character. \code{"fgsea"}, \code{"ora"}, or -- for a \link{gs_matrix}
-tested with limma -- the scoring method that produced the matrix
-(\code{"gsva"}, \code{"ssgsea"}, \code{"zscore"}, \code{"plage"}).}
+\item{\code{method}}{character. \code{"fgsea"}, \code{"ora"}, \code{"geseca"}, or -- for a
+\link{gs_matrix} tested with limma -- the scoring method that produced the
+matrix (\code{"gsva"}, \code{"ssgsea"}, \code{"zscore"}, \code{"plage"}).}
 \item{\code{n_genes}}{integer. Set size in the database.}
 \item{\code{n_genes_tested}}{integer. Set size after intersecting with the data.}
 \item{\code{stat}}{numeric. The effect size. What it \emph{is} is named by \code{stat_type}.}
 \item{\code{stat_type}}{character. One of \code{\link[=gs_stat_types]{gs_stat_types()}}.}
-\item{\code{direction}}{character. \code{"up"}, \code{"down"}, or \code{"ns"}.}
+\item{\code{direction}}{character. \code{"up"}, \code{"down"}, or \code{"ns"}; \code{NA} when a
+method's statistic is unsigned.}
 \item{\code{p_value}}{numeric. Raw p-value.}
 \item{\code{padj}}{numeric. Multiplicity-adjusted p-value.}
 }

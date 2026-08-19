@@ -178,7 +178,7 @@ test_that("every declared stochastic function is classified and reproducible", {
   declared <- bulkirna_stochastic(quiet = TRUE)$name
 
   # Functions this test can call with nothing but the package's Imports.
-  exercised <- c("gs_test", "coresh_match")
+  exercised <- c("gs_test", "coresh_match", "gs_coregulation")
   # Functions it cannot, each with the reason and where they are covered.
   covered_elsewhere <- c(
     gatom_module  = "needs gatom and mwcsr; covered in test-gatom.R",
@@ -186,7 +186,7 @@ test_that("every declared stochastic function is classified and reproducible", {
     run_gsea      = "needs msigdbr over the network; delegates to gs_test()"
   )
 
-  # The point of this assertion: declaring a sixth stochastic function fails
+  # The point of this assertion: declaring another stochastic function fails
   # here until somebody decides which list it belongs in. Coverage cannot
   # silently lag the registry.
   expect_setequal(c(exercised, names(covered_elsewhere)), declared)
@@ -235,7 +235,7 @@ test_that("every declared stochastic function is classified and reproducible", {
       same_seed_agrees(function(s) {
         gs_test(ranks, db, method = "fgsea", seed = s)$p_value
       }, fn)
-    } else {
+    } else if (fn == "coresh_match") {
       set.seed(4)
       n <- 300L
       m <- matrix(stats::rnorm(n * 12L), nrow = n)
@@ -251,6 +251,15 @@ test_that("every declared stochastic function is classified and reproducible", {
       )
       same_seed_agrees(function(s) {
         coresh_match(obj, 1:10, pvalues = TRUE, seed = s)$p_value
+      }, fn)
+    } else {
+      fixture <- fake_coregulation_input()
+      same_seed_agrees(function(s) {
+        gs_coregulation(
+          fixture$expr, fixture$db,
+          min_size = 10L, max_size = 50L,
+          sample_size = 21L, seed = s
+        )$p_value
       }, fn)
     }
 

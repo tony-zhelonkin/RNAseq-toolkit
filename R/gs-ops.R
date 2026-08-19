@@ -114,7 +114,12 @@ gs_top <- function(x, n = 10L,
   grp_cols <- per
   if (by_direction) grp_cols <- c(grp_cols, "direction")
   key <- if (length(grp_cols)) {
-    do.call(paste, c(unname(as.list(as.data.frame(x)[grp_cols])), sep = "\r"))
+    group_factors <- lapply(
+      unname(as.list(as.data.frame(x)[grp_cols])),
+      factor,
+      exclude = NULL
+    )
+    do.call(interaction, c(group_factors, drop = TRUE, sep = "\r"))
   } else {
     rep("", nrow(x))
   }
@@ -210,7 +215,8 @@ gs_leading_edge <- function(x, padj = NULL, top = NULL, unique_genes = FALSE) {
 #' @keywords internal
 .gs_check_result <- function(x) {
   if (!inherits(x, "gs_result")) {
-    stop("`x` must be a `gs_result`, as returned by `gs_test()`; got ",
+    stop("`x` must be a `gs_result`, as returned by `gs_test()` or ",
+         "`gs_coregulation()`; got ",
          paste(sQuote(class(x)), collapse = "/"), ".", call. = FALSE)
   }
   invisible(x)

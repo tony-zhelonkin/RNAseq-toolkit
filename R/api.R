@@ -96,6 +96,7 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   )
 
   experimental <- list(
+    gs = "gs_coregulation",
     coresh = c(
       "coresh_chunks", "coresh_convergence", "coresh_loadings",
       "coresh_match", "coresh_search", "coresh_sets", "coresh_validate"

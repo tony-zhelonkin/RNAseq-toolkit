@@ -8,7 +8,7 @@ test_that("the API registry covers the complete namespace exactly once", {
     c("name", "layer", "lifecycle", "frozen", "stochastic", "superseded_by",
       "removed_in")
   )
-  expect_equal(nrow(api), 77L)
+  expect_equal(nrow(api), 78L)
   expect_equal(anyDuplicated(api$name), 0L)
   expect_setequal(api$name, exports)
   expect_identical(api$name, sort(api$name))
@@ -18,14 +18,14 @@ test_that("each export has one stability lifecycle and one layer", {
   api <- bulkirna_api(quiet = TRUE)
 
   expect_equal(sum(api$lifecycle == "deprecated"), 21L)
-  expect_equal(sum(api$lifecycle == "experimental"), 10L)
+  expect_equal(sum(api$lifecycle == "experimental"), 11L)
   expect_equal(sum(api$lifecycle == "stable"), 46L)
   expect_false(anyNA(api$lifecycle))
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
-  expect_equal(nrow(api), 77L)
-  expect_equal(sum(api$layer == "gs"), 17L)
+  expect_equal(nrow(api), 78L)
+  expect_equal(sum(api$layer == "gs"), 18L)
   expect_equal(sum(api$layer == "gsdb"), 6L)
   expect_equal(sum(api$layer == "de"), 6L)
   expect_equal(sum(api$layer == "gatom"), 7L)
@@ -41,16 +41,17 @@ test_that("each export has one stability lifecycle and one layer", {
   ))
 })
 
-test_that("experimental status is limited to CoReSh and gene-id helpers", {
+test_that("experimental status covers CoReSh, coregulation and gene-id helpers", {
   api <- bulkirna_api(quiet = TRUE)
   experimental <- c(
     "coresh_chunks", "coresh_convergence", "coresh_loadings", "coresh_match",
-    "coresh_search", "coresh_sets", "coresh_validate", "entrez_to_gene",
-    "filter_confounder_genes", "gene_to_entrez"
+    "coresh_search", "coresh_sets", "coresh_validate", "gs_coregulation",
+    "entrez_to_gene", "filter_confounder_genes", "gene_to_entrez"
   )
 
   expect_setequal(api$name[api$lifecycle == "experimental"], experimental)
   expect_true(all(api$layer[grepl("^coresh_", api$name)] == "coresh"))
+  expect_identical(api$layer[api$name == "gs_coregulation"], "gs")
 })
 
 test_that("the historical signature freeze remains an independent axis", {
@@ -148,6 +149,18 @@ test_that("bulkirna_api is itself a stable top-level export", {
   expect_false(row$frozen)
   expect_true(is.na(row$superseded_by))
   expect_true(is.na(row$removed_in))
+})
+
+test_that("G4 widens a stable vocabulary with an experimental verb", {
+  api <- bulkirna_api(quiet = TRUE)
+  stat_types <- api[api$name == "gs_stat_types", ]
+  coregulation <- api[api$name == "gs_coregulation", ]
+
+  expect_identical(stat_types$lifecycle, "stable")
+  expect_false(stat_types$frozen)
+  expect_identical(coregulation$lifecycle, "experimental")
+  expect_identical(coregulation$layer, "gs")
+  expect_false(coregulation$frozen)
 })
 
 test_that("every deprecated export calls .Deprecated first", {
