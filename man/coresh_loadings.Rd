@@ -11,7 +11,8 @@ coresh_loadings(chunk_path, gse_id, query, n_top = 50L, gpl = NULL)
 
 \item{gse_id}{A single GEO series accession present in the chunk.}
 
-\item{query}{A non-empty integer vector of Entrez IDs.}
+\item{query}{A non-empty integer vector of Entrez IDs. Duplicate IDs are
+removed with a message before loading extraction.}
 
 \item{n_top}{Positive whole number of loadings to retain.}
 

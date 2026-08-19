@@ -60,9 +60,16 @@ test_that("gsdb_load errors are explicit", {
 test_that("gsdb_info returns metadata and citations", {
   skip_if_not_installed("yaml")
   info <- gsdb_info("mitopathways")
+  expect_identical(info$database, "mitopathways")
   expect_identical(info$name, "MitoPathways 3.0")
   expect_true(nzchar(info$citations_path))
   expect_true(length(info$citations_text) > 0)
+
+  object_info <- gsdb_info(gsdb_load("mitopathways"))
+  expect_identical(
+    object_info[c("database", "name")],
+    info[c("database", "name")]
+  )
 
   expect_error(gsdb_info("nope"), "must be one of")
   expect_error(gsdb_info(c("a", "b")), "single database name")

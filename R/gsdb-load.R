@@ -131,10 +131,12 @@ gsdb_list <- function() {
 #'
 #' @param database Character(1) database key, e.g. `"mito_unified"`, or a
 #'   [gs_db()] object. See [gsdb_list()].
-#' @return For a registry key, a list of the `METADATA.yaml` fields for
-#'   `database`, with `citations_path` and `citations_text` added when a
-#'   `CITATIONS.bib` ships alongside the data. For a `gs_db`, a list of its
-#'   identifying fields, set count, database provenance, and set provenance.
+#' @return A list whose first two fields are always `database`, the registry
+#'   key, and `name`, the display name. For a registry key, the remaining
+#'   fields come from `METADATA.yaml`, with `citations_path` and
+#'   `citations_text` added when a `CITATIONS.bib` ships alongside the data.
+#'   For a `gs_db`, the remaining fields identify the object and report its set
+#'   count, database provenance, and set provenance.
 #' @examples
 #' info <- gsdb_info("mitopathways")
 #' info$name
@@ -143,6 +145,7 @@ gsdb_info <- function(database) {
   if (is_gs_db(database)) {
     return(list(
       database = attr(database, "database"),
+      name = attr(database, "database_label"),
       database_label = attr(database, "database_label"),
       species = attr(database, "species"),
       gene_id_type = attr(database, "gene_id_type"),
@@ -162,6 +165,10 @@ gsdb_info <- function(database) {
          "; got \"", database, "\".", call. = FALSE)
   }
   info <- meta$databases[[database]]
+  info <- c(
+    list(database = database, name = info$name %||% database),
+    info[setdiff(names(info), "name")]
+  )
   bib <- .gsdb_extdata(info$directory %||% database, "CITATIONS.bib")
   if (nzchar(bib)) {
     info$citations_path <- bib

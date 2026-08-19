@@ -144,6 +144,7 @@ test_that("database and set provenance survive subsetting", {
   expect_identical(attr(sub, "set_provenance")$set_name, "B")
 
   info <- gsdb_info(sub)
+  expect_identical(info$name, "d")
   expect_identical(info$provenance, provenance)
   expect_identical(info$set_provenance$set_name, "B")
   printed <- capture.output(print(sub))
@@ -186,6 +187,22 @@ test_that("gs_db rejects provenance that cannot be read or keyed", {
       provenance = list(source = c("one", "two"))
     ),
     "scalar values"
+  )
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a"), database = "d", species = "Mus musculus",
+      provenance = data.frame(source = I(list("nested")))
+    ),
+    "atomic scalar value"
+  )
+  expect_error(
+    bulkiRNA:::gs_db(
+      list(A = "a"), database = "d", species = "Mus musculus",
+      provenance = data.frame(
+        source = I(matrix(c("one", "two"), nrow = 1L))
+      )
+    ),
+    "atomic scalar value"
   )
   expect_error(
     bulkiRNA:::gs_db(

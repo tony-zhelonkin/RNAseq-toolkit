@@ -36,8 +36,8 @@ warns and uses the radix-first available platform.}
 \item{jaccard_threshold}{Numeric threshold in \verb{[0, 1]}. A later, lower
 priority set is removed when overlap is strictly greater than this value.}
 
-\item{verbose}{Logical. Report the reason for each failed hit in addition to
-the always-reported failure count.}
+\item{verbose}{Logical. Report the reason for each skipped hit in addition
+to the always-reported category counts.}
 }
 \value{
 A \code{\link[=gs_db]{gs_db()}} with database-level \code{provenance} and a set-keyed
@@ -53,10 +53,11 @@ ranked hit wins, rather than whichever row the caller happened to supply
 first.
 }
 \details{
-Failures are counted separately from valid empty results. A partial run
-reports how many hits failed and returns its successful sets. If every
-attempted hit fails, the function stops instead of returning an apparently
-clean empty database.
+Chunk lookup failures, extraction or mapping failures, set-name collisions,
+and size-filtered drops are counted and reported separately. If every
+attempted extraction fails, the function stops. A run that extracts hits
+successfully but produces no in-range sets returns an empty database with
+an always-on message.
 }
 \examples{
 \dontrun{

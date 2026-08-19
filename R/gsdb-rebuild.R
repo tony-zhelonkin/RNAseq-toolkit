@@ -257,7 +257,19 @@
     m <- unname(lookup[g])
     m[!is.na(m)]
   })
+  retained <- names(sets)[vapply(sets, length, integer(1L)) > 0L]
+  set_provenance <- attr(db, "set_provenance")
+  if (!is.null(set_provenance)) {
+    set_provenance <- set_provenance[
+      match(retained, set_provenance$set_name),
+      ,
+      drop = FALSE
+    ]
+  }
   gs_db(sets, database = attr(db, "database"), species = "Mus musculus",
         pathway_names = attr(db, "pathway_names"),
-        database_label = attr(db, "database_label"))
+        database_label = attr(db, "database_label"),
+        pathway_descriptions = attr(db, "pathway_descriptions"),
+        set_provenance = set_provenance,
+        provenance = attr(db, "provenance"))
 }

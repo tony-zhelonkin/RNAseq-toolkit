@@ -23,8 +23,13 @@ test_that("coresh_loadings reproduces the deterministic projection", {
     .package = "bulkiRNA"
   )
 
-  query <- c(1L, 3L, 5L, 3L)
+  local_pinned_rng()
+  query <- c(1L, 3L, 5L)
+  set.seed(101)
+  rng_before <- .Random.seed
   first <- coresh_loadings(chunk_path, "GSE_LOAD", query, n_top = 8L)
+  rng_after <- .Random.seed
+  set.seed(202)
   again <- coresh_loadings(chunk_path, "GSE_LOAD", query, n_top = 8L)
 
   E <- obj$E1024 / 1024
@@ -35,11 +40,27 @@ test_that("coresh_loadings reproduces the deterministic projection", {
   keep <- head(ordering, 8L)
 
   expect_identical(first, again)
+  expect_identical(rng_after, rng_before)
   expect_identical(names(first), c("gse", "gpl", "entrez", "loading", "rank"))
   expect_identical(unique(first$gpl), "GPL_LOAD")
   expect_identical(first$entrez, obj$rownames[keep])
   expect_equal(first$loading, expected[keep])
   expect_identical(first$rank, seq_len(8L))
+})
+
+test_that("coresh_loadings reports duplicate query Entrez IDs", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
+  file.create(chunk_path)
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) list(fake_coresh_loading_object()),
+    .package = "bulkiRNA"
+  )
+
+  expect_message(
+    coresh_loadings(chunk_path, "GSE_LOAD", c(1L, 2L, 3L, 1L)),
+    "Dropped 1 duplicate Entrez ID from `query`"
+  )
 })
 
 test_that("coresh_loadings selects an explicit platform", {
@@ -156,7 +177,7 @@ test_that("coresh_loadings names available platforms when one is absent", {
   )
 })
 
-test_that("coresh_loadings handles real duplicate and missing Entrez rows", {
+test_that("coresh_loadings matches the projection on real edge-case objects", {
   skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
   fixture <- coresh_micro_fixture()
   chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
@@ -181,8 +202,50 @@ test_that("coresh_loadings handles real duplicate and missing Entrez rows", {
 
     expect_equal(out$loading, expected[keep], info = fixture_name)
     expect_identical(out$entrez, obj$rownames[keep], info = fixture_name)
-    expect_true(all(is.finite(out$loading)), info = fixture_name)
   }
+})
+
+test_that("coresh_sets removes real NA Entrez IDs before symbol mapping", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  skip_if_not_installed("qs2")
+  fixture <- coresh_micro_fixture()
+  obj <- fixture$na_ids
+  expect_true(anyNA(obj$rownames))
+
+  chunk_dir <- withr::local_tempdir()
+  chunk_path <- file.path(chunk_dir, "001_full_objects.qs2")
+  qs2::qs_save(fixture["na_ids"], chunk_path)
+  query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
+  top_hits <- tibble::tibble(
+    query_name = "q",
+    gse = as.character(obj$gseId),
+    gpl = as.character(obj$gplId),
+    rank = 1L
+  )
+
+  mapped_entrez <- NULL
+  testthat::local_mocked_bindings(
+    entrez_to_gene = function(entrez, species = "human") {
+      mapped_entrez <<- entrez
+      if (anyNA(entrez)) stop("symbol mapping received an NA Entrez ID")
+      stats::setNames(rep("SHARED_SYMBOL", length(entrez)), entrez)
+    },
+    .package = "bulkiRNA"
+  )
+
+  db <- coresh_sets(
+    top_hits,
+    list(q = query),
+    chunk_dir = chunk_dir,
+    species = "human",
+    n_top = nrow(obj$E1024),
+    min_size = 1L,
+    max_size = nrow(obj$E1024)
+  )
+
+  expect_false(anyNA(mapped_entrez))
+  expect_lt(length(mapped_entrez), nrow(obj$E1024))
+  expect_identical(unname(db[[1L]]), "SHARED_SYMBOL")
 })
 
 test_that("coresh_loadings validates coverage and controls", {
@@ -386,9 +449,13 @@ test_that("coresh_sets keeps distinct platforms for one accession", {
   expect_identical(attr(db, "set_provenance")$gpl, c("GPL_A", "GPL_Z"))
 })
 
-test_that("coresh_sets distinguishes partial failure, total failure, and empty", {
+test_that("coresh_sets distinguishes lookup, collision, size, and empty outcomes", {
   skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
-  index <- tibble::tibble(gse = "GSE_OK", gpl = "GPL1", chunk = "ok.qs2")
+  index <- tibble::tibble(
+    gse = c("GSE_OK", "GSE_BROKEN"),
+    gpl = c("GPL1", "GPL1"),
+    chunk = c("ok.qs2", "broken.qs2")
+  )
   attr(index, "provenance") <- list(
     source = "coresh", snapshot = "syn-test", path = "/coresh/hsa",
     species = "hsa", n_chunks = 1L
@@ -397,6 +464,7 @@ test_that("coresh_sets distinguishes partial failure, total failure, and empty",
     coresh_chunks = function(...) index,
     coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
                                gpl = NULL) {
+      if (gse_id == "GSE_BROKEN") stop("broken loading extraction")
       tibble::tibble(
         gse = gse_id, gpl = gpl, entrez = 1:3,
         loading = 3:1, rank = 1:3
@@ -414,20 +482,61 @@ test_that("coresh_sets distinguishes partial failure, total failure, and empty",
     rank = 1:2
   )
 
-  expect_message(
-    db <- coresh_sets(partial, queries, min_size = 1L),
-    "skipped 1 of 2"
+  lookup_messages <- testthat::capture_messages(
+    db <- coresh_sets(partial, queries, min_size = 1L)
   )
+  expect_true(any(grepl("chunk lookup failed for 1 of 2", lookup_messages)))
+  expect_false(any(grepl("extraction", lookup_messages)))
   expect_identical(names(db), "CORESH_q_GSE_OK")
   expect_error(
     coresh_sets(partial[2L, ], queries, min_size = 1L),
     "failed for all 1 attempted hits"
   )
 
-  empty <- coresh_sets(partial[1L, ], queries, min_size = 4L)
+  extraction_hits <- tibble::tibble(
+    query_name = c("q", "q"),
+    gse = c("GSE_OK", "GSE_BROKEN"),
+    rank = 1:2
+  )
+  extraction_messages <- testthat::capture_messages(
+    extracted <- coresh_sets(extraction_hits, queries, min_size = 1L)
+  )
+  expect_true(any(grepl(
+    "loading extraction or symbol mapping failed for 1 of 2",
+    extraction_messages
+  )))
+  expect_false(any(grepl("chunk lookup failed", extraction_messages)))
+  expect_identical(names(extracted), "CORESH_q_GSE_OK")
+
+  collision_hits <- partial[c(1L, 1L), ]
+  collision_hits$rank <- 1:2
+  collision_messages <- testthat::capture_messages(
+    collision <- coresh_sets(collision_hits, queries, min_size = 1L)
+  )
+  expect_true(any(grepl(
+    "set-name collision skipped 1 of 2", collision_messages
+  )))
+  expect_false(any(grepl("extraction", collision_messages)))
+  expect_identical(names(collision), "CORESH_q_GSE_OK")
+
+  empty_messages <- testthat::capture_messages(
+    empty <- coresh_sets(partial[1L, ], queries, min_size = 4L)
+  )
+  expect_true(any(grepl("size filter dropped 1 of 1", empty_messages)))
+  expect_true(any(grepl(
+    "1 hits attempted, 0 sets produced", empty_messages
+  )))
   expect_s3_class(empty, "gs_db")
   expect_length(empty, 0L)
   expect_identical(nrow(attr(empty, "set_provenance")), 0L)
+
+  zero_messages <- testthat::capture_messages(
+    zero <- coresh_sets(partial[0L, ], queries, min_size = 1L)
+  )
+  expect_true(any(grepl(
+    "0 hits attempted, 0 sets produced", zero_messages
+  )))
+  expect_length(zero, 0L)
 })
 
 test_that("coresh_sets validates its inputs and parameters", {
@@ -443,6 +552,8 @@ test_that("coresh_sets validates its inputs and parameters", {
   expect_error(coresh_sets(hits, list(q = 1:2)), "at least 3 unique")
   expect_error(coresh_sets(hits, queries, min_size = 10L, max_size = 5L),
                "must not exceed")
+  expect_error(coresh_sets(hits, queries, n_top = 5L, min_size = 15L),
+               "`min_size`.*15.*`n_top`.*5.*only retain or reduce")
   expect_error(coresh_sets(hits, queries, jaccard_threshold = 1.1),
                "`jaccard_threshold`")
   expect_error(coresh_sets(hits, queries, verbose = NA), "`verbose`")
