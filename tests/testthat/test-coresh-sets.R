@@ -35,10 +35,125 @@ test_that("coresh_loadings reproduces the deterministic projection", {
   keep <- head(ordering, 8L)
 
   expect_identical(first, again)
-  expect_identical(names(first), c("entrez", "loading", "rank"))
+  expect_identical(names(first), c("gse", "gpl", "entrez", "loading", "rank"))
+  expect_identical(unique(first$gpl), "GPL_LOAD")
   expect_identical(first$entrez, obj$rownames[keep])
   expect_equal(first$loading, expected[keep])
   expect_identical(first$rank, seq_len(8L))
+})
+
+test_that("coresh_loadings selects an explicit platform", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  fixture <- coresh_micro_fixture()
+  platform_a <- fixture[[1L]]
+  platform_a$gseId <- "GSE_MULTI"
+  platform_a$gplId <- "GPL_A"
+  platform_z <- platform_a
+  platform_z$gplId <- "GPL_Z"
+  platform_z$E1024 <- platform_z$E1024[
+    rev(seq_len(nrow(platform_z$E1024))), , drop = FALSE
+  ]
+  query <- head(unique(platform_a$rownames[!is.na(platform_a$rownames)]), 8L)
+  chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
+  file.create(chunk_path)
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) list(platform_a, platform_z),
+    .package = "bulkiRNA"
+  )
+
+  out <- coresh_loadings(
+    chunk_path, "GSE_MULTI", query, n_top = 20L, gpl = "GPL_Z"
+  )
+  expected_for <- function(obj) {
+    E <- obj$E1024 / 1024
+    query_idx <- match(query, obj$rownames)
+    profile <- colSums(E[query_idx, , drop = FALSE])
+    loadings <- as.numeric(E %*% (profile / sqrt(sum(profile^2))))
+    keep <- head(order(-abs(loadings), method = "radix"), 20L)
+    loadings[keep]
+  }
+
+  expect_identical(unique(out$gpl), "GPL_Z")
+  expect_equal(out$loading, expected_for(platform_z))
+  expect_false(isTRUE(all.equal(out$loading, expected_for(platform_a))))
+})
+
+test_that("coresh_loadings warns and chooses ambiguities independently of order", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  fixture <- coresh_micro_fixture()
+  platform_z <- fixture[[1L]]
+  platform_z$gseId <- "GSE_MULTI"
+  platform_z$gplId <- "GPL_Z"
+  platform_a <- platform_z
+  platform_a$gplId <- "GPL_A"
+  platform_a$E1024 <- platform_a$E1024[
+    rev(seq_len(nrow(platform_a$E1024))), , drop = FALSE
+  ]
+  query <- head(unique(platform_a$rownames[!is.na(platform_a$rownames)]), 8L)
+  chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
+  file.create(chunk_path)
+  object_order <- list(platform_z, platform_a)
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) object_order,
+    .package = "bulkiRNA"
+  )
+
+  expect_warning(
+    first <- coresh_loadings(chunk_path, "GSE_MULTI", query, n_top = 20L),
+    "GPL_A, GPL_Z.*Using GPL_A.*radix order"
+  )
+  object_order <- rev(object_order)
+  expect_warning(
+    reversed <- coresh_loadings(chunk_path, "GSE_MULTI", query, n_top = 20L),
+    "GPL_A, GPL_Z.*Using GPL_A.*radix order"
+  )
+
+  expect_identical(first, reversed)
+  expect_identical(unique(first$gpl), "GPL_A")
+})
+
+test_that("coresh_loadings keeps a single platform quiet", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  fixture <- coresh_micro_fixture()
+  obj <- fixture[[1L]]
+  query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
+  chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
+  file.create(chunk_path)
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) list(obj),
+    .package = "bulkiRNA"
+  )
+
+  expect_no_warning(
+    out <- coresh_loadings(
+      chunk_path, as.character(obj$gseId), query, n_top = 20L
+    )
+  )
+  expect_identical(unique(out$gpl), as.character(obj$gplId))
+})
+
+test_that("coresh_loadings names available platforms when one is absent", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  fixture <- coresh_micro_fixture()
+  platform_z <- fixture[[1L]]
+  platform_z$gseId <- "GSE_MULTI"
+  platform_z$gplId <- "GPL_Z"
+  platform_a <- platform_z
+  platform_a$gplId <- "GPL_A"
+  query <- head(unique(platform_a$rownames[!is.na(platform_a$rownames)]), 8L)
+  chunk_path <- withr::local_tempfile(fileext = "_full_objects.qs2")
+  file.create(chunk_path)
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) list(platform_z, platform_a),
+    .package = "bulkiRNA"
+  )
+
+  expect_error(
+    coresh_loadings(
+      chunk_path, "GSE_MULTI", query, n_top = 20L, gpl = "GPL_MISSING"
+    ),
+    "GPL_MISSING.*Available platforms: GPL_A, GPL_Z"
+  )
 })
 
 test_that("coresh_loadings handles real duplicate and missing Entrez rows", {
@@ -80,6 +195,7 @@ test_that("coresh_loadings validates coverage and controls", {
   )
 
   expect_identical(formals(coresh_loadings)$n_top, 50L)
+  expect_null(formals(coresh_loadings)$gpl)
   expect_error(coresh_loadings(chunk_path, "GSE_LOAD", c(1, 2, 3)),
                "integer vector")
   expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:2),
@@ -88,6 +204,8 @@ test_that("coresh_loadings validates coverage and controls", {
                "was not found")
   expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:3, n_top = 0),
                "`n_top`")
+  expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:3, gpl = ""),
+               "`gpl`")
   expect_error(coresh_loadings("missing.qs2", "GSE_LOAD", 1:3),
                "does not exist")
 })
@@ -108,7 +226,8 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index,
-    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L) {
+    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+                               gpl = NULL) {
       ids <- switch(
         gse_id,
         GSE_HIGH = 1:10,
@@ -116,6 +235,8 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
         GSE_FAR = 20:29
       )
       tibble::tibble(
+        gse = gse_id,
+        gpl = gpl,
         entrez = as.integer(ids),
         loading = rev(seq_along(ids)),
         rank = seq_along(ids)
@@ -163,6 +284,7 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
     attr(db, "set_provenance")$rank_in_coresh,
     c(1L, 3L)
   )
+  expect_identical(attr(db, "set_provenance")$gpl, c("GPL1", "GPL1"))
 
   sub <- db["CORESH_q_far_GSE_FAR"]
   expect_identical(attr(sub, "provenance"), attr(db, "provenance"))
@@ -170,6 +292,98 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
     attr(sub, "set_provenance")$set_name,
     "CORESH_q_far_GSE_FAR"
   )
+})
+
+test_that("coresh_sets resolves a bare accession by GPL and records it", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  index_order <- tibble::tibble(
+    gse = c("GSE_MULTI", "GSE_MULTI"),
+    gpl = c("GPL_Z", "GPL_A"),
+    chunk = c("z.qs2", "a.qs2")
+  )
+  attr(index_order, "provenance") <- list(
+    source = "coresh", snapshot = "syn-test", path = "/coresh/hsa",
+    species = "hsa", n_chunks = 2L
+  )
+  testthat::local_mocked_bindings(
+    coresh_chunks = function(...) index_order,
+    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+                               gpl = NULL) {
+      ids <- if (gpl == "GPL_A") 1:5 else 6:10
+      tibble::tibble(
+        gse = gse_id, gpl = gpl, entrez = as.integer(ids),
+        loading = rev(seq_along(ids)), rank = seq_along(ids)
+      )
+    },
+    entrez_to_gene = function(entrez, species = "human") {
+      stats::setNames(paste0("G", entrez), entrez)
+    },
+    .package = "bulkiRNA"
+  )
+  top_hits <- tibble::tibble(
+    query_name = "q", gse = "GSE_MULTI", rank = 1L
+  )
+
+  expect_warning(
+    first <- coresh_sets(top_hits, list(q = 1:3), min_size = 1L),
+    "GPL_A, GPL_Z.*Using GPL_A.*radix order"
+  )
+  index_provenance <- attr(index_order, "provenance")
+  index_order <- index_order[2:1, , drop = FALSE]
+  attr(index_order, "provenance") <- index_provenance
+  expect_warning(
+    reversed <- coresh_sets(top_hits, list(q = 1:3), min_size = 1L),
+    "GPL_A, GPL_Z.*Using GPL_A.*radix order"
+  )
+
+  expect_identical(first, reversed)
+  expect_identical(unname(first[[1L]]), paste0("G", 1:5))
+  expect_identical(attr(first, "set_provenance")$gpl, "GPL_A")
+  expect_identical(attr(first, "set_provenance")$chunk_path, "a.qs2")
+})
+
+test_that("coresh_sets keeps distinct platforms for one accession", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  index <- tibble::tibble(
+    gse = c("GSE_MULTI", "GSE_MULTI"),
+    gpl = c("GPL_A", "GPL_Z"),
+    chunk = c("a.qs2", "z.qs2")
+  )
+  attr(index, "provenance") <- list(
+    source = "coresh", snapshot = "syn-test", path = "/coresh/hsa",
+    species = "hsa", n_chunks = 2L
+  )
+  testthat::local_mocked_bindings(
+    coresh_chunks = function(...) index,
+    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+                               gpl = NULL) {
+      ids <- if (gpl == "GPL_A") 1:5 else 6:10
+      tibble::tibble(
+        gse = gse_id, gpl = gpl, entrez = as.integer(ids),
+        loading = rev(seq_along(ids)), rank = seq_along(ids)
+      )
+    },
+    entrez_to_gene = function(entrez, species = "human") {
+      stats::setNames(paste0("G", entrez), entrez)
+    },
+    .package = "bulkiRNA"
+  )
+  top_hits <- tibble::tibble(
+    query_name = c("q", "q"),
+    gse = c("GSE_MULTI", "GSE_MULTI"),
+    gpl = c("GPL_Z", "GPL_A"),
+    rank = c(2L, 1L)
+  )
+
+  db <- coresh_sets(
+    top_hits, list(q = 1:3), min_size = 1L, jaccard_threshold = 1
+  )
+
+  expect_identical(
+    names(db),
+    c("CORESH_q_GSE_MULTI_GPL_A", "CORESH_q_GSE_MULTI_GPL_Z")
+  )
+  expect_identical(attr(db, "set_provenance")$gpl, c("GPL_A", "GPL_Z"))
 })
 
 test_that("coresh_sets distinguishes partial failure, total failure, and empty", {
@@ -181,9 +395,13 @@ test_that("coresh_sets distinguishes partial failure, total failure, and empty",
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index,
-    coresh_loadings = function(...) tibble::tibble(
-      entrez = 1:3, loading = 3:1, rank = 1:3
-    ),
+    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+                               gpl = NULL) {
+      tibble::tibble(
+        gse = gse_id, gpl = gpl, entrez = 1:3,
+        loading = 3:1, rank = 1:3
+      )
+    },
     entrez_to_gene = function(entrez, species = "human") {
       stats::setNames(paste0("G", entrez), entrez)
     },
@@ -228,4 +446,8 @@ test_that("coresh_sets validates its inputs and parameters", {
   expect_error(coresh_sets(hits, queries, jaccard_threshold = 1.1),
                "`jaccard_threshold`")
   expect_error(coresh_sets(hits, queries, verbose = NA), "`verbose`")
+  expect_error(
+    coresh_sets(dplyr::mutate(hits, gpl = NA_character_), queries),
+    "`top_hits\\$gpl`"
+  )
 })

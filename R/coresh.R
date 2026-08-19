@@ -560,17 +560,18 @@ coresh_search <- function(queries, chunk_dir = NULL, species = "human",
 #' @param ranking A data frame returned by [coresh_search()].
 #' @param top_n Positive whole number of top hits to consider per query.
 #' @param min_queries Positive whole number of distinct agreeing queries.
-#' @return A tibble with `gse`, `n_queries`, comma-joined `queries`,
+#' @return A tibble with `gse`, `gpl`, `n_queries`, comma-joined `queries`,
 #'   `best_rank`, and `mean_pct_var`, ordered by agreement and best rank.
 #' @examples
 #' ranking <- tibble::tibble(
 #'   query_name = c("a", "b"), gse = c("GSE1", "GSE1"),
+#'   gpl = c("GPL1", "GPL1"),
 #'   pct_var = c(4, 6), rank = c(1L, 2L)
 #' )
 #' coresh_convergence(ranking)
 #' @export
 coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
-  required <- c("query_name", "gse", "pct_var", "rank")
+  required <- c("query_name", "gse", "gpl", "pct_var", "rank")
   if (!is.data.frame(ranking)) {
     stop("`ranking` must be a data frame returned by `coresh_search()`.",
          call. = FALSE)
@@ -593,6 +594,11 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
     stop("`ranking$gse` must contain non-missing, non-empty strings.",
          call. = FALSE)
   }
+  if (!is.character(ranking$gpl) || anyNA(ranking$gpl) ||
+      any(!nzchar(ranking$gpl))) {
+    stop("`ranking$gpl` must contain non-missing, non-empty strings.",
+         call. = FALSE)
+  }
   if (!is.numeric(ranking$pct_var) || anyNA(ranking$pct_var) ||
       any(!is.finite(ranking$pct_var))) {
     stop("`ranking$pct_var` must contain finite numeric values.",
@@ -607,6 +613,7 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
 
   empty <- tibble::tibble(
     gse = character(),
+    gpl = character(),
     n_queries = integer(),
     queries = character(),
     best_rank = integer(),
@@ -615,19 +622,25 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
   top <- ranking[ranking$rank <= top_n, required, drop = FALSE]
   if (!nrow(top)) return(empty)
 
-  # A GSE can have more than one platform row for one query. Keep that
-  # query's best row so it contributes once to both the count and the mean.
-  # Radix ordering makes platform tie-breaks independent of LC_COLLATE.
-  top <- top[order(top$gse, top$query_name, top$rank, -top$pct_var,
+  # One dataset is a (GSE, GPL) pair. Keep each query's best row for that pair
+  # so duplicate input rows contribute once to both the count and the mean.
+  top <- top[order(top$gse, top$gpl, top$query_name, top$rank, -top$pct_var,
                    method = "radix"),
              , drop = FALSE]
-  top <- top[!duplicated(top[c("gse", "query_name")]), , drop = FALSE]
-  groups <- split(seq_len(nrow(top)), top$gse)
-  rows <- lapply(names(groups), function(gse) {
-    part <- top[groups[[gse]], , drop = FALSE]
+  top <- top[!duplicated(top[c("gse", "gpl", "query_name")]), , drop = FALSE]
+  pair_key <- paste0(
+    nchar(top$gse), ":", top$gse, ":", nchar(top$gpl), ":", top$gpl
+  )
+  groups <- split(
+    seq_len(nrow(top)),
+    factor(pair_key, levels = unique(pair_key))
+  )
+  rows <- lapply(groups, function(group) {
+    part <- top[group, , drop = FALSE]
     query_names <- sort(unique(part$query_name), method = "radix")
     tibble::tibble(
-      gse = gse,
+      gse = part$gse[[1L]],
+      gpl = part$gpl[[1L]],
       n_queries = as.integer(length(query_names)),
       queries = paste(query_names, collapse = ", "),
       best_rank = as.integer(min(part$rank)),
@@ -637,7 +650,8 @@ coresh_convergence <- function(ranking, top_n = 10L, min_queries = 2L) {
     dplyr::bind_rows()
   rows <- rows[rows$n_queries >= min_queries, , drop = FALSE]
   if (!nrow(rows)) return(empty)
-  rows[order(-rows$n_queries, rows$best_rank, rows$gse, method = "radix"),
+  rows[order(-rows$n_queries, rows$best_rank, rows$gse, rows$gpl,
+             method = "radix"),
        , drop = FALSE]
 }
 

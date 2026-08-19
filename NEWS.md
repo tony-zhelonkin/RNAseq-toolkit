@@ -19,6 +19,23 @@
 
 ## CoReSh
 
+* CoReSh dataset identity is now the `(gse, gpl)` pair. `coresh_loadings()`
+  gains optional `gpl =`; when it is omitted for a multi-platform accession,
+  the function warns with all available platforms and uses the radix-first GPL
+  deterministically. Its result now carries `gse` and the GPL actually used.
+
+* `coresh_sets()` threads platform identity from search hits into loading
+  extraction and set provenance. Historical hit tables without a `gpl` column
+  remain usable: ambiguous accessions warn and select the radix-first platform,
+  independently of chunk-file or object ordering. If two platforms for one
+  query/accession are both requested, their set names receive GPL suffixes so
+  neither dataset is discarded as a duplicate.
+
+* `coresh_convergence()` now requires and groups by both `gse` and `gpl`, and
+  returns both columns. `coresh_search()` already scored and retained every
+  platform as a separate row; `coresh_validate()` performs no accession lookup
+  or aggregation and needed no behavioural change.
+
 * `coresh_loadings()` projects a CoReSh expression object onto a normalized
   query profile and returns the strongest absolute gene loadings.
 

@@ -12,14 +12,21 @@
 #' @param gse_id A single GEO series accession present in the chunk.
 #' @param query A non-empty integer vector of Entrez IDs.
 #' @param n_top Positive whole number of loadings to retain.
-#' @return A tibble with `entrez`, signed `loading`, and absolute-loading
-#'   `rank`, ordered from largest to smallest absolute loading.
+#' @param gpl Optional GEO platform accession. When omitted and the GSE occurs
+#'   on more than one platform in the chunk, the first platform in
+#'   locale-independent radix order is used with a warning.
+#' @return A tibble with `gse`, `gpl`, `entrez`, signed `loading`, and
+#'   absolute-loading `rank`, ordered from largest to smallest absolute
+#'   loading.
 #' @examples
 #' \dontrun{
-#' coresh_loadings("001_full_objects.qs2", "GSE123", c(1L, 2L, 3L))
+#' coresh_loadings(
+#'   "001_full_objects.qs2", "GSE123", c(1L, 2L, 3L), gpl = "GPL570"
+#' )
 #' }
 #' @export
-coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
+coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
+                            gpl = NULL) {
   if (!is.character(chunk_path) || length(chunk_path) != 1L ||
       is.na(chunk_path) || !nzchar(chunk_path)) {
     stop("`chunk_path` must be a single non-empty file path.", call. = FALSE)
@@ -30,6 +37,12 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
   if (!is.character(gse_id) || length(gse_id) != 1L || is.na(gse_id) ||
       !nzchar(gse_id)) {
     stop("`gse_id` must be one non-empty GEO series accession.",
+         call. = FALSE)
+  }
+  if (!is.null(gpl) &&
+      (!is.character(gpl) || length(gpl) != 1L || is.na(gpl) ||
+       !nzchar(gpl))) {
+    stop("`gpl` must be one non-empty GEO platform accession or `NULL`.",
          call. = FALSE)
   }
   if (!is.integer(query) || !length(query) || anyNA(query)) {
@@ -52,8 +65,22 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
     stop("GSE ", gse_id, " was not found in ", chunk_path, ".",
          call. = FALSE)
   }
-  obj <- chunk[[hits[[1L]]]]
-  .coresh_validate_object(obj, paste0("GSE ", gse_id))
+  for (hit in hits) {
+    .coresh_validate_object(chunk[[hit]], paste0("GSE ", gse_id))
+  }
+  available <- sort(unique(vapply(
+    chunk[hits], function(obj) as.character(obj$gplId), character(1L)
+  )), method = "radix")
+  selected_gpl <- .coresh_select_gpl(gse_id, available, gpl)
+  selected_hits <- hits[vapply(chunk[hits], function(obj) {
+    identical(as.character(obj$gplId), selected_gpl)
+  }, logical(1L))]
+  if (length(selected_hits) > 1L) {
+    stop("GSE ", gse_id, " on platform ", selected_gpl, " occurs ",
+         length(selected_hits), " times in ", chunk_path,
+         "; the `(gse, gpl)` key is not unique.", call. = FALSE)
+  }
+  obj <- chunk[[selected_hits[[1L]]]]
 
   query_idx <- match(query, obj$rownames)
   query_idx <- query_idx[!is.na(query_idx)]
@@ -75,10 +102,42 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
   keep <- utils::head(ordering, min(n_top, length(ordering)))
 
   tibble::tibble(
+    gse = gse_id,
+    gpl = selected_gpl,
     entrez = obj$rownames[keep],
     loading = loadings[keep],
     rank = seq_along(keep)
   )
+}
+
+#' Select one platform for a CoReSh accession
+#'
+#' @param gse A GEO series accession.
+#' @param available Character vector of available platform accessions.
+#' @param gpl Optional requested platform accession.
+#' @return The requested platform, or the radix-first available platform.
+#' @keywords internal
+.coresh_select_gpl <- function(gse, available, gpl = NULL) {
+  available <- sort(unique(as.character(available)), method = "radix")
+  if (!is.null(gpl)) {
+    if (!gpl %in% available) {
+      stop("GSE ", gse, " is not available on platform ", gpl,
+           ". Available platforms: ", paste(available, collapse = ", "), ".",
+           call. = FALSE)
+    }
+    return(gpl)
+  }
+  selected <- available[[1L]]
+  if (length(available) > 1L) {
+    warning(
+      "GSE ", gse, " is available on multiple platforms: ",
+      paste(available, collapse = ", "), ". Using ", selected,
+      " because it is first in locale-independent radix order; specify `gpl` ",
+      "to select explicitly.",
+      call. = FALSE
+    )
+  }
+  selected
 }
 
 #' Validate inputs for CoReSh set construction
@@ -102,6 +161,12 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
       anyNA(top_hits$gse) || any(!nzchar(top_hits$gse))) {
     stop("`top_hits$query_name` and `top_hits$gse` must contain non-missing, ",
          "non-empty strings.", call. = FALSE)
+  }
+  if ("gpl" %in% names(top_hits) &&
+      (!is.character(top_hits$gpl) || anyNA(top_hits$gpl) ||
+       any(!nzchar(top_hits$gpl)))) {
+    stop("`top_hits$gpl` must contain non-missing, non-empty strings when ",
+         "present.", call. = FALSE)
   }
   if (!is.numeric(top_hits$rank) || anyNA(top_hits$rank) ||
       any(!is.finite(top_hits$rank)) || any(top_hits$rank < 1) ||
@@ -135,16 +200,25 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
 #'
 #' @param row One row from `top_hits`.
 #' @param index A tibble returned by [coresh_chunks()].
-#' @return A chunk path, or `NA_character_` when the hit is not indexed.
+#' @return A list containing the unique `chunk` path and selected `gpl`.
 #' @keywords internal
 .coresh_hit_chunk <- function(row, index) {
-  candidate <- index$gse == row$gse[[1L]]
-  if ("gpl" %in% names(row) && !is.na(row$gpl[[1L]]) &&
-      nzchar(row$gpl[[1L]])) {
-    candidate <- candidate & index$gpl == row$gpl[[1L]]
+  gse <- row$gse[[1L]]
+  candidates <- index[index$gse == gse, , drop = FALSE]
+  if (!nrow(candidates)) {
+    stop("GSE ", gse, " was not found in the CoReSh chunk index.",
+         call. = FALSE)
   }
-  paths <- unique(index$chunk[candidate])
-  if (!length(paths)) NA_character_ else paths[[1L]]
+  requested_gpl <- if ("gpl" %in% names(row)) row$gpl[[1L]] else NULL
+  selected_gpl <- .coresh_select_gpl(gse, candidates$gpl, requested_gpl)
+  selected <- candidates[candidates$gpl == selected_gpl, , drop = FALSE]
+  paths <- sort(unique(as.character(selected$chunk)), method = "radix")
+  if (length(paths) != 1L || nrow(selected) != 1L) {
+    stop("GSE ", gse, " on platform ", selected_gpl, " occurs ",
+         nrow(selected), " times in the CoReSh chunk index; the `(gse, gpl)` ",
+         "key is not unique.", call. = FALSE)
+  }
+  list(chunk = paths[[1L]], gpl = selected_gpl)
 }
 
 #' Remove redundant CoReSh sets by Jaccard overlap
@@ -194,7 +268,9 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
 #'
 #' @param top_hits A data frame returned by [coresh_search()], usually filtered
 #'   to the desired number of hits per query. Required columns are
-#'   `query_name`, `gse`, and `rank`; `gpl` is used when present.
+#'   `query_name`, `gse`, and `rank`; `gpl` selects the exact dataset when
+#'   present. For a historical table without `gpl`, an ambiguous accession
+#'   warns and uses the radix-first available platform.
 #' @param queries A non-empty named list of integer Entrez vectors.
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
 #' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
@@ -206,7 +282,7 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L) {
 #'   the always-reported failure count.
 #' @return A [gs_db()] with database-level `provenance` and a set-keyed
 #'   `set_provenance` tibble. The latter contains `set_name`, `query_name`,
-#'   `gse`, `chunk_path`, `loading_cutoff`, and `rank_in_coresh`.
+#'   `gse`, `gpl`, `chunk_path`, `loading_cutoff`, and `rank_in_coresh`.
 #' @examples
 #' \dontrun{
 #' db <- coresh_sets(
@@ -255,6 +331,18 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
     method = "radix"
   )
   top_hits <- top_hits[priority, , drop = FALSE]
+  top_hits$.name_with_gpl <- FALSE
+  if ("gpl" %in% names(top_hits) && nrow(top_hits)) {
+    pair_key <- paste0(
+      nchar(top_hits$query_name), ":", top_hits$query_name, ":",
+      nchar(top_hits$gse), ":", top_hits$gse
+    )
+    platform_rows <- !duplicated(top_hits[c("query_name", "gse", "gpl")])
+    platform_key <- pair_key[platform_rows]
+    multiple <- duplicated(platform_key) |
+      duplicated(platform_key, fromLast = TRUE)
+    top_hits$.name_with_gpl <- pair_key %in% platform_key[multiple]
+  }
 
   sets <- list()
   provenance_rows <- list()
@@ -263,23 +351,29 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
   for (i in seq_len(nrow(top_hits))) {
     row <- top_hits[i, , drop = FALSE]
     label <- paste0(row$query_name[[1L]], "/", row$gse[[1L]])
-    chunk_path <- .coresh_hit_chunk(row, index)
-    if (is.na(chunk_path)) {
-      failures <- c(failures, paste0(label, ": not present in chunk index"))
+    location <- tryCatch(.coresh_hit_chunk(row, index), error = identity)
+    if (inherits(location, "error")) {
+      failures <- c(failures, paste0(label, ": ", conditionMessage(location)))
       next
     }
 
     built <- tryCatch({
       loadings <- coresh_loadings(
-        chunk_path,
+        location$chunk,
         row$gse[[1L]],
         queries[[row$query_name[[1L]]]],
-        n_top = n_top
+        n_top = n_top,
+        gpl = location$gpl
       )
+      used_gpl <- unique(loadings$gpl)
+      if (length(used_gpl) != 1L || is.na(used_gpl) || !nzchar(used_gpl)) {
+        stop("`coresh_loadings()` did not identify one platform.",
+             call. = FALSE)
+      }
       mapped_ids <- loadings$entrez[!is.na(loadings$entrez)]
       symbols <- entrez_to_gene(mapped_ids, species = species)
       genes <- unique(unname(symbols))
-      list(loadings = loadings, genes = genes)
+      list(loadings = loadings, genes = genes, gpl = used_gpl)
     }, error = identity)
     if (inherits(built, "error")) {
       failures <- c(failures, paste0(label, ": ", conditionMessage(built)))
@@ -291,7 +385,8 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
     }
 
     set_name <- paste0(
-      "CORESH_", row$query_name[[1L]], "_", row$gse[[1L]]
+      "CORESH_", row$query_name[[1L]], "_", row$gse[[1L]],
+      if (row$.name_with_gpl[[1L]]) paste0("_", built$gpl) else ""
     )
     if (set_name %in% names(sets)) {
       failures <- c(
@@ -305,7 +400,8 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
       set_name = set_name,
       query_name = as.character(row$query_name[[1L]]),
       gse = as.character(row$gse[[1L]]),
-      chunk_path = unname(as.character(chunk_path)),
+      gpl = as.character(built$gpl),
+      chunk_path = unname(as.character(location$chunk)),
       loading_cutoff = min(abs(built$loadings$loading)),
       rank_in_coresh = as.integer(row$rank[[1L]])
     )
@@ -335,6 +431,7 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
       set_name = character(),
       query_name = character(),
       gse = character(),
+      gpl = character(),
       chunk_path = character(),
       loading_cutoff = numeric(),
       rank_in_coresh = integer()

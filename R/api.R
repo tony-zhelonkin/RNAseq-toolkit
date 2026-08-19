@@ -7,6 +7,8 @@
 #'   a major release, apart from removals that completed a documented
 #'   deprecation cycle.
 #' * `experimental` functions may change or be removed without a major release.
+#'   CoReSh dataset-taking functions use the `(gse, gpl)` pair as the dataset
+#'   key; a GSE accession alone is not unique in that compendium.
 #' * `deprecated` functions remain callable and warn, but are scheduled for
 #'   removal in the version recorded in `removed_in`.
 #'
@@ -96,6 +98,7 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   )
 
   experimental <- list(
+    # All dataset-level CoReSh APIs share the (gse, gpl) composite key.
     coresh = c(
       "coresh_chunks", "coresh_convergence", "coresh_loadings",
       "coresh_match", "coresh_search", "coresh_sets", "coresh_validate"

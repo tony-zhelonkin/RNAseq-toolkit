@@ -376,6 +376,32 @@ test_that("coresh_search ranks pct_var descending without optional engines", {
   expect_identical(attr(out, "provenance")$species, "hsa")
 })
 
+test_that("coresh_search keeps platforms as separate dataset rows", {
+  skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
+  chunks <- withr::local_tempdir()
+  file.create(file.path(chunks, "001_full_objects.qs2"))
+  testthat::local_mocked_bindings(
+    .coresh_read_chunk = function(path) {
+      platform_z <- fake_coresh_object("GSE_MULTI", total_var = 10)
+      platform_z$gplId <- "GPL_Z"
+      platform_a <- fake_coresh_object("GSE_MULTI", total_var = 20)
+      platform_a$gplId <- "GPL_A"
+      list(platform_z, platform_a)
+    },
+    .package = "bulkiRNA"
+  )
+
+  out <- coresh_search(
+    list(query_a = c(10L, 20L, 99L)), chunks,
+    n_cores = 1L, pvalues = FALSE
+  )
+
+  expect_identical(nrow(out), 2L)
+  expect_identical(out$gse, c("GSE_MULTI", "GSE_MULTI"))
+  expect_identical(out$gpl, c("GPL_Z", "GPL_A"))
+  expect_false(identical(out$pct_var[[1L]], out$pct_var[[2L]]))
+})
+
 test_that("coresh_search ranks p-values and reproduces a fixed seed", {
   skip_if_not(exists("local_mocked_bindings", asNamespace("testthat")))
   chunks <- withr::local_tempdir()
@@ -578,27 +604,35 @@ test_that("coresh_search names invalid queries and validates controls", {
 
 test_that("coresh_convergence summarizes independent top-query support", {
   ranking <- tibble::tibble(
-    query_name = c("q1", "q2", "q3", "q1", "q2", "q3", "q1"),
-    gse = c("GSE_A", "GSE_A", "GSE_A", "GSE_B", "GSE_B", "GSE_C", "GSE_A"),
-    pct_var = c(10, 8, 6, 9, 7, 12, 1),
-    rank = c(1L, 2L, 12L, 2L, 4L, 1L, 3L)
+    query_name = c("q1", "q2", "q3", "q1", "q2", "q3", "q1", "q2"),
+    gse = c(
+      "GSE_A", "GSE_A", "GSE_A", "GSE_B", "GSE_B", "GSE_C", "GSE_A",
+      "GSE_A"
+    ),
+    gpl = c(
+      "GPL1", "GPL1", "GPL1", "GPL1", "GPL1", "GPL1", "GPL2", "GPL2"
+    ),
+    pct_var = c(10, 8, 6, 9, 7, 12, 1, 2),
+    rank = c(1L, 2L, 12L, 2L, 4L, 1L, 3L, 5L)
   )
 
   out <- coresh_convergence(ranking, top_n = 10L, min_queries = 2L)
-  expect_identical(out$gse, c("GSE_A", "GSE_B"))
-  expect_identical(out$n_queries, c(2L, 2L))
-  expect_identical(out$queries, c("q1, q2", "q1, q2"))
-  expect_identical(out$best_rank, c(1L, 2L))
-  # The duplicate q1/GSE_A platform row is not counted or averaged twice.
-  expect_equal(out$mean_pct_var, c(9, 8))
+  expect_identical(out$gse, c("GSE_A", "GSE_B", "GSE_A"))
+  expect_identical(out$gpl, c("GPL1", "GPL1", "GPL2"))
+  expect_identical(out$n_queries, c(2L, 2L, 2L))
+  expect_identical(out$queries, rep("q1, q2", 3L))
+  expect_identical(out$best_rank, c(1L, 2L, 3L))
+  expect_equal(out$mean_pct_var, c(9, 8, 1.5))
 })
 
 test_that("coresh_convergence validates its inputs", {
   expect_error(coresh_convergence(list()), "data frame")
   expect_error(coresh_convergence(data.frame(gse = "GSE1")), "missing column")
   ranking <- tibble::tibble(
-    query_name = "q", gse = "GSE1", pct_var = 1, rank = 1L
+    query_name = "q", gse = "GSE1", gpl = "GPL1",
+    pct_var = 1, rank = 1L
   )
+  expect_error(coresh_convergence(ranking[-3L]), "`gpl`")
   expect_error(coresh_convergence(ranking, top_n = 0), "`top_n`")
   expect_error(coresh_convergence(ranking, min_queries = NA), "`min_queries`")
 })
