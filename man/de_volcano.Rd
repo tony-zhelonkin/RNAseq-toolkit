@@ -17,7 +17,7 @@ de_volcano(
   subtitle = NULL,
   caption = NULL,
   fixed_p_boundary = NULL,
-  color_palette = c(NS = "#7F7F7F", Log2FC = "#0173B2", `p-value` = "#029E73",
+  palette = c(NS = "#7F7F7F", Log2FC = "#0173B2", `p-value` = "#029E73",
     `p-value & Log2FC` = "#D55E00"),
   show_grid = FALSE,
   max.overlaps = 10,
@@ -61,7 +61,7 @@ thresholds actually drawn.}
 \item{fixed_p_boundary}{Numeric raw \emph{p} to pin the FDR boundary line to, or
 \code{NULL} to derive it from the significant set.}
 
-\item{color_palette}{Named character vector of four colours for \code{NS},
+\item{palette}{Named character vector of four colours for \code{NS},
 \code{Log2FC}, \code{p-value} and \code{p-value & Log2FC}.}
 
 \item{show_grid}{Logical. Keep the panel grid.}

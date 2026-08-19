@@ -27,10 +27,10 @@ test_that("coresh_loadings reproduces the deterministic projection", {
   query <- c(1L, 3L, 5L)
   set.seed(101)
   rng_before <- .Random.seed
-  first <- coresh_loadings(chunk_path, "GSE_LOAD", query, n_top = 8L)
+  first <- coresh_loadings(chunk_path, "GSE_LOAD", query, top_n = 8L)
   rng_after <- .Random.seed
   set.seed(202)
-  again <- coresh_loadings(chunk_path, "GSE_LOAD", query, n_top = 8L)
+  again <- coresh_loadings(chunk_path, "GSE_LOAD", query, top_n = 8L)
 
   E <- obj$E1024 / 1024
   query_idx <- match(unique(query), obj$rownames)
@@ -83,7 +83,7 @@ test_that("coresh_loadings selects an explicit platform", {
   )
 
   out <- coresh_loadings(
-    chunk_path, "GSE_MULTI", query, n_top = 20L, gpl = "GPL_Z"
+    chunk_path, "GSE_MULTI", query, top_n = 20L, gpl = "GPL_Z"
   )
   expected_for <- function(obj) {
     E <- obj$E1024 / 1024
@@ -120,12 +120,14 @@ test_that("coresh_loadings warns and chooses ambiguities independently of order"
   )
 
   expect_warning(
-    first <- coresh_loadings(chunk_path, "GSE_MULTI", query, n_top = 20L),
+    first <- coresh_loadings(chunk_path, "GSE_MULTI", query, top_n = 20L),
     "GPL_A, GPL_Z.*Using GPL_A.*radix order"
   )
   object_order <- rev(object_order)
   expect_warning(
-    reversed <- coresh_loadings(chunk_path, "GSE_MULTI", query, n_top = 20L),
+    reversed <- coresh_loadings(
+      chunk_path, "GSE_MULTI", query, top_n = 20L
+    ),
     "GPL_A, GPL_Z.*Using GPL_A.*radix order"
   )
 
@@ -147,7 +149,7 @@ test_that("coresh_loadings keeps a single platform quiet", {
 
   expect_no_warning(
     out <- coresh_loadings(
-      chunk_path, as.character(obj$gseId), query, n_top = 20L
+      chunk_path, as.character(obj$gseId), query, top_n = 20L
     )
   )
   expect_identical(unique(out$gpl), as.character(obj$gplId))
@@ -171,7 +173,7 @@ test_that("coresh_loadings names available platforms when one is absent", {
 
   expect_error(
     coresh_loadings(
-      chunk_path, "GSE_MULTI", query, n_top = 20L, gpl = "GPL_MISSING"
+      chunk_path, "GSE_MULTI", query, top_n = 20L, gpl = "GPL_MISSING"
     ),
     "GPL_MISSING.*Available platforms: GPL_A, GPL_Z"
   )
@@ -191,7 +193,7 @@ test_that("coresh_loadings matches the projection on real edge-case objects", {
     obj <- fixture[[fixture_name]]
     query <- head(unique(obj$rownames[!is.na(obj$rownames)]), 8L)
     out <- coresh_loadings(
-      chunk_path, as.character(obj$gseId), query, n_top = 20L
+      chunk_path, as.character(obj$gseId), query, top_n = 20L
     )
 
     E <- obj$E1024 / 1024
@@ -238,7 +240,7 @@ test_that("coresh_sets removes real NA Entrez IDs before symbol mapping", {
     list(q = query),
     chunk_dir = chunk_dir,
     species = "human",
-    n_top = nrow(obj$E1024),
+    top_n = nrow(obj$E1024),
     min_size = 1L,
     max_size = nrow(obj$E1024)
   )
@@ -257,7 +259,7 @@ test_that("coresh_loadings validates coverage and controls", {
     .package = "bulkiRNA"
   )
 
-  expect_identical(formals(coresh_loadings)$n_top, 50L)
+  expect_identical(formals(coresh_loadings)$top_n, 50L)
   expect_null(formals(coresh_loadings)$gpl)
   expect_error(coresh_loadings(chunk_path, "GSE_LOAD", c(1, 2, 3)),
                "integer vector")
@@ -265,8 +267,8 @@ test_that("coresh_loadings validates coverage and controls", {
                "at least 3")
   expect_error(coresh_loadings(chunk_path, "GSE_OTHER", 1:3),
                "was not found")
-  expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:3, n_top = 0),
-               "`n_top`")
+  expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:3, top_n = 0),
+               "`top_n`")
   expect_error(coresh_loadings(chunk_path, "GSE_LOAD", 1:3, gpl = ""),
                "`gpl`")
   expect_error(coresh_loadings("missing.qs2", "GSE_LOAD", 1:3),
@@ -289,7 +291,7 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index,
-    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+    coresh_loadings = function(chunk_path, gse_id, query, top_n = 50L,
                                gpl = NULL) {
       ids <- switch(
         gse_id,
@@ -338,7 +340,7 @@ test_that("coresh_sets keeps the higher-ranked overlapping hit", {
   )
   expect_false("CORESH_q_low_GSE_LOW" %in% names(db))
   expect_identical(attr(db, "provenance")$snapshot, "syn-test")
-  expect_identical(attr(db, "provenance")$n_top, 50L)
+  expect_identical(attr(db, "provenance")$top_n, 50L)
   expect_identical(
     attr(db, "set_provenance")$set_name,
     names(db)
@@ -370,7 +372,7 @@ test_that("coresh_sets resolves a bare accession by GPL and records it", {
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index_order,
-    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+    coresh_loadings = function(chunk_path, gse_id, query, top_n = 50L,
                                gpl = NULL) {
       ids <- if (gpl == "GPL_A") 1:5 else 6:10
       tibble::tibble(
@@ -418,7 +420,7 @@ test_that("coresh_sets keeps distinct platforms for one accession", {
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index,
-    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+    coresh_loadings = function(chunk_path, gse_id, query, top_n = 50L,
                                gpl = NULL) {
       ids <- if (gpl == "GPL_A") 1:5 else 6:10
       tibble::tibble(
@@ -462,7 +464,7 @@ test_that("coresh_sets distinguishes lookup, collision, size, and empty outcomes
   )
   testthat::local_mocked_bindings(
     coresh_chunks = function(...) index,
-    coresh_loadings = function(chunk_path, gse_id, query, n_top = 50L,
+    coresh_loadings = function(chunk_path, gse_id, query, top_n = 50L,
                                gpl = NULL) {
       if (gse_id == "GSE_BROKEN") stop("broken loading extraction")
       tibble::tibble(
@@ -543,7 +545,7 @@ test_that("coresh_sets validates its inputs and parameters", {
   hits <- tibble::tibble(query_name = "q", gse = "GSE1", rank = 1L)
   queries <- list(q = 1:3)
 
-  expect_identical(formals(coresh_sets)$n_top, 50L)
+  expect_identical(formals(coresh_sets)$top_n, 50L)
   expect_identical(formals(coresh_sets)$min_size, 15L)
   expect_identical(formals(coresh_sets)$max_size, 500L)
   expect_identical(formals(coresh_sets)$jaccard_threshold, 0.8)
@@ -552,8 +554,8 @@ test_that("coresh_sets validates its inputs and parameters", {
   expect_error(coresh_sets(hits, list(q = 1:2)), "at least 3 unique")
   expect_error(coresh_sets(hits, queries, min_size = 10L, max_size = 5L),
                "must not exceed")
-  expect_error(coresh_sets(hits, queries, n_top = 5L, min_size = 15L),
-               "`min_size`.*15.*`n_top`.*5.*only retain or reduce")
+  expect_error(coresh_sets(hits, queries, top_n = 5L, min_size = 15L),
+               "`min_size`.*15.*`top_n`.*5.*only retain or reduce")
   expect_error(coresh_sets(hits, queries, jaccard_threshold = 1.1),
                "`jaccard_threshold`")
   expect_error(coresh_sets(hits, queries, verbose = NA), "`verbose`")

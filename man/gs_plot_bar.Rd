@@ -6,14 +6,14 @@
 \usage{
 gs_plot_bar(
   x,
-  top = 20,
+  top_n = 20,
   sort_by = c("stat", "padj", "p_value", "stat_signed"),
   direction = c("both", "up", "down"),
   facet = c("none", "direction", "database", "contrast"),
   padj_max = NULL,
   highlight = 0.05,
   limits = NULL,
-  colours = .gs_diverging_colours(),
+  palette = .gs_diverging_colours(),
   wrap_width = 50,
   strip_prefix = TRUE,
   title = NULL,
@@ -23,7 +23,7 @@ gs_plot_bar(
 \arguments{
 \item{x}{A \link{gs_result}.}
 
-\item{top}{Number of pathways to display, per selection group.}
+\item{top_n}{Number of pathways to display, per selection group.}
 
 \item{sort_by}{Selection metric: \code{"stat"} (default, largest absolute value),
 \code{"padj"}, \code{"p_value"} or \code{"stat_signed"}.}
@@ -43,7 +43,7 @@ take a different colour in two figures; pass an explicit \code{limits} when
 panels are meant to be compared. The old renderer used a fixed
 \code{c(-3.5, 3.5)}. Values outside are squished, not dropped.}
 
-\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
+\item{palette}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 
@@ -66,7 +66,7 @@ diverging scale the dotplot uses. The axis label comes from the object's
 }
 \details{
 Unlike the old \code{gsea_barplot()}, non-significant pathways are \strong{not silently
-dropped}: \code{top} and \code{sort_by} choose what is shown and \code{highlight} outlines
+dropped}: \code{top_n} and \code{sort_by} choose what is shown and \code{highlight} outlines
 the significant ones. Pass \code{padj_max} if you do want a hard significance
 filter.
 }
@@ -79,5 +79,5 @@ db <- structure(
 )
 res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
                db, min_size = 1, max_size = 10)
-gs_plot_bar(res, top = 5)
+gs_plot_bar(res, top_n = 5)
 }

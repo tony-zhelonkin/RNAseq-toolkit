@@ -8,7 +8,7 @@
   x,
   out_dir,
   name = "gsea",
-  top = 20,
+  top_n = 20,
   padj_cutoff = 0.05,
   width = 8,
   height = 6,
@@ -22,11 +22,13 @@
 
 \item{name}{Stem prepended to every file name.}
 
-\item{top}{Number of pathways per plot.}
+\item{top_n}{Number of pathways per plot.}
 
 \item{padj_cutoff}{FDR threshold for highlighting and for the log.}
 
-\item{width, height}{Figure size in inches.}
+\item{width}{Figure width in inches.}
+
+\item{height}{Figure height in inches.}
 
 \item{verbose}{Logical. Report progress with \code{\link[=message]{message()}}.}
 }

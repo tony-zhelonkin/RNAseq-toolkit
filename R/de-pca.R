@@ -51,12 +51,15 @@
 #'   `NULL`.
 #' @param label Logical. Draw the `colour_by` value above each point.
 #' @param title Plot title.
-#' @param xlim_abs,ylim_abs Optional symmetric axis limits, applied as a zoom
+#' @param xlim_abs Optional symmetric x-axis limits, applied as a zoom
 #'   (`coord_fixed()`), so a sample outside them is clipped from view rather
 #'   than dropped from the figure. `NULL` derives them from the data with 10%
 #'   head-room.
-#' @param point_size,label_size Numeric sizes.
-#' @param color_palette Character vector of colours recycled across the
+#' @param ylim_abs Optional symmetric y-axis limits, with the same zoom
+#'   behaviour as `xlim_abs`.
+#' @param point_size Numeric point size.
+#' @param label_size Numeric label size.
+#' @param palette Character vector of colours recycled across the
 #'   `colour_by` levels.
 #'
 #' @return A `ggplot` object.
@@ -81,9 +84,9 @@ de_pca <- function(dge,
                    ylim_abs   = NULL,
                    point_size = 5,
                    label_size = 4,
-                   color_palette = c("#E69F00", "#56B4E9", "#009E73",
-                                     "#F0E442", "#0072B2", "#D55E00",
-                                     "#CC79A7", "#000000")) {
+                   palette = c("#E69F00", "#56B4E9", "#009E73",
+                               "#F0E442", "#0072B2", "#D55E00",
+                               "#CC79A7", "#000000")) {
   pca <- .de_pca_scores(dge, min_dim = 2L)
   d   <- pca$scores
   pv  <- pca$percent_var
@@ -121,7 +124,7 @@ de_pca <- function(dge,
   if (!is.null(colour_by)) {
     n_lev <- length(unique(d[[colour_by]]))
     g <- g + scale_colour_manual(
-      values = rep_len(color_palette, max(n_lev, 1L)))
+      values = rep_len(palette, max(n_lev, 1L)))
   }
 
   # `xlim()`/`ylim()` set *scale* limits, which convert out-of-range samples to

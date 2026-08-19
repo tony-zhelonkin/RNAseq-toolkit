@@ -9,7 +9,7 @@ coresh_sets(
   queries,
   chunk_dir = NULL,
   species = "human",
-  n_top = 50L,
+  top_n = 50L,
   min_size = 15L,
   max_size = 500L,
   jaccard_threshold = 0.8,
@@ -29,9 +29,11 @@ warns and uses the radix-first available platform.}
 
 \item{species}{One of \code{"human"}, \code{"hsa"}, \code{"mouse"}, or \code{"mmu"}.}
 
-\item{n_top}{Positive whole number of absolute loadings to retain per hit.}
+\item{top_n}{Positive whole number of absolute loadings to retain per hit.}
 
-\item{min_size, max_size}{Positive whole-number set-size bounds.}
+\item{min_size}{Positive whole-number minimum set size.}
+
+\item{max_size}{Positive whole-number maximum set size.}
 
 \item{jaccard_threshold}{Numeric threshold in \verb{[0, 1]}. A later, lower
 priority set is removed when overlap is strictly greater than this value.}

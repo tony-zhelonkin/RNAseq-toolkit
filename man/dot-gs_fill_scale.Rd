@@ -4,14 +4,14 @@
 \alias{.gs_fill_scale}
 \title{Diverging fill scale for a signed statistic}
 \usage{
-.gs_fill_scale(name, limits, colours = .gs_diverging_colours())
+.gs_fill_scale(name, limits, palette = .gs_diverging_colours())
 }
 \arguments{
 \item{name}{Legend title, normally \code{gs_stat_label(x)}.}
 
 \item{limits}{Length-2 numeric limits.}
 
-\item{colours}{Length-3 character vector: low, mid, high.}
+\item{palette}{Length-3 character vector: low, mid, high.}
 }
 \value{
 A ggplot2 scale.

@@ -29,46 +29,35 @@ create_standard_volcano(
 \item{de_results}{Data frame whose rownames are gene IDs and that contains
 at least \code{logFC}, \code{P.Value}, \code{adj.P.Val}.}
 
-\item{decision_by}{\code{"fdr"} (default) or \code{"p"}; which column makes the
-significance call and therefore the point colour.}
+\item{decision_by}{Choose adjusted (\code{"fdr"}) or raw (\code{"p"}) p-values.}
 
-\item{p_cutoff}{Numeric. An FDR threshold when \code{decision_by = "fdr"}, a raw
-\emph{p} threshold when \code{decision_by = "p"}.}
+\item{p_cutoff}{Numeric significance threshold.}
 
-\item{fc_cutoff}{Numeric. Absolute log2 fold-change threshold.}
+\item{fc_cutoff}{Numeric absolute log2 fold-change threshold.}
 
-\item{top_n}{Integer. Genes labelled per side, ranked by the deciding
-statistic.}
+\item{top_n}{Integer genes labelled per side.}
 
-\item{highlight_gene}{Character vector of gene IDs always labelled, in bold
-black, with overlap suppression disabled.}
+\item{highlight_gene}{Character vector of gene IDs always labelled.}
 
-\item{label_method}{One of \code{"top"}, \code{"sig"}, \code{"p"}, \code{"log2fc"}; anything else
-labels nothing.}
+\item{label_method}{Label-selection method.}
 
-\item{x_breaks}{Numeric spacing between fold-change axis ticks, in both
-orientations -- it follows the fold-change axis, not the \emph{x} position. The
--log10(p) axis always takes ggplot2's default breaks.}
+\item{x_breaks}{Numeric fold-change axis spacing.}
 
 \item{title}{Plot title.}
 
-\item{subtitle}{Optional subtitle.}
+\item{subtitle}{Optional plot subtitle.}
 
-\item{caption}{Optional caption. \code{NULL} generates one documenting the
-thresholds actually drawn.}
+\item{caption}{Optional plot caption.}
 
-\item{fixed_p_boundary}{Numeric raw \emph{p} to pin the FDR boundary line to, or
-\code{NULL} to derive it from the significant set.}
+\item{fixed_p_boundary}{Optional raw p-value for the FDR boundary line.}
 
-\item{color_palette}{Named character vector of four colours for \code{NS},
-\code{Log2FC}, \code{p-value} and \code{p-value & Log2FC}.}
+\item{color_palette}{Named character vector of four category colours.}
 
 \item{show_grid}{Logical. Keep the panel grid.}
 
 \item{max.overlaps}{Passed to \code{\link[ggrepel:geom_text_repel]{ggrepel::geom_text_repel()}}.}
 
-\item{annotate_counts}{Logical. Append a second legend line of up/down
-counts under the highest-priority populated significance category.}
+\item{annotate_counts}{Logical. Add up/down counts to the legend.}
 
 \item{...}{Absorbs deprecated arguments such as \code{use_fdr}.}
 }
@@ -78,7 +67,7 @@ A \code{ggplot2} object.
 \description{
 Deprecated: use \code{\link[=de_volcano]{de_volcano()}} instead. This shim reproduces the old
 formals of \code{create_standard_volcano()} verbatim and forwards to
-\code{de_volcano()}, which has the identical formals plus one new argument,
-\code{orientation}, placed after \code{...} so no positional call to this shim can
-shift onto it.
+\code{de_volcano()}. The frozen \code{color_palette} formal forwards to the new
+\code{palette} formal. The new renderer's \code{orientation} argument remains after
+\code{...}, so no positional call to this shim can shift onto it.
 }

@@ -15,7 +15,7 @@ de_md_plot(
   label_method = "top",
   max.overlaps = 10,
   title = NULL,
-  color_palette = c(Up = "#D55E00", Down = "#0072B2", NS = "#999999"),
+  palette = c(Up = "#D55E00", Down = "#0072B2", NS = "#999999"),
   show_grid = FALSE,
   show_quadrant_counts = TRUE
 )
@@ -43,7 +43,7 @@ black.}
 
 \item{title}{Plot title; defaults to \code{"MD plot: <coef>"}.}
 
-\item{color_palette}{Named colours for \code{Up}, \code{Down} and \code{NS}.}
+\item{palette}{Named colours for \code{Up}, \code{Down} and \code{NS}.}
 
 \item{show_grid}{Logical. Keep the panel grid.}
 

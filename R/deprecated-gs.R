@@ -630,20 +630,20 @@ run_gsea_analysis <- function(
     ensure_dir(db_dir)
 
     gs_save(
-      gs_plot_dot(res, top = n_pathways, direction = "both",
+      gs_plot_dot(res, top_n = n_pathways, direction = "both",
                   highlight = padj_cutoff,
                   title = sprintf("%s %s", analysis_name, db_name)),
       file.path(db_dir, sprintf("%s_%s_dot", analysis_name, db_name))
     )
     gs_save(
-      gs_plot_bar(res, top = n_pathways, highlight = padj_cutoff,
+      gs_plot_bar(res, top_n = n_pathways, highlight = padj_cutoff,
                   title = sprintf("%s %s NES", analysis_name, db_name)),
       file.path(db_dir, sprintf("%s_%s_nes_bar", analysis_name, db_name))
     )
 
     top5 <- gs_top(res, n = 5L, by = "padj", per = character(0))$pathway_id
     gs_save(
-      gs_plot_running(res, pathways = top5, top = length(top5)),
+      gs_plot_running(res, pathways = top5, top_n = length(top5)),
       file.path(db_dir, sprintf("%s_%s_running_sum", analysis_name, db_name))
     )
   }

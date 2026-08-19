@@ -49,10 +49,10 @@
 #'   membership. If `NULL`, `attr(x, "gene_sets")` is used, or `x` itself when
 #'   `x` is already a `gs_db` / named list.
 #' @param pathways Character vector of pathway ids, or (for a `gs_result`)
-#'   integer row indices. `NULL` picks the top `top` pathways by `abs(stat)`
-#'   for a `gs_result`, or the first `top` sets otherwise. The order given is
+#'   integer row indices. `NULL` picks the top `top_n` pathways by `abs(stat)`
+#'   for a `gs_result`, or the first `top_n` sets otherwise. The order given is
 #'   the order colours and legend keys are assigned in.
-#' @param top Integer. How many pathways to pick when `pathways` is `NULL`.
+#' @param top_n Integer. How many pathways to pick when `pathways` is `NULL`.
 #' @param labels Optional character vector of legend labels, named by pathway
 #'   id (a partial map degrades gracefully -- unnamed ids keep their
 #'   `pathway_name`), or unnamed and zipped to `pathways` in the given order.
@@ -90,7 +90,7 @@ gs_plot_running <- function(x,
                             ranks = NULL,
                             db = NULL,
                             pathways = NULL,
-                            top = 5L,
+                            top_n = 5L,
                             labels = NULL,
                             palette = NULL,
                             panel_heights = c(2.4, 0.7, 0.9),
@@ -112,7 +112,7 @@ gs_plot_running <- function(x,
 
   ranks <- .grs_ranks(x, ranks)
   sets <- .grs_sets(x, db)
-  ids <- .grs_select(x, sets, pathways, top)
+  ids <- .grs_select(x, sets, pathways, top_n)
   set_labels <- .grs_labels(x, ids, labels, max_name_length)
   pal <- .grs_palette(palette, ids)
 
@@ -268,19 +268,19 @@ gs_plot_running <- function(x,
 #' @param x The renderer's `x`.
 #' @param sets Named list of gene sets.
 #' @param pathways Ids, row indices, or `NULL`.
-#' @param top Integer default count.
+#' @param top_n Integer default count.
 #' @return A character vector of pathway ids, in plotting order.
 #' @keywords internal
-.grs_select <- function(x, sets, pathways, top) {
+.grs_select <- function(x, sets, pathways, top_n) {
   if (is.null(pathways)) {
     if (inherits(x, "gs_result")) {
       if (!nrow(x)) {
         stop("`x` has no rows, so there is nothing to plot.", call. = FALSE)
       }
       ord <- order(abs(x$stat), decreasing = TRUE)
-      ids <- x$pathway_id[ord][seq_len(min(top, length(ord)))]
+      ids <- x$pathway_id[ord][seq_len(min(top_n, length(ord)))]
     } else {
-      ids <- names(sets)[seq_len(min(top, length(sets)))]
+      ids <- names(sets)[seq_len(min(top_n, length(sets)))]
     }
   } else if (is.numeric(pathways)) {
     if (!inherits(x, "gs_result")) {

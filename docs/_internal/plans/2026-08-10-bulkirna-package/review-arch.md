@@ -78,7 +78,7 @@ tense on the collision) and shorten the warning to a real successor.
 ### 4. `normalize_gsea_results()` tells users to call `gs_leading_edge()` with a `gs_db` — that signature does not exist  [severity: medium]
 **R/deprecated-gs.R (`atlas_universe` warning) + R/gs-ops.R:187** —
 the runtime warning is "Use `gs_leading_edge()` with the original `gs_db`", but
-`gs_leading_edge(x, padj = NULL, top = NULL, unique_genes = FALSE)` has no `db`
+`gs_leading_edge(x, padj = NULL, top_n = NULL, unique_genes = FALSE)` has no `db`
 argument, and `padj` is unvalidated, so following the advice produces a cryptic
 coercion error.
 
@@ -87,12 +87,12 @@ coercion error.
 ### gs_leading_edge: ERR: 'list' object cannot be coerced to type 'double'
 # from gs_leading_edge(res, db)  -> db lands in `padj`
 $ grep -n 'gs_leading_edge <- function' R/gs-ops.R
-187:gs_leading_edge <- function(x, padj = NULL, top = NULL, unique_genes = FALSE)
+187:gs_leading_edge <- function(x, padj = NULL, top_n = NULL, unique_genes = FALSE)
 ```
 **Failure scenario** — `gs_leading_edge(res, db)` → `'list' object cannot be
 coerced to type 'double'` rather than "unused/invalid argument".
 
-**Suggested fix** — drop `gs_db` from the warning text, and validate `padj`/`top`
+**Suggested fix** — drop `gs_db` from the warning text, and validate `padj`/`top_n`
 as numeric(1) in `gs_leading_edge()`.
 
 ### 5. `gs_test.gs_matrix()` requires `db` and then ignores it completely  [severity: medium]

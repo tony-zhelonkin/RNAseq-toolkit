@@ -2,6 +2,18 @@
 
 ## API
 
+* Named calls using the result-limit arguments `top` or `n_top` must now use
+  `top_n`. This breaking rename affects `gs_leading_edge()`, `gs_plot_bar()`,
+  `gs_plot_dot()`, `gs_plot_heatmap()`, `gs_plot_running()`,
+  `coresh_loadings()`, and `coresh_sets()`. The database-provenance field
+  written by `coresh_sets()` is likewise renamed from `n_top` to `top_n`.
+
+* Named calls using the colour-palette arguments `color_palette` or `colours`
+  must now use `palette`. This breaking rename affects `de_bfc_plot()`,
+  `de_md_plot()`, `de_pca()`, `de_volcano()`, `gs_plot_bar()`,
+  `gs_plot_dot()`, and `gs_plot_heatmap()`. No argument-level compatibility
+  aliases are provided for either rename.
+
 * `gs_coregulation()` runs public `fgsea::geseca()` on a general genes x
   samples expression matrix and returns a `gs_result` with
   `stat_type = "pct_var"`. It is experimental and is separate from

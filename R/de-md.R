@@ -21,7 +21,7 @@
 #' @param label_method One of `"top"`, `"sig"`, `"fdr"`, `"log2fc"`, `"none"`.
 #' @param max.overlaps Passed to [ggrepel::geom_text_repel()].
 #' @param title Plot title; defaults to `"MD plot: <coef>"`.
-#' @param color_palette Named colours for `Up`, `Down` and `NS`.
+#' @param palette Named colours for `Up`, `Down` and `NS`.
 #' @param show_grid Logical. Keep the panel grid.
 #' @param show_quadrant_counts Logical. Annotate the number of significant
 #'   genes in each quadrant of (median expression, zero fold change).
@@ -49,7 +49,7 @@ de_md_plot <- function(
     label_method   = "top",
     max.overlaps   = 10,
     title          = NULL,
-    color_palette  = c(Up = "#D55E00", Down = "#0072B2", NS = "#999999"),
+    palette        = c(Up = "#D55E00", Down = "#0072B2", NS = "#999999"),
     show_grid      = FALSE,
     show_quadrant_counts = TRUE) {
 
@@ -107,11 +107,11 @@ de_md_plot <- function(
 
   x_pad <- diff(range(df$AveExpr)) * 0.05
   y_pad <- diff(range(df$logFC))  * 0.05
-  dark_pal <- .de_shade(color_palette)
+  dark_pal <- .de_shade(palette)
 
   g <- ggplot() +
     geom_point(data = df_ns, aes(x = .data$AveExpr, y = .data$logFC),
-               colour = color_palette[["NS"]], size = 1.3, alpha = 0.25,
+               colour = palette[["NS"]], size = 1.3, alpha = 0.25,
                shape = 16) +
     geom_point(data = df_sig,
                aes(x = .data$AveExpr, y = .data$logFC, colour = .data$status),
@@ -123,7 +123,7 @@ de_md_plot <- function(
                 linetype = 2, linewidth = 0.6) +
     geom_vline(xintercept = stats::median(df$AveExpr), colour = "grey60",
                linetype = 3) +
-    scale_colour_manual(values = color_palette, name = "Significance",
+    scale_colour_manual(values = palette, name = "Significance",
       breaks = c("Up", "Down"),
       labels = c(sprintf("Up  (FDR \u2264 %.2g)", fdr_cutoff),
                  sprintf("Down (FDR \u2264 %.2g)", fdr_cutoff))) +

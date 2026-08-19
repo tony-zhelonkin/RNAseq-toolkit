@@ -75,7 +75,7 @@ test_that("gs_leading_edge extracts, filters and pools genes", {
   expect_named(le, c("A", "B", "C"))
   expect_equal(le$A, c("g1", "g2"))
   expect_named(gs_leading_edge(r, padj = 0.05), c("A", "B"))
-  expect_named(gs_leading_edge(r, top = 1), "A")
+  expect_named(gs_leading_edge(r, top_n = 1), "A")
   expect_setequal(gs_leading_edge(r, unique_genes = TRUE), c("g1", "g2", "g3"))
 })
 

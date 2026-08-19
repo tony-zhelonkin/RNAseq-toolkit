@@ -14,7 +14,7 @@ de_pca(
   ylim_abs = NULL,
   point_size = 5,
   label_size = 4,
-  color_palette = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00",
+  palette = c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00",
     "#CC79A7", "#000000")
 )
 }
@@ -31,14 +31,19 @@ de_pca(
 
 \item{title}{Plot title.}
 
-\item{xlim_abs, ylim_abs}{Optional symmetric axis limits, applied as a zoom
+\item{xlim_abs}{Optional symmetric x-axis limits, applied as a zoom
 (\code{coord_fixed()}), so a sample outside them is clipped from view rather
 than dropped from the figure. \code{NULL} derives them from the data with 10\%
 head-room.}
 
-\item{point_size, label_size}{Numeric sizes.}
+\item{ylim_abs}{Optional symmetric y-axis limits, with the same zoom
+behaviour as \code{xlim_abs}.}
 
-\item{color_palette}{Character vector of colours recycled across the
+\item{point_size}{Numeric point size.}
+
+\item{label_size}{Numeric label size.}
+
+\item{palette}{Character vector of colours recycled across the
 \code{colour_by} levels.}
 }
 \value{

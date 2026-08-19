@@ -6,12 +6,12 @@
 \usage{
 \method{gs_plot_heatmap}{gs_result}(
   x,
-  top = 20,
+  top_n = 20,
   sort_by = c("padj", "p_value", "stat", "stat_signed"),
   by = c("contrast", "database"),
   highlight = 0.05,
   limits = NULL,
-  colours = .gs_diverging_colours(),
+  palette = .gs_diverging_colours(),
   wrap_width = 40,
   strip_prefix = TRUE,
   title = NULL,
@@ -22,7 +22,7 @@
 \arguments{
 \item{x}{A \link{gs_result}.}
 
-\item{top}{Number of pathways to display, selected over the whole object.}
+\item{top_n}{Number of pathways to display, selected over the whole object.}
 
 \item{sort_by}{Selection metric: \code{"padj"} (default), \code{"p_value"}, \code{"stat"}
 or \code{"stat_signed"}.}
@@ -38,7 +38,7 @@ take a different colour in two figures; pass an explicit \code{limits} when
 panels are meant to be compared. The old renderer used a fixed
 \code{c(-3.5, 3.5)}. Values outside are squished, not dropped.}
 
-\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
+\item{palette}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 

@@ -9,7 +9,7 @@ gs_plot_running(
   ranks = NULL,
   db = NULL,
   pathways = NULL,
-  top = 5L,
+  top_n = 5L,
   labels = NULL,
   palette = NULL,
   panel_heights = c(2.4, 0.7, 0.9),
@@ -38,11 +38,11 @@ membership. If \code{NULL}, \code{attr(x, "gene_sets")} is used, or \code{x} its
 \code{x} is already a \code{gs_db} / named list.}
 
 \item{pathways}{Character vector of pathway ids, or (for a \code{gs_result})
-integer row indices. \code{NULL} picks the top \code{top} pathways by \code{abs(stat)}
-for a \code{gs_result}, or the first \code{top} sets otherwise. The order given is
+integer row indices. \code{NULL} picks the top \code{top_n} pathways by \code{abs(stat)}
+for a \code{gs_result}, or the first \code{top_n} sets otherwise. The order given is
 the order colours and legend keys are assigned in.}
 
-\item{top}{Integer. How many pathways to pick when \code{pathways} is \code{NULL}.}
+\item{top_n}{Integer. How many pathways to pick when \code{pathways} is \code{NULL}.}
 
 \item{labels}{Optional character vector of legend labels, named by pathway
 id (a partial map degrades gracefully -- unnamed ids keep their

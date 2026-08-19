@@ -14,7 +14,7 @@ de_bfc_plot(
   label_method = "top",
   x_breaks = 2,
   title = "B-statistic vs Log2FC",
-  color_palette = c(NS = "#7F7F7F", Log2FC = "#0173B2", `B-statistic` = "#029E73",
+  palette = c(NS = "#7F7F7F", Log2FC = "#0173B2", `B-statistic` = "#029E73",
     `B-statistic & Log2FC` = "#D55E00"),
   y_padding = 1,
   show_grid = FALSE
@@ -42,7 +42,7 @@ else labels nothing.}
 
 \item{title}{Plot title.}
 
-\item{color_palette}{Named colours for \code{NS}, \code{Log2FC}, \code{B-statistic} and
+\item{palette}{Named colours for \code{NS}, \code{Log2FC}, \code{B-statistic} and
 \code{B-statistic & Log2FC}.}
 
 \item{y_padding}{Numeric head-room kept around \code{B_cutoff}.}

@@ -13,13 +13,14 @@
 #' @param x A [gs_result].
 #' @param out_dir Output directory; created if missing.
 #' @param name Stem prepended to every file name.
-#' @param top Number of pathways per plot.
+#' @param top_n Number of pathways per plot.
 #' @param padj_cutoff FDR threshold for highlighting and for the log.
-#' @param width,height Figure size in inches.
+#' @param width Figure width in inches.
+#' @param height Figure height in inches.
 #' @param verbose Logical. Report progress with [message()].
 #' @return A character vector of every written path, invisibly.
 #' @keywords internal
-.gs_plot_all <- function(x, out_dir, name = "gsea", top = 20,
+.gs_plot_all <- function(x, out_dir, name = "gsea", top_n = 20,
                          padj_cutoff = 0.05, width = 8, height = 6,
                          verbose = FALSE) {
   .gs_plot_check_result(x)
@@ -50,7 +51,7 @@
       list(
         suffix = "_up_dot",
         plot = function() {
-          gs_plot_dot(part, top = top, direction = "up",
+          gs_plot_dot(part, top_n = top_n, direction = "up",
                       highlight = padj_cutoff, limits = shared_limits,
                       title = paste0(db, ": up"))
         },
@@ -59,7 +60,7 @@
       list(
         suffix = "_down_dot",
         plot = function() {
-          gs_plot_dot(part, top = top, direction = "down",
+          gs_plot_dot(part, top_n = top_n, direction = "down",
                       highlight = padj_cutoff, limits = shared_limits,
                       title = paste0(db, ": down"))
         },
@@ -68,7 +69,7 @@
       list(
         suffix = "_facet_dot",
         plot = function() {
-          gs_plot_dot(part, top = top, facet = "direction",
+          gs_plot_dot(part, top_n = top_n, facet = "direction",
                       highlight = padj_cutoff, limits = shared_limits,
                       title = db)
         },
@@ -77,7 +78,7 @@
       list(
         suffix = "_bar",
         plot = function() {
-          gs_plot_bar(part, top = top, highlight = padj_cutoff,
+          gs_plot_bar(part, top_n = top_n, highlight = padj_cutoff,
                       limits = shared_limits, title = db)
         },
         height = height

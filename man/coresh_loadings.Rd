@@ -4,7 +4,7 @@
 \alias{coresh_loadings}
 \title{Extract gene loadings for one CoReSh hit}
 \usage{
-coresh_loadings(chunk_path, gse_id, query, n_top = 50L, gpl = NULL)
+coresh_loadings(chunk_path, gse_id, query, top_n = 50L, gpl = NULL)
 }
 \arguments{
 \item{chunk_path}{Path to one \verb{*_full_objects.qs2} CoReSh chunk.}
@@ -14,7 +14,7 @@ coresh_loadings(chunk_path, gse_id, query, n_top = 50L, gpl = NULL)
 \item{query}{A non-empty integer vector of Entrez IDs. Duplicate IDs are
 removed with a message before loading extraction.}
 
-\item{n_top}{Positive whole number of loadings to retain.}
+\item{top_n}{Positive whole number of loadings to retain.}
 
 \item{gpl}{Optional GEO platform accession. When omitted and the GSE occurs
 on more than one platform in the chunk, the first platform in

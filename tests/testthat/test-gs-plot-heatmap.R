@@ -1,6 +1,6 @@
 test_that("a gs_result heatmap tiles pathways by contrast", {
   res <- fake_plot_result(n = 4L, contrasts = c("A-B", "C-D"))
-  p <- gs_plot_heatmap(res, top = 3)
+  p <- gs_plot_heatmap(res, top_n = 3)
   expect_s3_class(p, "ggplot")
   src <- attr(p, "gs_source")
   expect_setequal(unique(src$column), c("A-B", "C-D"))
@@ -9,7 +9,9 @@ test_that("a gs_result heatmap tiles pathways by contrast", {
 
 test_that("by = 'database' shows labels, not keys", {
   res <- fake_plot_result(n = 3L, databases = c("msigdb_H", "mitopathways"))
-  src <- attr(gs_plot_heatmap(res, top = 4, by = "database"), "gs_source")
+  src <- attr(
+    gs_plot_heatmap(res, top_n = 4, by = "database"), "gs_source"
+  )
   expect_true(all(grepl("^Label for ", src$column)))
 })
 
@@ -20,17 +22,17 @@ test_that("the fill legend is named from stat_type", {
 
 test_that("significant tiles get an asterisk layer", {
   res <- fake_plot_result(n = 6L)
-  p <- gs_plot_heatmap(res, top = 6, highlight = 0.05)
+  p <- gs_plot_heatmap(res, top_n = 6, highlight = 0.05)
   expect_length(ggplot2::ggplot_build(p)$data, 2L)
   expect_equal(nrow(layer_data_for(p, 2L)), sum(res$padj < 0.05))
 
-  p2 <- gs_plot_heatmap(res, top = 6, highlight = NULL)
+  p2 <- gs_plot_heatmap(res, top_n = 6, highlight = NULL)
   expect_length(ggplot2::ggplot_build(p2)$data, 1L)
 })
 
 test_that("a gs_matrix heatmap tiles pathways by sample", {
   m <- fake_plot_matrix(n_path = 5L, n_samp = 6L)
-  p <- gs_plot_heatmap(m, top = 3)
+  p <- gs_plot_heatmap(m, top_n = 3)
   src <- attr(p, "gs_source")
   expect_equal(length(unique(src$sample)), 6L)
   expect_equal(length(unique(src$pathway_id)), 3L)

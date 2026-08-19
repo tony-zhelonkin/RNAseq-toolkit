@@ -141,7 +141,7 @@ test_that("run_gsea() sets both `ranks` and `gene_sets` attributes", {
                        names(sort(stats::setNames(de$t, rownames(de)),
                                   decreasing = TRUE)))
       expect_identical(attr(res, "gene_sets"), db)
-      expect_s3_class(gs_plot_running(res, top = 1), "ggplot")
+      expect_s3_class(gs_plot_running(res, top_n = 1), "ggplot")
     }
   )
   expect_warning(

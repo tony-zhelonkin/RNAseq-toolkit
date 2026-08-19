@@ -93,8 +93,8 @@ test_that("existing renderers and persistence accept pct_var unchanged", {
     sample_size = 21L, seed = 95L
   )
 
-  dot <- gs_plot_dot(res, top = 4L)
-  bar <- gs_plot_bar(res, top = 4L)
+  dot <- gs_plot_dot(res, top_n = 4L)
+  bar <- gs_plot_bar(res, top_n = 4L)
   expect_s3_class(dot, "ggplot")
   expect_s3_class(bar, "ggplot")
   expect_identical(dot$labels$x, "% variance explained")

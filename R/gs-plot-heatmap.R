@@ -34,7 +34,7 @@ gs_plot_heatmap.default <- function(x, ...) {
 #' Heatmap of a `gs_result`
 #'
 #' @param x A [gs_result].
-#' @param top Number of pathways to display, selected over the whole object.
+#' @param top_n Number of pathways to display, selected over the whole object.
 #' @param sort_by Selection metric: `"padj"` (default), `"p_value"`, `"stat"`
 #'   or `"stat_signed"`.
 #' @param by What the x axis carries: `"contrast"` (default) or `"database"`.
@@ -45,7 +45,7 @@ gs_plot_heatmap.default <- function(x, ...) {
 #'   take a different colour in two figures; pass an explicit `limits` when
 #'   panels are meant to be compared. The old renderer used a fixed
 #'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
-#' @param colours Length-3 character vector -- low, mid, high fill colours.
+#' @param palette Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.
@@ -55,13 +55,13 @@ gs_plot_heatmap.default <- function(x, ...) {
 #' @return A ggplot object.
 #' @export
 gs_plot_heatmap.gs_result <- function(x,
-                                      top = 20,
+                                      top_n = 20,
                                       sort_by = c("padj", "p_value", "stat",
                                                   "stat_signed"),
                                       by = c("contrast", "database"),
                                       highlight = 0.05,
                                       limits = NULL,
-                                      colours = .gs_diverging_colours(),
+                                      palette = .gs_diverging_colours(),
                                       wrap_width = 40,
                                       strip_prefix = TRUE,
                                       title = NULL,
@@ -70,16 +70,18 @@ gs_plot_heatmap.gs_result <- function(x,
   sort_by <- match.arg(sort_by)
   by <- match.arg(by)
 
-  # `top` counts pathways, not rows: a pathway tested in three contrasts is
+  # `top_n` counts pathways, not rows: a pathway tested in three contrasts is
   # one row of the heatmap, not three.
   sel <- .gs_plot_frame(
-    x, top = NULL, sort_by = sort_by, highlight = highlight,
+    x, top_n = NULL, sort_by = sort_by, highlight = highlight,
     wrap_width = wrap_width, strip_prefix = strip_prefix,
     database_labels = database_labels
   )
   if (nrow(sel) == 0L) return(.gs_empty_plot(title))
   ids <- unique(sel$pathway_id)
-  if (!is.null(top) && is.finite(top)) ids <- utils::head(ids, as.integer(top))
+  if (!is.null(top_n) && is.finite(top_n)) {
+    ids <- utils::head(ids, as.integer(top_n))
+  }
 
   df <- .gs_plot_frame(
     x, keep_ids = ids, sort_by = sort_by,
@@ -107,7 +109,7 @@ gs_plot_heatmap.gs_result <- function(x,
   }
 
   p <- p +
-    .gs_fill_scale(gs_stat_label(x), limits, colours) +
+    .gs_fill_scale(gs_stat_label(x), limits, palette) +
     labs(title = title, x = NULL, y = NULL) +
     theme_bulki() +
     theme(axis.line = element_blank(), axis.ticks = element_blank())
@@ -118,7 +120,7 @@ gs_plot_heatmap.gs_result <- function(x,
 #' Heatmap of a `gs_matrix`
 #'
 #' @param x A [gs_matrix] of pathway scores.
-#' @param top Number of pathways to display, chosen by score variance across
+#' @param top_n Number of pathways to display, chosen by score variance across
 #'   samples. `NULL` shows all.
 #' @param samples Character vector selecting and ordering the samples, or
 #'   `NULL` for the matrix order.
@@ -129,7 +131,7 @@ gs_plot_heatmap.gs_result <- function(x,
 #'   take a different colour in two figures; pass an explicit `limits` when
 #'   panels are meant to be compared. The old renderer used a fixed
 #'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
-#' @param colours Length-3 character vector -- low, mid, high fill colours.
+#' @param palette Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.
@@ -137,11 +139,11 @@ gs_plot_heatmap.gs_result <- function(x,
 #' @return A ggplot object.
 #' @export
 gs_plot_heatmap.gs_matrix <- function(x,
-                                      top = 30,
+                                      top_n = 30,
                                       samples = NULL,
                                       group = NULL,
                                       limits = NULL,
-                                      colours = .gs_diverging_colours(),
+                                      palette = .gs_diverging_colours(),
                                       wrap_width = 40,
                                       strip_prefix = TRUE,
                                       title = NULL,
@@ -155,9 +157,9 @@ gs_plot_heatmap.gs_matrix <- function(x,
     }
     m <- m[, samples, drop = FALSE]
   }
-  if (!is.null(top) && is.finite(top) && nrow(m) > top) {
+  if (!is.null(top_n) && is.finite(top_n) && nrow(m) > top_n) {
     spread <- apply(as.matrix(m), 1L, stats::var, na.rm = TRUE)
-    keep <- utils::head(order(spread, decreasing = TRUE), as.integer(top))
+    keep <- utils::head(order(spread, decreasing = TRUE), as.integer(top_n))
     m <- m[sort(keep), , drop = FALSE]
   }
   if (nrow(m) == 0L || ncol(m) == 0L) return(.gs_empty_plot(title))
@@ -194,7 +196,7 @@ gs_plot_heatmap.gs_matrix <- function(x,
 
   p <- ggplot(df, aes(x = .data$sample, y = .data$label)) +
     geom_tile(aes(fill = .data$score), colour = "white", linewidth = 0.3) +
-    .gs_fill_scale(paste0(gs_score_type(x), " score"), limits, colours) +
+    .gs_fill_scale(paste0(gs_score_type(x), " score"), limits, palette) +
     labs(title = title, x = NULL, y = NULL) +
     theme_bulki() +
     theme(axis.line = element_blank(), axis.ticks = element_blank())

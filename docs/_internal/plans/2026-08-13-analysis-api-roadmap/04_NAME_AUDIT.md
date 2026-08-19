@@ -1,6 +1,6 @@
 # S2/S3 name and argument audit
 
-**Date:** 2026-08-18 · **Status:** implemented; R gates pending
+**Date:** 2026-08-19 · **Status:** implemented; R gates pending
 **Parent:** [00_ROADMAP.md](00_ROADMAP.md)
 
 ## Measured surface
@@ -60,16 +60,36 @@ functions exposing the formal after S2; deprecated shims are excluded.
 code, distinct from the target `species`. Likewise `chunk_dir` is a specific
 CoReSh directory, not a generic output directory.
 
-The enforcement test now collects every formal from every live export and
+The enforcement test now collects every explicit formal from every live export and
 requires it to belong to the curated vocabulary. It also requires the canonical
 cross-layer names in the table above to remain present. A new spelling such as
 `target_dir`, `sp`, or `rand_seed` therefore fails until the audit explicitly
-adopts or rejects it. The complete inventory also exposed candidates for a
-future decision: count arguments use `top`, `top_n`, and `n_top`; colour vectors
-use `color_palette`, `colours`, and `palette`; and the public formals
-`B_cutoff`, `baseMean`, `log2FC`, and `max.overlaps` do not follow the package's
-snake-case convention. This audit records those spellings and does not rename
-them.
+adopts or rejects it. The public formals `B_cutoff`, `baseMean`, `log2FC`, and
+`max.overlaps` remain reasoned exceptions to the package's snake-case convention
+because they follow upstream vocabulary.
+
+## S3 owner decision: one spelling for limits and palettes
+
+On 2026-08-19, the owner chose `top_n` for the result-limit concept and
+`palette` for the colour-palette concept. Named calls using the previous
+spellings are breaking changes; no argument-level compatibility aliases were
+added.
+
+The decision rested on two measurements. None of the affected explicit
+signatures is frozen, and `used-functions.tsv` contains zero call sites for
+every affected export. The result-limit rename covers `gs_leading_edge()`,
+`gs_plot_bar()`, `gs_plot_dot()`, `gs_plot_running()`, `coresh_loadings()`, and
+`coresh_sets()`. The `coresh_sets()` database-provenance field changed from
+`n_top` to `top_n` with its formal. The palette rename covers `de_bfc_plot()`,
+`de_md_plot()`, `de_pca()`, `de_volcano()`, `gs_plot_bar()`, and
+`gs_plot_dot()`.
+
+Source inspection found one export the original `formals()` measurement missed:
+`gs_plot_heatmap()` accepts both concepts through `...`, with `top` and
+`colours` declared on its `gs_result` and `gs_matrix` methods. It is stable,
+not frozen, and also has zero inventory call sites. Both method formals were
+renamed in place to `top_n` and `palette`. The enforcement test now checks these
+method formals explicitly so the generic's `...` cannot hide a retired spelling.
 
 ## Shared species contract
 

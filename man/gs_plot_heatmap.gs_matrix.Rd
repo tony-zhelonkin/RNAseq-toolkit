@@ -6,11 +6,11 @@
 \usage{
 \method{gs_plot_heatmap}{gs_matrix}(
   x,
-  top = 30,
+  top_n = 30,
   samples = NULL,
   group = NULL,
   limits = NULL,
-  colours = .gs_diverging_colours(),
+  palette = .gs_diverging_colours(),
   wrap_width = 40,
   strip_prefix = TRUE,
   title = NULL,
@@ -20,7 +20,7 @@
 \arguments{
 \item{x}{A \link{gs_matrix} of pathway scores.}
 
-\item{top}{Number of pathways to display, chosen by score variance across
+\item{top_n}{Number of pathways to display, chosen by score variance across
 samples. \code{NULL} shows all.}
 
 \item{samples}{Character vector selecting and ordering the samples, or
@@ -35,7 +35,7 @@ take a different colour in two figures; pass an explicit \code{limits} when
 panels are meant to be compared. The old renderer used a fixed
 \code{c(-3.5, 3.5)}. Values outside are squished, not dropped.}
 
-\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
+\item{palette}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 

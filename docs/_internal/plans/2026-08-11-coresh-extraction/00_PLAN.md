@@ -97,7 +97,7 @@ at 16 is a silent lie about anything below `1e-16`.
 | rownames guard | absent | `:97-99`, `^ENSMUSG` | `08` only, hardcoded to mouse. |
 
 The query-side pair (`1.11` vs `07_coresh_search.R`) agrees on every constant —
-`TOP_N = 5`, `n_top = 50`, `min_size = 15`, `max_size = 500`, `jaccard = 0.8`,
+`TOP_N = 5`, `top_n = 50`, `min_size = 15`, `max_size = 500`, `jaccard = 0.8`,
 `MIN_QUERY_SIZE = 3` — differing only in hardcoded-versus-`CONFIG`, human/`hsa` versus
 mouse/`mmu`, and skip-versus-stop on missing chunks. **Agreed constants are safe package
 defaults.** `nPermSimple` and `minGSSize` disagreed; the call is now made — 100000 and 10
@@ -207,7 +207,7 @@ the rest are the primitives it composes.
 
 ```r
 gsdb_coresh(queries, chunk_dir = Sys.getenv("CORESH_CHUNKS"), species = "human",
-            top_hits = 5L, n_top = 50L, min_size = 15L, max_size = 500L,
+            top_hits = 5L, top_n = 50L, min_size = 15L, max_size = 500L,
             jaccard_threshold = 0.8, max_query_overlap = 0.9, n_cores = 4L)  -> gs_db
 ```
 
@@ -229,7 +229,7 @@ coresh_convergence(ranking, top_n = 10L, min_queries = 2L)          -> tibble
 **Set-building layer**
 
 ```r
-coresh_loadings(chunk_path, gse_id, query, n_top = 50L)             -> tibble
+coresh_loadings(chunk_path, gse_id, query, top_n = 50L)             -> tibble
 coresh_sets(top_hits, queries, chunk_dir, ...)                      -> gs_db
 ```
 

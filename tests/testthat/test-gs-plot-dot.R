@@ -1,6 +1,6 @@
 test_that("gs_plot_dot returns a ggplot with one point per selected pathway", {
   res <- fake_plot_result(n = 8L)
-  p <- gs_plot_dot(res, top = 5)
+  p <- gs_plot_dot(res, top_n = 5)
   expect_s3_class(p, "ggplot")
   expect_equal(nrow(layer_data_for(p)), 5L)
 })
@@ -23,14 +23,14 @@ test_that("the x axis label comes from stat_type, never a literal NES", {
 test_that("selection and highlighting are independent", {
   res <- fake_plot_result(n = 8L)
   # Every selected pathway is drawn ...
-  p <- gs_plot_dot(res, top = 8, highlight = 0.05)
+  p <- gs_plot_dot(res, top_n = 8, highlight = 0.05)
   expect_equal(nrow(layer_data_for(p, 1L)), 8L)
   # ... but only the significant ones get the outline layer.
   n_sig <- sum(res$padj < 0.05)
   expect_equal(nrow(layer_data_for(p, 2L)), n_sig)
 
   # highlight = NULL drops the outline layer entirely
-  p2 <- gs_plot_dot(res, top = 8, highlight = NULL)
+  p2 <- gs_plot_dot(res, top_n = 8, highlight = NULL)
   expect_length(ggplot2::ggplot_build(p2)$data, 1L)
 })
 
@@ -43,22 +43,26 @@ test_that("base dots use a transparent outline, not NA", {
 
 test_that("direction = 'up' / 'down' filter the rows drawn", {
   res <- fake_plot_result(n = 8L)
-  up <- gs_plot_dot(res, top = 20, direction = "up")
+  up <- gs_plot_dot(res, top_n = 20, direction = "up")
   expect_true(all(attr(up, "gs_source")$stat > 0))
-  down <- gs_plot_dot(res, top = 20, direction = "down")
+  down <- gs_plot_dot(res, top_n = 20, direction = "down")
   expect_true(all(attr(down, "gs_source")$stat < 0))
 })
 
 test_that("facet = 'direction' selects top N within each facet", {
   res <- fake_plot_result(n = 10L)
-  src <- attr(gs_plot_dot(res, top = 3, facet = "direction"), "gs_source")
+  src <- attr(
+    gs_plot_dot(res, top_n = 3, facet = "direction"), "gs_source"
+  )
   expect_setequal(as.character(unique(src$.facet_row)), c("Up", "Down"))
   expect_true(all(table(src$.facet_row) <= 3L))
 })
 
 test_that("facet strips show database_label, never the snake_case key", {
   res <- fake_plot_result(n = 4L, databases = c("msigdb_H", "mitopathways"))
-  src <- attr(gs_plot_dot(res, top = 4, facet = "database"), "gs_source")
+  src <- attr(
+    gs_plot_dot(res, top_n = 4, facet = "database"), "gs_source"
+  )
   expect_setequal(
     as.character(unique(src$.facet_row)),
     c("Label for msigdb_H", "Label for mitopathways")
@@ -85,7 +89,9 @@ test_that("an unmapped database key falls back to the key itself", {
 
 test_that("compare puts every panel on the same pathways", {
   res <- fake_plot_result(n = 4L, contrasts = c("A-B", "C-D"))
-  src <- attr(gs_plot_dot(res, top = 3, compare = "contrast"), "gs_source")
+  src <- attr(
+    gs_plot_dot(res, top_n = 3, compare = "contrast"), "gs_source"
+  )
   by_panel <- split(src$pathway_id, src$.facet_col)
   expect_length(by_panel, 2L)
   expect_setequal(by_panel[[1L]], by_panel[[2L]])
@@ -109,7 +115,7 @@ test_that("aes_x = 'gene_ratio' uses the leading edge, and errors without it", {
 
 test_that("fill limits are symmetric and out-of-range values are squished", {
   res <- fake_plot_result(n = 6L)
-  d <- layer_data_for(gs_plot_dot(res, top = 6, limits = c(-1, 1)))
+  d <- layer_data_for(gs_plot_dot(res, top_n = 6, limits = c(-1, 1)))
   expect_false(anyNA(d$fill))
 })
 
@@ -130,12 +136,12 @@ test_that("non-gs_result input is rejected by name", {
   expect_error(gs_plot_dot(mtcars), "`x` must be a gs_result")
 })
 
-test_that("top must be a positive number", {
-  expect_error(gs_plot_dot(fake_plot_result(), top = 0), "`top`")
+test_that("top_n must be a positive number", {
+  expect_error(gs_plot_dot(fake_plot_result(), top_n = 0), "`top_n`")
 })
 
 test_that("the source table travels with the plot", {
-  p <- gs_plot_dot(fake_plot_result(n = 5L), top = 4)
+  p <- gs_plot_dot(fake_plot_result(n = 5L), top_n = 4)
   src <- attr(p, "gs_source")
   expect_s3_class(src, "data.frame")
   expect_equal(nrow(src), 4L)

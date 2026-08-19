@@ -104,7 +104,7 @@
 #' within `group_by`; ties keep the object's own row order.
 #'
 #' @param x A `gs_result`.
-#' @param top Integer. Rows kept per selection group; `NULL` or `Inf` keeps
+#' @param top_n Integer. Rows kept per selection group; `NULL` or `Inf` keeps
 #'   all.
 #' @param sort_by One of `"padj"`, `"p_value"`, `"stat"` (absolute magnitude),
 #'   `"stat_signed"`.
@@ -112,7 +112,7 @@
 #' @param group_by Character vector of columns defining the selection groups,
 #'   or `NULL`.
 #' @param keep_ids Character vector of `pathway_id`s. When supplied, rows are
-#'   restricted to these ids and `top` selection is skipped -- this is how
+#'   restricted to these ids and `top_n` selection is skipped -- this is how
 #'   `compare =` keeps every panel of a comparison grid on the same pathways.
 #' @param highlight Numeric FDR threshold for the `significant` flag, or
 #'   `NULL`.
@@ -124,7 +124,7 @@
 #'   `contrast`, `significant`, and `gene_ratio` when available.
 #' @keywords internal
 .gs_plot_frame <- function(x,
-                           top = NULL,
+                           top_n = NULL,
                            sort_by = "padj",
                            direction = "both",
                            group_by = NULL,
@@ -159,11 +159,13 @@
   }
 
   if (is.null(keep_ids)) {
-    df <- .gs_select_top(df, top = top, sort_by = sort_by,
+    df <- .gs_select_top(df, top_n = top_n, sort_by = sort_by,
                          group_by = group_by)
   } else {
     df <- df[df$pathway_id %in% keep_ids, , drop = FALSE]
-    df <- .gs_select_top(df, top = NULL, sort_by = sort_by, group_by = NULL)
+    df <- .gs_select_top(
+      df, top_n = NULL, sort_by = sort_by, group_by = NULL
+    )
   }
 
   # Two different pathways can format to the same display label -- the same set
@@ -201,12 +203,12 @@
 #' Select the top rows of a plotting frame
 #'
 #' @param df A data frame from [.gs_plot_frame()].
-#' @param top Integer or `NULL`.
+#' @param top_n Integer or `NULL`.
 #' @param sort_by One of `"padj"`, `"p_value"`, `"stat"`, `"stat_signed"`.
 #' @param group_by Character vector of grouping columns, or `NULL`.
 #' @return A data frame, sorted and truncated.
 #' @keywords internal
-.gs_select_top <- function(df, top = NULL, sort_by = "padj",
+.gs_select_top <- function(df, top_n = NULL, sort_by = "padj",
                            group_by = NULL) {
   allowed <- c("padj", "p_value", "stat", "stat_signed")
   if (!sort_by %in% allowed) {
@@ -226,18 +228,18 @@
   ord <- order(key, seq_len(nrow(df)), na.last = TRUE)
   df <- df[ord, , drop = FALSE]
 
-  if (is.null(top) || !is.finite(top)) return(df)
-  if (!is.numeric(top) || length(top) != 1L || top < 1) {
-    stop("`top` must be a single positive number, or NULL for all rows.",
+  if (is.null(top_n) || !is.finite(top_n)) return(df)
+  if (!is.numeric(top_n) || length(top_n) != 1L || top_n < 1) {
+    stop("`top_n` must be a single positive number, or NULL for all rows.",
          call. = FALSE)
   }
-  top <- as.integer(top)
+  top_n <- as.integer(top_n)
 
   if (is.null(group_by)) {
-    return(utils::head(df, top))
+    return(utils::head(df, top_n))
   }
   grp <- interaction(df[, group_by, drop = FALSE], drop = TRUE)
-  keep <- unlist(lapply(split(seq_len(nrow(df)), grp), utils::head, top),
+  keep <- unlist(lapply(split(seq_len(nrow(df)), grp), utils::head, top_n),
                  use.names = FALSE)
   df[sort(keep), , drop = FALSE]
 }
@@ -263,13 +265,13 @@
 #'
 #' @param name Legend title, normally `gs_stat_label(x)`.
 #' @param limits Length-2 numeric limits.
-#' @param colours Length-3 character vector: low, mid, high.
+#' @param palette Length-3 character vector: low, mid, high.
 #' @return A ggplot2 scale.
 #' @keywords internal
 #' @importFrom scales squish
-.gs_fill_scale <- function(name, limits, colours = .gs_diverging_colours()) {
+.gs_fill_scale <- function(name, limits, palette = .gs_diverging_colours()) {
   scale_fill_gradient2(
-    low = colours[[1L]], mid = colours[[2L]], high = colours[[3L]],
+    low = palette[[1L]], mid = palette[[2L]], high = palette[[3L]],
     midpoint = 0, limits = limits, oob = scales::squish, name = name
   )
 }

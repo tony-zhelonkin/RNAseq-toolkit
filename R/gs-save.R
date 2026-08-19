@@ -15,7 +15,8 @@
 #' @param plot A ggplot object.
 #' @param path Output path stem. A recognised extension (`.pdf`, `.png`,
 #'   `.tsv`) is stripped; the parent directory is created if missing.
-#' @param width,height Figure size in inches.
+#' @param width Figure width in inches.
+#' @param height Figure height in inches.
 #' @param dpi Resolution for the raster output.
 #' @param formats Character vector of image formats to write. Default
 #'   `c("pdf", "png")`.
@@ -33,7 +34,7 @@
 #' )
 #' res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
 #'                db, min_size = 1, max_size = 10)
-#' p <- gs_plot_dot(res, top = 5)
+#' p <- gs_plot_dot(res, top_n = 5)
 #' gs_save(p, file.path(tempdir(), "figures", "demo_dot"))
 #' @export
 gs_save <- function(plot, path, width = 8, height = 6, dpi = 300,

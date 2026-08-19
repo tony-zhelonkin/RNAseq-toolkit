@@ -153,14 +153,14 @@ gsea_dotplot <- function(
 
   gs_plot_dot(
     x,
-    top = showCategory,
+    top_n = showCategory,
     aes_x = "gene_ratio",
     sort_by = sort_by,
     direction = direction,
     highlight = highlight,
     size_range = c(min.dotSize, max.dotSize),
     limits = nes_limits,
-    colours = c(neg_color, mid_color, pos_color),
+    palette = c(neg_color, mid_color, pos_color),
     wrap_width = wrap_width,
     strip_prefix = strip_prefix,
     title = title
@@ -222,7 +222,7 @@ gsea_dotplot_facet <- function(
 
   gs_plot_dot(
     x,
-    top = showCategory,
+    top_n = showCategory,
     aes_x = "gene_ratio",
     sort_by = "padj",
     direction = "both",
@@ -230,7 +230,7 @@ gsea_dotplot_facet <- function(
     highlight = highlight,
     size_range = c(min.dotSize, max.dotSize),
     limits = nes_limits,
-    colours = c(neg_color, mid_color, pos_color),
+    palette = c(neg_color, mid_color, pos_color),
     wrap_width = wrap_width,
     strip_prefix = strip_prefix,
     title = title
@@ -282,13 +282,13 @@ gsea_barplot <- function(
 
   p <- gs_plot_bar(
     x,
-    top = top_n,
+    top_n = top_n,
     sort_by = "stat",
     direction = "both",
     padj_max = padj_cutoff,
     highlight = NULL,
     limits = nes_limits,
-    colours = c(neg_color, mid_color, pos_color),
+    palette = c(neg_color, mid_color, pos_color),
     strip_prefix = strip_prefix,
     title = title
   )
@@ -481,7 +481,7 @@ plot_all_gsea_results <- function(
     x,
     out_dir = file.path(out_root, analysis_name),
     name = analysis_name,
-    top = n_pathways,
+    top_n = n_pathways,
     padj_cutoff = padj_cutoff
   )
 }
@@ -525,13 +525,28 @@ save_gsea_log <- function(
 #' @description
 #' Deprecated: use [de_volcano()] instead. This shim reproduces the old
 #' formals of `create_standard_volcano()` verbatim and forwards to
-#' `de_volcano()`, which has the identical formals plus one new argument,
-#' `orientation`, placed after `...` so no positional call to this shim can
-#' shift onto it.
+#' `de_volcano()`. The frozen `color_palette` formal forwards to the new
+#' `palette` formal. The new renderer's `orientation` argument remains after
+#' `...`, so no positional call to this shim can shift onto it.
 #'
-#' @inheritParams de_volcano
 #' @param de_results Data frame whose rownames are gene IDs and that contains
 #'   at least `logFC`, `P.Value`, `adj.P.Val`.
+#' @param decision_by Choose adjusted (`"fdr"`) or raw (`"p"`) p-values.
+#' @param p_cutoff Numeric significance threshold.
+#' @param fc_cutoff Numeric absolute log2 fold-change threshold.
+#' @param top_n Integer genes labelled per side.
+#' @param highlight_gene Character vector of gene IDs always labelled.
+#' @param label_method Label-selection method.
+#' @param x_breaks Numeric fold-change axis spacing.
+#' @param title Plot title.
+#' @param subtitle Optional plot subtitle.
+#' @param caption Optional plot caption.
+#' @param fixed_p_boundary Optional raw p-value for the FDR boundary line.
+#' @param color_palette Named character vector of four category colours.
+#' @param show_grid Logical. Keep the panel grid.
+#' @param max.overlaps Passed to [ggrepel::geom_text_repel()].
+#' @param annotate_counts Logical. Add up/down counts to the legend.
+#' @param ... Absorbs deprecated arguments such as `use_fdr`.
 #'
 #' @return A `ggplot2` object.
 #' @export
@@ -572,7 +587,7 @@ create_standard_volcano <- function(
     subtitle = subtitle,
     caption = caption,
     fixed_p_boundary = fixed_p_boundary,
-    color_palette = color_palette,
+    palette = color_palette,
     show_grid = show_grid,
     max.overlaps = max.overlaps,
     annotate_counts = annotate_counts,
@@ -584,10 +599,23 @@ create_standard_volcano <- function(
 #'
 #' @description
 #' Deprecated: use [de_md_plot()] instead. This shim reproduces the old
-#' formals of `create_MD_plot()` verbatim and forwards to `de_md_plot()`,
-#' whose formals are identical (the old `fdr_cutoff` name is unchanged).
+#' formals of `create_MD_plot()` verbatim and forwards to `de_md_plot()`.
+#' The frozen `color_palette` formal forwards to the new `palette` formal;
+#' `fdr_cutoff` is unchanged.
 #'
-#' @inheritParams de_md_plot
+#' @param fit An `MArrayLM` object from limma.
+#' @param coef Integer index or character name of the coefficient to plot.
+#' @param de_results Optional matching `topTable()` data frame.
+#' @param fc_cutoff Numeric absolute log2 fold-change guide.
+#' @param fdr_cutoff Numeric FDR threshold for the Up/Down call.
+#' @param top_n Integer genes labelled per direction.
+#' @param highlight_gene Character vector of gene IDs always labelled.
+#' @param label_method Label-selection method.
+#' @param max.overlaps Passed to [ggrepel::geom_text_repel()].
+#' @param title Plot title.
+#' @param color_palette Named colours for `Up`, `Down`, and `NS`.
+#' @param show_grid Logical. Keep the panel grid.
+#' @param show_quadrant_counts Logical. Annotate significant-gene counts.
 #'
 #' @return A `ggplot2` object.
 #' @export
@@ -621,7 +649,7 @@ create_MD_plot <- function(
     label_method = label_method,
     max.overlaps = max.overlaps,
     title = title,
-    color_palette = color_palette,
+    palette = color_palette,
     show_grid = show_grid,
     show_quadrant_counts = show_quadrant_counts
   )

@@ -6,7 +6,7 @@
 \usage{
 .gs_plot_frame(
   x,
-  top = NULL,
+  top_n = NULL,
   sort_by = "padj",
   direction = "both",
   group_by = NULL,
@@ -20,7 +20,7 @@
 \arguments{
 \item{x}{A \code{gs_result}.}
 
-\item{top}{Integer. Rows kept per selection group; \code{NULL} or \code{Inf} keeps
+\item{top_n}{Integer. Rows kept per selection group; \code{NULL} or \code{Inf} keeps
 all.}
 
 \item{sort_by}{One of \code{"padj"}, \code{"p_value"}, \code{"stat"} (absolute magnitude),
@@ -32,7 +32,7 @@ all.}
 or \code{NULL}.}
 
 \item{keep_ids}{Character vector of \code{pathway_id}s. When supplied, rows are
-restricted to these ids and \code{top} selection is skipped -- this is how
+restricted to these ids and \code{top_n} selection is skipped -- this is how
 \verb{compare =} keeps every panel of a comparison grid on the same pathways.}
 
 \item{highlight}{Numeric FDR threshold for the \code{significant} flag, or

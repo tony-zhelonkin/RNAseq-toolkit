@@ -21,7 +21,9 @@ gs_save(
 \item{path}{Output path stem. A recognised extension (\code{.pdf}, \code{.png},
 \code{.tsv}) is stripped; the parent directory is created if missing.}
 
-\item{width, height}{Figure size in inches.}
+\item{width}{Figure width in inches.}
+
+\item{height}{Figure height in inches.}
 
 \item{dpi}{Resolution for the raster output.}
 
@@ -59,6 +61,6 @@ db <- structure(
 )
 res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
                db, min_size = 1, max_size = 10)
-p <- gs_plot_dot(res, top = 5)
+p <- gs_plot_dot(res, top_n = 5)
 gs_save(p, file.path(tempdir(), "figures", "demo_dot"))
 }

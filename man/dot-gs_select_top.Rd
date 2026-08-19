@@ -4,12 +4,12 @@
 \alias{.gs_select_top}
 \title{Select the top rows of a plotting frame}
 \usage{
-.gs_select_top(df, top = NULL, sort_by = "padj", group_by = NULL)
+.gs_select_top(df, top_n = NULL, sort_by = "padj", group_by = NULL)
 }
 \arguments{
 \item{df}{A data frame from \code{\link[=.gs_plot_frame]{.gs_plot_frame()}}.}
 
-\item{top}{Integer or \code{NULL}.}
+\item{top_n}{Integer or \code{NULL}.}
 
 \item{sort_by}{One of \code{"padj"}, \code{"p_value"}, \code{"stat"}, \code{"stat_signed"}.}
 

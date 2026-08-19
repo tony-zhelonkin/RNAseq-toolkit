@@ -12,7 +12,7 @@
 #' @param gse_id A single GEO series accession present in the chunk.
 #' @param query A non-empty integer vector of Entrez IDs. Duplicate IDs are
 #'   removed with a message before loading extraction.
-#' @param n_top Positive whole number of loadings to retain.
+#' @param top_n Positive whole number of loadings to retain.
 #' @param gpl Optional GEO platform accession. When omitted and the GSE occurs
 #'   on more than one platform in the chunk, the first platform in
 #'   locale-independent radix order is used with a warning.
@@ -26,7 +26,7 @@
 #' )
 #' }
 #' @export
-coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
+coresh_loadings <- function(chunk_path, gse_id, query, top_n = 50L,
                             gpl = NULL) {
   if (!is.character(chunk_path) || length(chunk_path) != 1L ||
       is.na(chunk_path) || !nzchar(chunk_path)) {
@@ -57,7 +57,7 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
             if (n_duplicates == 1L) "" else "s", " from `query`.")
   }
   query <- deduplicated
-  n_top <- .coresh_positive_integer(n_top, "n_top")
+  top_n <- .coresh_positive_integer(top_n, "top_n")
 
   chunk <- .coresh_read_chunk(chunk_path)
   if (!is.list(chunk) || !length(chunk)) {
@@ -106,7 +106,7 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
   }
   loadings <- as.numeric(E %*% (profile / norm))
   ordering <- order(-abs(loadings), method = "radix", na.last = TRUE)
-  keep <- utils::head(ordering, min(n_top, length(ordering)))
+  keep <- utils::head(ordering, min(top_n, length(ordering)))
 
   tibble::tibble(
     gse = gse_id,
@@ -282,8 +282,9 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
 #' @param queries A non-empty named list of integer Entrez vectors.
 #' @param chunk_dir Optional explicit path to an `hsa` or `mmu` chunk directory.
 #' @param species One of `"human"`, `"hsa"`, `"mouse"`, or `"mmu"`.
-#' @param n_top Positive whole number of absolute loadings to retain per hit.
-#' @param min_size,max_size Positive whole-number set-size bounds.
+#' @param top_n Positive whole number of absolute loadings to retain per hit.
+#' @param min_size Positive whole-number minimum set size.
+#' @param max_size Positive whole-number maximum set size.
 #' @param jaccard_threshold Numeric threshold in `[0, 1]`. A later, lower
 #'   priority set is removed when overlap is strictly greater than this value.
 #' @param verbose Logical. Report the reason for each skipped hit in addition
@@ -301,19 +302,19 @@ coresh_loadings <- function(chunk_path, gse_id, query, n_top = 50L,
 #' }
 #' @export
 coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
-                        species = "human", n_top = 50L,
+                        species = "human", top_n = 50L,
                         min_size = 15L, max_size = 500L,
                         jaccard_threshold = 0.8, verbose = FALSE) {
   .coresh_validate_set_inputs(top_hits, queries)
-  n_top <- .coresh_positive_integer(n_top, "n_top")
+  top_n <- .coresh_positive_integer(top_n, "top_n")
   min_size <- .coresh_positive_integer(min_size, "min_size")
   max_size <- .coresh_positive_integer(max_size, "max_size")
   if (min_size > max_size) {
     stop("`min_size` must not exceed `max_size`.", call. = FALSE)
   }
-  if (min_size > n_top) {
-    stop("`min_size` (", min_size, ") must not exceed `n_top` (", n_top,
-         "); symbol mapping can only retain or reduce the `n_top` extracted ",
+  if (min_size > top_n) {
+    stop("`min_size` (", min_size, ") must not exceed `top_n` (", top_n,
+         "); symbol mapping can only retain or reduce the `top_n` extracted ",
          "genes.", call. = FALSE)
   }
   if (!is.numeric(jaccard_threshold) || length(jaccard_threshold) != 1L ||
@@ -381,7 +382,7 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
         location$chunk,
         row$gse[[1L]],
         queries[[row$query_name[[1L]]]],
-        n_top = n_top,
+        top_n = top_n,
         gpl = location$gpl
       )
       used_gpl <- unique(loadings$gpl)
@@ -507,7 +508,7 @@ coresh_sets <- function(top_hits, queries, chunk_dir = NULL,
     species = species_info$scientific,
     n_chunks = index_provenance$n_chunks %||%
       as.integer(length(unique(index$chunk))),
-    n_top = n_top,
+    top_n = top_n,
     min_size = min_size,
     max_size = max_size,
     jaccard_threshold = jaccard_threshold

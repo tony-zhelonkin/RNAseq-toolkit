@@ -131,7 +131,7 @@ test_that("a gs_result selects its top pathways by abs(stat) and needs a db", {
   res <- rs_result()
   ranks <- rs_ranks()
   expect_error(gs_plot_running(res, ranks = ranks), "`db` is required")
-  p <- gs_plot_running(res, ranks = ranks, db = rs_db(), top = 2)
+  p <- gs_plot_running(res, ranks = ranks, db = rs_db(), top_n = 2)
   gd <- ggplot2::get_guide_data(p, "colour")
   expect_equal(sort(as.character(gd$.value)), c("SET_A", "SET_B"))
   expect_equal(gd$.label[as.character(gd$.value) == "SET_A"], "Alpha response")
@@ -154,7 +154,7 @@ test_that("ranks and gene sets can arrive as attributes of x", {
   x <- rs_result()
   attr(x, "ranks") <- rs_ranks()
   attr(x, "gene_sets") <- rs_sets()
-  expect_s3_class(gs_plot_running(x, top = 1), "ggplot")
+  expect_s3_class(gs_plot_running(x, top_n = 1), "ggplot")
 })
 
 test_that("missing or malformed ranks error clearly", {

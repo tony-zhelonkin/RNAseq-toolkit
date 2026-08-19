@@ -1,5 +1,5 @@
 test_that("gs_save writes pdf, png and the same-stem source table", {
-  p <- gs_plot_dot(fake_plot_result(n = 5L), top = 4)
+  p <- gs_plot_dot(fake_plot_result(n = 5L), top_n = 4)
   stem <- file.path(tmp_dir(), "figures", "demo_dot")
   out <- gs_save(p, stem, width = 6, height = 4)
 
@@ -18,7 +18,7 @@ test_that("a known extension on the path is stripped, not doubled", {
 })
 
 test_that("the written table is the plot's source frame", {
-  p <- gs_plot_dot(fake_plot_result(n = 6L), top = 3)
+  p <- gs_plot_dot(fake_plot_result(n = 6L), top_n = 3)
   stem <- file.path(tmp_dir(), "demo")
   gs_save(p, stem, formats = "png")
   tab <- utils::read.delim(paste0(stem, ".tsv"), check.names = FALSE)
@@ -43,7 +43,7 @@ test_that("table = FALSE writes images only", {
 })
 
 test_that("an explicit data argument overrides the plot's source", {
-  p <- gs_plot_bar(fake_plot_result(n = 5L), top = 5)
+  p <- gs_plot_bar(fake_plot_result(n = 5L), top_n = 5)
   stem <- file.path(tmp_dir(), "demo")
   gs_save(p, stem, formats = "png", data = data.frame(x = 1:2))
   expect_equal(names(utils::read.delim(paste0(stem, ".tsv"))), "x")
@@ -80,7 +80,7 @@ test_that(".gs_plot_all writes the standard set per database", {
   res <- fake_plot_result(n = 6L,
                           databases = c("msigdb_H", "mitopathways"))
   d <- tmp_dir()
-  out <- bulkiRNA:::.gs_plot_all(res, d, top = 3)
+  out <- bulkiRNA:::.gs_plot_all(res, d, top_n = 3)
   expect_true(all(file.exists(out)))
   expect_true(dir.exists(file.path(d, "msigdb_H")))
   expect_true(dir.exists(file.path(d, "mitopathways")))

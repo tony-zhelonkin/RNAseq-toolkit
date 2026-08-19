@@ -76,22 +76,17 @@ test_that("live export formals use the complete audited vocabulary", {
   argument_concepts <- c(
     list(
       result_limit = concept(
-        c("top", "top_n", "n_top"),
+        "top_n",
         paste(
-          "Three spellings for the number of results to retain. None of the",
-          "ten exports carrying them is signature-frozen and none appears in",
-          "the consumer inventory, so unifying them is an unmade decision",
-          "rather than a cost. Recorded as an exception so the test states",
-          "what is true; see 04_NAME_AUDIT.md."
+          "This is the canonical spelling for the number of results to",
+          "retain; see 04_NAME_AUDIT.md."
         )
       ),
       colour_palette = concept(
-        c("color_palette", "colours", "palette"),
+        "palette",
         paste(
-          "Three spellings for a colour palette. As with `result_limit`,",
-          "none of the seven exports carrying them is frozen and none has a",
-          "consumer call site, so this is an unmade naming decision, not a",
-          "constraint; see 04_NAME_AUDIT.md."
+          "This is the canonical spelling for a colour palette; see",
+          "04_NAME_AUDIT.md."
         )
       ),
       b_statistic_cutoff = concept(
@@ -172,16 +167,7 @@ test_that("live export formals use the complete audited vocabulary", {
       )
     )
   )
-  multiple_spelling_exceptions <- list(
-    result_limit = concept(
-      c("top", "top_n", "n_top"),
-      "These spellings are fixed by three frozen public signatures."
-    ),
-    colour_palette = concept(
-      c("color_palette", "colours", "palette"),
-      "These spellings are fixed by public signatures and upstream vocabulary."
-    )
-  )
+  multiple_spelling_exceptions <- list()
   non_snake_case_exceptions <- c(
     B_cutoff = "established limma B-statistic spelling",
     baseMean = "upstream DESeq2 column spelling",
@@ -195,6 +181,14 @@ test_that("live export formals use the complete audited vocabulary", {
   observed <- sort(unique(unlist(lapply(live, function(name) {
     names(formals(getExportedValue("bulkiRNA", name)))
   }), use.names = FALSE)))
+  heatmap_method_formals <- sort(unique(unlist(lapply(
+    c("gs_result", "gs_matrix"),
+    function(class) names(formals(getS3method("gs_plot_heatmap", class)))
+  ), use.names = FALSE)))
+  heatmap_method_concept_formals <- intersect(
+    heatmap_method_formals,
+    c("top", "top_n", "n_top", "color_palette", "colours", "palette")
+  )
   assignments <- unlist(lapply(argument_concepts, `[[`, "formals"),
                         use.names = FALSE)
   audited <- sort(unique(assignments))
@@ -205,16 +199,22 @@ test_that("live export formals use the complete audited vocabulary", {
     function(x) any(x$formals %in% unused),
     logical(1L)
   )]
-  actual_multiple <- lapply(
+  # Both sides must be a *named* list even when empty. Subsetting an empty
+  # named list by `sort(names(.))` yields one; `lapply()` over an empty
+  # unnamed list does not, so the two compared unequal on the passing case --
+  # which only appeared once the last multi-spelling exception went away.
+  named_list <- function(x) {
+    if (!length(x)) return(stats::setNames(list(), character(0L)))
+    x[sort(names(x))]
+  }
+  actual_multiple <- named_list(lapply(
     argument_concepts[lengths(lapply(argument_concepts, `[[`, "formals")) > 1L],
     function(x) sort(x$formals)
-  )
-  actual_multiple <- actual_multiple[sort(names(actual_multiple))]
-  expected_multiple <- lapply(
+  ))
+  expected_multiple <- named_list(lapply(
     multiple_spelling_exceptions,
     function(x) sort(x$formals)
-  )
-  expected_multiple <- expected_multiple[sort(names(expected_multiple))]
+  ))
   multiple_names <- union(names(actual_multiple), names(expected_multiple))
   multiple_drift <- multiple_names[!vapply(multiple_names, function(name) {
     identical(actual_multiple[[name]], expected_multiple[[name]])
@@ -276,6 +276,14 @@ test_that("live export formals use the complete audited vocabulary", {
       "A concept may have multiple spellings only when that exact set is a",
       "reasoned exception. Reject the new spelling or deliberately revise",
       "the exception."
+    )
+  )
+  expect_identical(
+    heatmap_method_concept_formals,
+    c("palette", "top_n"),
+    info = paste(
+      "Public S3 method formals reached through `...` must use the same",
+      "result-limit and palette spellings as their exported generic."
     )
   )
   expect_identical(

@@ -25,8 +25,7 @@ create_MD_plot(
 
 \item{coef}{Integer index or character name of the coefficient to plot.}
 
-\item{de_results}{Optional \code{topTable()} data frame matching \code{fit}. When
-\code{NULL} it is extracted from \code{fit} with \code{sort.by = "none"}.}
+\item{de_results}{Optional matching \code{topTable()} data frame.}
 
 \item{fc_cutoff}{Numeric absolute log2 fold-change guide.}
 
@@ -34,27 +33,26 @@ create_MD_plot(
 
 \item{top_n}{Integer genes labelled per direction.}
 
-\item{highlight_gene}{Character vector of gene IDs always labelled, bold and
-black.}
+\item{highlight_gene}{Character vector of gene IDs always labelled.}
 
-\item{label_method}{One of \code{"top"}, \code{"sig"}, \code{"fdr"}, \code{"log2fc"}, \code{"none"}.}
+\item{label_method}{Label-selection method.}
 
 \item{max.overlaps}{Passed to \code{\link[ggrepel:geom_text_repel]{ggrepel::geom_text_repel()}}.}
 
-\item{title}{Plot title; defaults to \code{"MD plot: <coef>"}.}
+\item{title}{Plot title.}
 
-\item{color_palette}{Named colours for \code{Up}, \code{Down} and \code{NS}.}
+\item{color_palette}{Named colours for \code{Up}, \code{Down}, and \code{NS}.}
 
 \item{show_grid}{Logical. Keep the panel grid.}
 
-\item{show_quadrant_counts}{Logical. Annotate the number of significant
-genes in each quadrant of (median expression, zero fold change).}
+\item{show_quadrant_counts}{Logical. Annotate significant-gene counts.}
 }
 \value{
 A \code{ggplot2} object.
 }
 \description{
 Deprecated: use \code{\link[=de_md_plot]{de_md_plot()}} instead. This shim reproduces the old
-formals of \code{create_MD_plot()} verbatim and forwards to \code{de_md_plot()},
-whose formals are identical (the old \code{fdr_cutoff} name is unchanged).
+formals of \code{create_MD_plot()} verbatim and forwards to \code{de_md_plot()}.
+The frozen \code{color_palette} formal forwards to the new \code{palette} formal;
+\code{fdr_cutoff} is unchanged.
 }

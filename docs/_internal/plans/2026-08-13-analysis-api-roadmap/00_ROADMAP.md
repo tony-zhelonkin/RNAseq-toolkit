@@ -686,7 +686,7 @@ Recording it here because most of it is about *how* the code was verified, not w
 
 ### What it confirmed, with its own measurements
 
-- **Tie order and the `n_top` boundary are not a defect.** `order(-abs(x), method = "radix")` and
+- **Tie order and the `top_n` boundary are not a defect.** `order(-abs(x), method = "radix")` and
   the reference's `order(abs(x), decreasing = TRUE)` are identical *including tie order* — radix is
   stable in both directions, verified in R 4.5.3 on `c(5, 1, 5, 3, 5)`. `E %*% (profile / norm)` is
   bit-identical to the reference's two-step form.
@@ -721,13 +721,13 @@ outside `min_size`/`max_size` was dropped by a bare `next` — uncounted, unmess
 `failures`, so the total-failure `stop()` could not fire. Reproduced before acting:
 
 ```
-coresh_sets(hits, list(q = 1:5L), n_top = 5L, min_size = 15L)
+coresh_sets(hits, list(q = 1:5L), top_n = 5L, min_size = 15L)
 → RESULT class: gs_db  sets: 0  -- no error, no message
 ```
 
 **The G2 work closed the reference's `tryCatch`/`"skip:"` hole and reopened it one step downstream**,
 which is worse than leaving it, because the code now looks like it handles the case. The ways in are
-ordinary: retired Entrez ids, a species mismatch reaching `entrez_to_gene()`, an `n_top` smaller than
+ordinary: retired Entrez ids, a species mismatch reaching `entrez_to_gene()`, a `top_n` smaller than
 `min_size` — which was unsatisfiable and unvalidated — or duplicate-collapse-plus-NA-drop on a real
 dataset like the fixture's `na_ids` object.
 
@@ -755,7 +755,7 @@ list of suspicions: it says what the suite actually holds.
 
 All of it, in one round, gated here. **1,596 tests passing, golden 20/20, `R CMD check` 0/0/0.**
 Size drops are counted and always reported, a zero-set outcome always says so, and
-`min_size > n_top` now errors — `min_size` (15) must not exceed `n_top` (5); symbol mapping can only
+`min_size > top_n` now errors — `min_size` (15) must not exceed `top_n` (5); symbol mapping can only
 retain or reduce the extracted genes. The taxonomy separates a lookup miss, an extraction failure and
 a name collision. The NA guard is exercised by a test that runs the extraction for real on the
 `na_ids` fixture object and stubs only the mapper. Provenance survives the human-to-mouse rebuild,
@@ -765,7 +765,7 @@ common columns.
 Verified after the fix, both paths:
 
 ```
-min_size 15 > n_top 5  → `min_size` (15) must not exceed `n_top` (5); symbol mapping can only ...
+min_size 15 > top_n 5  → `min_size` (15) must not exceed `top_n` (5); symbol mapping can only ...
 a legitimate zero-set  → size filter dropped 1 of 1 hits outside [1, 2] genes.
                        → 1 hits attempted, 0 sets produced.
 ```
@@ -858,9 +858,10 @@ singleton bucket is where the residual enumeration lives: appending there is sti
 mechanical evasion. The test makes classification the cheapest honest fix; review still has to judge
 whether the classification is true.
 
-Three candidate unifications came out of building it and were **deliberately not renamed**, because
-that is a decision rather than a cleanup: `top`/`top_n`/`n_top`, `color_palette`/`colours`/`palette`,
-and four non-snake-case formals (`B_cutoff`, `baseMean`, `log2FC`, `max.overlaps`).
+Three candidate unifications came out of building it and were initially left for an owner decision:
+`top`/`top_n`/`n_top`, `color_palette`/`colours`/`palette`, and four non-snake-case formals
+(`B_cutoff`, `baseMean`, `log2FC`, `max.overlaps`). On 2026-08-19 the owner chose `top_n` and
+`palette`; the four upstream non-snake-case formals remain reasoned exceptions.
 
 The layer-coverage test was checked and left alone: it does have teeth, and `test-api.R`'s
 registry-versus-`NAMESPACE` comparison closes the drift hole that would otherwise let an unregistered
@@ -907,7 +908,7 @@ paths with no coverage at all.
 ## 14. Measuring the concept grouping against the criteria set for it (2026-08-19)
 
 The reviewer set three falsifiable tests for §13's grouped vocabulary before it landed, rather than
-judging the structure by eye. All three are now run. **One passes, one fails by a wide margin, and
+judging the structure by eye. All three were run. **One passed, one failed by a wide margin, and
 the third found a defect in the exceptions themselves.**
 
 ### Test 1 — did the bidirectional check survive? Yes
@@ -945,7 +946,7 @@ difference between a blacklist and a contract" was too strong, and is corrected 
 escape moved from appending a name to declaring a false singleton concept, and with 157 singletons
 already present, a 158th looks entirely normal.
 
-### Test 3 — the fourth-spelling check passes on the path it covers
+### Test 3 — the fourth-spelling check passed on the path it covered
 
 Planted `n_features` in `result_limit`:
 
@@ -955,8 +956,8 @@ A concept may have multiple spellings only when that exact set is a reasoned exc
 Reject the new spelling or deliberately revise the exception.
 ```
 
-That is a classification. But it only fires for a name classified into an existing multi-spelling
-concept, which is the one path an author trying to get a name through would not choose.
+That was a classification. But it only fired for a name classified into an existing multi-spelling
+concept, which was the one path an author trying to get a name through would not choose.
 
 ### The defect: both multi-spelling exceptions were argued from a false premise
 
@@ -964,20 +965,24 @@ The reviewer asked for the three unrenamed concepts to be named, on the grounds 
 exception in an enforcement test is load-bearing in a way a table row is not** — it is the thing that
 stops the test failing. That was the right instinct. Measured across every live export:
 
-| Concept | Spellings and their exports | Frozen? | Consumer call sites |
+| Concept | Spellings and their public paths before the decision | Frozen? | Consumer call sites |
 |---|---|---|---|
-| `result_limit` | `top` (`gs_leading_edge`, `gs_plot_bar`, `gs_plot_dot`, `gs_plot_running`), `top_n` (`coresh_convergence`, `de_bfc_plot`, `de_md_plot`, `de_volcano`), `n_top` (`coresh_loadings`, `coresh_sets`) | **none of the 10** | **0** |
-| `colour_palette` | `color_palette` (4 `de_*`), `colours` (`gs_plot_bar`, `gs_plot_dot`), `palette` (`gs_plot_running`) | **none of the 7** | **0** |
+| `result_limit` | `top` (`gs_leading_edge`, `gs_plot_bar`, `gs_plot_dot`, `gs_plot_running`, plus `gs_plot_heatmap` methods), `top_n` (`coresh_convergence`, `de_bfc_plot`, `de_md_plot`, `de_volcano`), `n_top` (`coresh_loadings`, `coresh_sets`) | **none of the 11** | **0** |
+| `colour_palette` | `color_palette` (4 `de_*`), `colours` (`gs_plot_bar`, `gs_plot_dot`, plus `gs_plot_heatmap` methods), `palette` (`gs_plot_running`) | **none of the 8** | **0** |
 | non-snake-case | `B_cutoff`, `baseMean`, `log2FC`, `max.overlaps` | none | 0 |
 
-Both reasons said "frozen signatures". **Not one of those seventeen exports is signature-frozen**, and
-not one appears in `used-functions.tsv`. So the constraint the exceptions cited does not exist, and
-the unification they excuse would cost nothing to perform.
+Both reasons said "frozen signatures". None of the affected signatures is frozen, and none of the
+exports appears in `used-functions.tsv`. The original measurement found 17 explicit formal/export
+occurrences. Source inspection before the rename found two more public argument paths:
+`gs_plot_heatmap()` declares `top` and `colours` on its `gs_result` and `gs_matrix` methods, reached
+through the exported generic's `...`. The same inventory check returned zero call sites for that
+export too.
 
-The reasons are corrected to say what is true: this is an unmade naming decision, not a constraint.
-The non-snake-case four keep their exception on the argument that actually holds — they match limma,
-DESeq2, GATOM and ggrepel spellings — which was never about frozenness.
+That finding exposed a limit in the enforcement test: walking `formals()` on exported generics does
+not see method formals hidden behind `...`. The test now checks the two heatmap method signatures for
+the retired spellings explicitly.
 
-**Whether to unify them is the owner's call**, because it is a naming preference in their own API and
-S3's promise was one spelling per concept. It is recorded here as open, with the cost measured at
-zero, rather than settled in a test.
+The owner decided on 2026-08-19 to unify the result limit on `top_n` and the colour palette on
+`palette`. All affected formals were renamed in place, including the heatmap methods, so positional
+callers remain unaffected. No argument-level deprecation aliases were added. The two multi-spelling
+exceptions were removed; only the four upstream non-snake-case exceptions remain.

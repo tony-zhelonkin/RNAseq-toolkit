@@ -41,7 +41,7 @@ renderer that uses `.gs_order_labels` is affected (dot, bar, heatmap).
 
 **Evidence** — ran in container:
 ```
-> s3 <- attr(gs_plot_dot(r3, top = 4), "gs_source")   # names: HALLMARK_APOPTOSIS, KEGG_APOPTOSIS, A_X, B_Y
+> s3 <- attr(gs_plot_dot(r3, top_n = 4), "gs_source") # names: HALLMARK_APOPTOSIS, KEGG_APOPTOSIS, A_X, B_Y
   pathway_id     label
 1         P1 Apoptosis
 2         P2 Apoptosis
@@ -135,7 +135,7 @@ and saturated in the other, and a reader compares the colours.
 
 **Evidence** — ran in container (`sort_by = "stat"` default):
 ```
-> sb <- attr(gs_plot_bar(r2, top = 4), "gs_source"); sb[, c("pathway_id","stat")]
+> sb <- attr(gs_plot_bar(r2, top_n = 4), "gs_source"); sb[, c("pathway_id","stat")]
   P1 -2.00 ; P4 2.00 ; P2 -0.67 ; P3 0.67      # table order
 > levels(sb$label)   # figure order, bottom -> top
 [1] "Set 1" "Set 2" "Set 3" "Set 4"            # P1, P2, P3, P4
@@ -166,7 +166,7 @@ in two places, and the heatmap's third copy will drift).
 ### 8. Two small contract wrinkles: variance selection inside the matrix heatmap, and a duplicated 14 pt floor  [severity: low]
 **R/gs-plot-heatmap.R:143** — `spread <- apply(as.matrix(m), 1L, stats::var, ...)`: the
 renderer derives a statistic (row variance) to select rows, which is the one place in this
-layer where "renderers never compute" bends. Related: the docs say `top` selects "by score
+layer where "renderers never compute" bends. Related: the docs say `top_n` selects "by score
 variance", but rows are then *ordered* by mean score (`.gs_order_labels(by = "score")`,
 heatmap:177), so the visual order is not the selection order.
 **R/gs-plot-running.R:507** — `base_size <- max(base_size, 14)` re-applies the floor that
@@ -174,7 +174,7 @@ heatmap:177), so the visual order is not the selection order.
 split exists to keep in one place; it also silently overrides a `base_theme` the caller
 passed at a smaller size.
 
-**Evidence** — ran in container: `gs_plot_heatmap(gm, top = 3)` kept `S1,S3,S4` for row
+**Evidence** — ran in container: `gs_plot_heatmap(gm, top_n = 3)` kept `S1,S3,S4` for row
 variances `111.77, 0.05, 0.84, 2.77, 0.35` (correct top-3 set, but drawn in mean-score
 order). Floor duplication is a direct quote of the two lines.
 
@@ -182,7 +182,7 @@ order). Floor duplication is a direct quote of the two lines.
 floor means `gs_plot_running(base_size = 11, base_theme = my_11pt_theme)` renders at 14 pt
 chrome over an 11 pt base, i.e. mismatched text sizes.
 
-**Suggested fix** — note in `@param top` that selection is by variance and display order by
+**Suggested fix** — note in `@param top_n` that selection is by variance and display order by
 mean score; drop the `max(base_size, 14)` in `.grs_theme()` and let `theme_bulki()` own the
 floor (skip it entirely when `base_theme` is supplied).
 

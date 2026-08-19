@@ -173,7 +173,7 @@ gs_split <- function(x, by = c("database", "contrast"), drop_empty = TRUE) {
 #'
 #' @param x A [gs_result].
 #' @param padj Numeric. Keep only pathways below this FDR; `NULL` keeps all.
-#' @param top Integer. Keep only the top `top` pathways by `padj`.
+#' @param top_n Integer. Keep only the top `top_n` pathways by `padj`.
 #' @param unique_genes Logical. Return one pooled, de-duplicated character
 #'   vector instead of a per-pathway list.
 #' @return A named list of character vectors (names are `pathway_id`), or a
@@ -189,7 +189,8 @@ gs_split <- function(x, by = c("database", "contrast"), drop_empty = TRUE) {
 #'                db, min_size = 1, max_size = 10)
 #' gs_leading_edge(res)
 #' @export
-gs_leading_edge <- function(x, padj = NULL, top = NULL, unique_genes = FALSE) {
+gs_leading_edge <- function(x, padj = NULL, top_n = NULL,
+                            unique_genes = FALSE) {
   .gs_check_result(x)
   if (is.null(x[["leading_edge"]])) {
     stop("This result carries no `leading_edge` column, so there are no genes ",
@@ -197,7 +198,9 @@ gs_leading_edge <- function(x, padj = NULL, top = NULL, unique_genes = FALSE) {
          "do not.", call. = FALSE)
   }
   if (!is.null(padj)) x <- gs_filter(x, padj = padj)
-  if (!is.null(top)) x <- gs_top(x, n = top, by = "padj", per = character(0))
+  if (!is.null(top_n)) {
+    x <- gs_top(x, n = top_n, by = "padj", per = character(0))
+  }
   out <- stats::setNames(
     lapply(x[["leading_edge"]], function(z) as.character(unlist(z))),
     x$pathway_id

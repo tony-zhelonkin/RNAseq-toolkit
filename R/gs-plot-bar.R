@@ -6,12 +6,12 @@
 #' `log2 fold enrichment` as appropriate.
 #'
 #' Unlike the old `gsea_barplot()`, non-significant pathways are **not silently
-#' dropped**: `top` and `sort_by` choose what is shown and `highlight` outlines
+#' dropped**: `top_n` and `sort_by` choose what is shown and `highlight` outlines
 #' the significant ones. Pass `padj_max` if you do want a hard significance
 #' filter.
 #'
 #' @param x A [gs_result].
-#' @param top Number of pathways to display, per selection group.
+#' @param top_n Number of pathways to display, per selection group.
 #' @param sort_by Selection metric: `"stat"` (default, largest absolute value),
 #'   `"padj"`, `"p_value"` or `"stat_signed"`.
 #' @param direction Restrict to `"both"` (default), `"up"` or `"down"`.
@@ -24,7 +24,7 @@
 #'   take a different colour in two figures; pass an explicit `limits` when
 #'   panels are meant to be compared. The old renderer used a fixed
 #'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
-#' @param colours Length-3 character vector -- low, mid, high fill colours.
+#' @param palette Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.
@@ -41,17 +41,17 @@
 #' )
 #' res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
 #'                db, min_size = 1, max_size = 10)
-#' gs_plot_bar(res, top = 5)
+#' gs_plot_bar(res, top_n = 5)
 #' @export
 gs_plot_bar <- function(x,
-                        top = 20,
+                        top_n = 20,
                         sort_by = c("stat", "padj", "p_value", "stat_signed"),
                         direction = c("both", "up", "down"),
                         facet = c("none", "direction", "database", "contrast"),
                         padj_max = NULL,
                         highlight = 0.05,
                         limits = NULL,
-                        colours = .gs_diverging_colours(),
+                        palette = .gs_diverging_colours(),
                         wrap_width = 50,
                         strip_prefix = TRUE,
                         title = NULL,
@@ -69,7 +69,7 @@ gs_plot_bar <- function(x,
   }
 
   df <- .gs_plot_frame(
-    x, top = top, sort_by = sort_by, direction = direction,
+    x, top_n = top_n, sort_by = sort_by, direction = direction,
     group_by = if (facet == "none") NULL else facet,
     highlight = highlight, wrap_width = wrap_width,
     strip_prefix = strip_prefix, database_labels = database_labels
@@ -85,7 +85,7 @@ gs_plot_bar <- function(x,
     geom_col(aes(fill = .data$stat, colour = .data$outline),
              linewidth = 0.4) +
     scale_colour_identity() +
-    .gs_fill_scale(gs_stat_label(x), limits, colours) +
+    .gs_fill_scale(gs_stat_label(x), limits, palette) +
     geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.3) +
     coord_flip() +
     labs(title = title, x = NULL, y = gs_stat_label(x)) +

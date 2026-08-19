@@ -49,7 +49,7 @@ Pass genes in place of ranks:
 ```r
 sig <- rownames(de_table)[de_table$adj.P.Val < 0.05]
 ora <- gs_test(sig, db)             # dispatches to fgsea::fora()
-gs_plot_dot(ora, top = 20)
+gs_plot_dot(ora, top_n = 20)
 ```
 
 ## Per-sample scores and a heatmap
@@ -64,10 +64,10 @@ gs_plot_heatmap(mat)
 ```r
 res |> gs_filter(padj = 0.05) |> gs_top(20, by = "stat") |> gs_plot_dot()
 
-gs_plot_dot(res, top = 10, facet = "database")           # one panel per database
-gs_plot_dot(res, top = 10, direction = "up")             # up-regulated only
-gs_plot_dot(ab,  top = 10, compare = "contrast")         # contrasts side by side
-gs_plot_running(res, ranks = ranks, db = db, top = 3)    # takes ranks and sets
+gs_plot_dot(res, top_n = 10, facet = "database")       # one panel per database
+gs_plot_dot(res, top_n = 10, direction = "up")         # up-regulated only
+gs_plot_dot(ab, top_n = 10, compare = "contrast")      # contrasts side by side
+gs_plot_running(res, ranks = ranks, db = db, top_n = 3) # takes ranks and sets
 ```
 
 Save a plot together with the table behind it, so any figure traces back to its numbers:

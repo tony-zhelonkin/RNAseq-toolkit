@@ -79,7 +79,7 @@
 #'   thresholds actually drawn.
 #' @param fixed_p_boundary Numeric raw *p* to pin the FDR boundary line to, or
 #'   `NULL` to derive it from the significant set.
-#' @param color_palette Named character vector of four colours for `NS`,
+#' @param palette Named character vector of four colours for `NS`,
 #'   `Log2FC`, `p-value` and `p-value & Log2FC`.
 #' @param show_grid Logical. Keep the panel grid.
 #' @param max.overlaps Passed to [ggrepel::geom_text_repel()].
@@ -114,7 +114,7 @@ de_volcano <- function(
     subtitle         = NULL,
     caption          = NULL,
     fixed_p_boundary = NULL,
-    color_palette    = c(
+    palette          = c(
       "NS"               = "#7F7F7F",
       "Log2FC"           = "#0173B2",
       "p-value"          = "#029E73",
@@ -219,7 +219,7 @@ de_volcano <- function(
   # at the bottom of a blank panel. Clamp at the smallest representable double.
   p_top   <- max(-log10(pmax(df$P.Value, .Machine$double.xmin)), na.rm = TRUE)
   p_max   <- ceiling(p_top)
-  dark_pal <- .de_shade(color_palette)
+  dark_pal <- .de_shade(palette)
 
   legend_labels <- c(
     "p-value & Log2FC" = sprintf("%s & |log2FC| \u2265 %.1f", legend_sig, fc_cutoff),
@@ -292,8 +292,8 @@ de_volcano <- function(
   }
 
   g <- g +
-    scale_colour_manual(name = NULL, values = color_palette,
-                        breaks = names(color_palette),
+    scale_colour_manual(name = NULL, values = palette,
+                        breaks = names(palette),
                         labels = legend_labels) +
     labs(title = title, subtitle = subtitle,
          caption = if (is.null(caption)) auto_caption else caption) +

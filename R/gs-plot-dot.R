@@ -6,7 +6,7 @@
 #' a colorblind-safe diverging scale.
 #'
 #' **Selection and highlighting are separate**, which is the behaviour the old
-#' `gsea_dotplot()` established and worth keeping: `top` and `sort_by` decide
+#' `gsea_dotplot()` established and worth keeping: `top_n` and `sort_by` decide
 #' *what is shown*, `highlight` decides *what gets a black outline*. A pathway
 #' can be displayed without being significant.
 #'
@@ -15,7 +15,7 @@
 #' the database *label*, never the snake_case `database` key.
 #'
 #' @param x A [gs_result].
-#' @param top Number of pathways to display, per selection group. `NULL` shows
+#' @param top_n Number of pathways to display, per selection group. `NULL` shows
 #'   all.
 #' @param aes_x What the x axis carries: `"stat"` (default) or `"gene_ratio"`
 #'   (leading-edge size over set size; requires a `leading_edge` or `overlap`
@@ -24,7 +24,7 @@
 #'   (largest absolute value) or `"stat_signed"` (most positive).
 #' @param direction Restrict to `"both"` (default), `"up"` or `"down"`.
 #' @param facet Row facets: `"none"` (default), `"direction"` -- the old
-#'   `gsea_dotplot_facet()` -- `"database"` or `"contrast"`. `top` applies
+#'   `gsea_dotplot_facet()` -- `"database"` or `"contrast"`. `top_n` applies
 #'   within each facet.
 #' @param compare Column facets for side-by-side comparison: `NULL` (default),
 #'   `"contrast"` or `"database"`. Pathways are selected once over the whole
@@ -39,7 +39,7 @@
 #'   take a different colour in two figures; pass an explicit `limits` when
 #'   panels are meant to be compared. The old renderer used a fixed
 #'   `c(-3.5, 3.5)`. Values outside are squished, not dropped.
-#' @param colours Length-3 character vector -- low, mid, high fill colours.
+#' @param palette Length-3 character vector -- low, mid, high fill colours.
 #' @param wrap_width Soft character width for wrapping pathway labels.
 #' @param strip_prefix Logical, passed to [format_pathway_name()].
 #' @param title Plot title, or `NULL`.
@@ -57,12 +57,12 @@
 #' )
 #' res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
 #'                db, min_size = 1, max_size = 10)
-#' gs_plot_dot(res, top = 5)
+#' gs_plot_dot(res, top_n = 5)
 #' @importFrom ggrepel geom_text_repel
 #' @importFrom scales label_scientific
 #' @export
 gs_plot_dot <- function(x,
-                        top = 10,
+                        top_n = 10,
                         aes_x = c("stat", "gene_ratio"),
                         sort_by = c("padj", "p_value", "stat", "stat_signed"),
                         direction = c("both", "up", "down"),
@@ -72,7 +72,7 @@ gs_plot_dot <- function(x,
                         label = FALSE,
                         size_range = c(2, 10),
                         limits = NULL,
-                        colours = .gs_diverging_colours(),
+                        palette = .gs_diverging_colours(),
                         wrap_width = 50,
                         strip_prefix = TRUE,
                         title = NULL,
@@ -87,7 +87,7 @@ gs_plot_dot <- function(x,
   group_by <- if (facet == "none") NULL else facet
 
   df <- .gs_plot_frame(
-    x, top = top, sort_by = sort_by, direction = direction,
+    x, top_n = top_n, sort_by = sort_by, direction = direction,
     group_by = group_by, highlight = highlight, wrap_width = wrap_width,
     strip_prefix = strip_prefix, database_labels = database_labels
   )
@@ -137,7 +137,7 @@ gs_plot_dot <- function(x,
   }
 
   p <- p +
-    .gs_fill_scale(fill_lab, limits, colours) +
+    .gs_fill_scale(fill_lab, limits, palette) +
     scale_size_continuous(
       name = expression(-log[10] ~ FDR), range = size_range
     ) +

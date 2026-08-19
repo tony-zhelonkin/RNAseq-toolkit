@@ -19,7 +19,7 @@
 #'   else labels nothing.
 #' @param x_breaks Numeric spacing between fold-change axis ticks.
 #' @param title Plot title.
-#' @param color_palette Named colours for `NS`, `Log2FC`, `B-statistic` and
+#' @param palette Named colours for `NS`, `Log2FC`, `B-statistic` and
 #'   `B-statistic & Log2FC`.
 #' @param y_padding Numeric head-room kept around `B_cutoff`.
 #' @param show_grid Logical. Keep the panel grid.
@@ -44,7 +44,7 @@ de_bfc_plot <- function(
     label_method   = "top",
     x_breaks       = 2,
     title          = "B-statistic vs Log2FC",
-    color_palette  = c(
+    palette        = c(
       "NS"                   = "#7F7F7F",
       "Log2FC"               = "#0173B2",
       "B-statistic"          = "#029E73",
@@ -103,14 +103,14 @@ de_bfc_plot <- function(
   none_above <- max(df$B, na.rm = TRUE) < B_cutoff
   if (none_above) ymax <- B_cutoff + y_padding * 2
 
-  dark_pal <- .de_shade(color_palette)
+  dark_pal <- .de_shade(palette)
 
   g <- ggplot(df, aes(x = .data$logFC, y = .data$B, colour = .data$cat)) +
     geom_point(size = 2, alpha = 0.65) +
     geom_vline(xintercept = c(-fc_cutoff, fc_cutoff), linetype = "dashed") +
     geom_hline(yintercept = B_cutoff, linetype = "dashed") +
     scale_colour_manual(
-      name = NULL, values = color_palette, breaks = names(color_palette),
+      name = NULL, values = palette, breaks = names(palette),
       labels = c(
         "B-statistic & Log2FC" = sprintf("B > %.1f & |log2FC| \u2265 %.1f",
                                          B_cutoff, fc_cutoff),

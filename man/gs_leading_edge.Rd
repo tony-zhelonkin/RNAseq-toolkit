@@ -4,14 +4,14 @@
 \alias{gs_leading_edge}
 \title{Extract leading-edge (or overlap) genes}
 \usage{
-gs_leading_edge(x, padj = NULL, top = NULL, unique_genes = FALSE)
+gs_leading_edge(x, padj = NULL, top_n = NULL, unique_genes = FALSE)
 }
 \arguments{
 \item{x}{A \link{gs_result}.}
 
 \item{padj}{Numeric. Keep only pathways below this FDR; \code{NULL} keeps all.}
 
-\item{top}{Integer. Keep only the top \code{top} pathways by \code{padj}.}
+\item{top_n}{Integer. Keep only the top \code{top_n} pathways by \code{padj}.}
 
 \item{unique_genes}{Logical. Return one pooled, de-duplicated character
 vector instead of a per-pathway list.}

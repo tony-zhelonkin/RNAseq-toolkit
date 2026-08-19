@@ -6,7 +6,7 @@
 \usage{
 gs_plot_dot(
   x,
-  top = 10,
+  top_n = 10,
   aes_x = c("stat", "gene_ratio"),
   sort_by = c("padj", "p_value", "stat", "stat_signed"),
   direction = c("both", "up", "down"),
@@ -16,7 +16,7 @@ gs_plot_dot(
   label = FALSE,
   size_range = c(2, 10),
   limits = NULL,
-  colours = .gs_diverging_colours(),
+  palette = .gs_diverging_colours(),
   wrap_width = 50,
   strip_prefix = TRUE,
   title = NULL,
@@ -26,7 +26,7 @@ gs_plot_dot(
 \arguments{
 \item{x}{A \link{gs_result}.}
 
-\item{top}{Number of pathways to display, per selection group. \code{NULL} shows
+\item{top_n}{Number of pathways to display, per selection group. \code{NULL} shows
 all.}
 
 \item{aes_x}{What the x axis carries: \code{"stat"} (default) or \code{"gene_ratio"}
@@ -39,7 +39,7 @@ column).}
 \item{direction}{Restrict to \code{"both"} (default), \code{"up"} or \code{"down"}.}
 
 \item{facet}{Row facets: \code{"none"} (default), \code{"direction"} -- the old
-\code{gsea_dotplot_facet()} -- \code{"database"} or \code{"contrast"}. \code{top} applies
+\code{gsea_dotplot_facet()} -- \code{"database"} or \code{"contrast"}. \code{top_n} applies
 within each facet.}
 
 \item{compare}{Column facets for side-by-side comparison: \code{NULL} (default),
@@ -60,7 +60,7 @@ take a different colour in two figures; pass an explicit \code{limits} when
 panels are meant to be compared. The old renderer used a fixed
 \code{c(-3.5, 3.5)}. Values outside are squished, not dropped.}
 
-\item{colours}{Length-3 character vector -- low, mid, high fill colours.}
+\item{palette}{Length-3 character vector -- low, mid, high fill colours.}
 
 \item{wrap_width}{Soft character width for wrapping pathway labels.}
 
@@ -84,7 +84,7 @@ a colorblind-safe diverging scale.
 }
 \details{
 \strong{Selection and highlighting are separate}, which is the behaviour the old
-\code{gsea_dotplot()} established and worth keeping: \code{top} and \code{sort_by} decide
+\code{gsea_dotplot()} established and worth keeping: \code{top_n} and \code{sort_by} decide
 \emph{what is shown}, \code{highlight} decides \emph{what gets a black outline}. A pathway
 can be displayed without being significant.
 
@@ -101,5 +101,5 @@ db <- structure(
 )
 res <- gs_test(stats::setNames(c(3, 2, 1, -1, -2, -3), LETTERS[1:6]),
                db, min_size = 1, max_size = 10)
-gs_plot_dot(res, top = 5)
+gs_plot_dot(res, top_n = 5)
 }

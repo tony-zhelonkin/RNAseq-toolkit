@@ -4,7 +4,7 @@
 \alias{.grs_select}
 \title{Choose which pathways to draw}
 \usage{
-.grs_select(x, sets, pathways, top)
+.grs_select(x, sets, pathways, top_n)
 }
 \arguments{
 \item{x}{The renderer's \code{x}.}
@@ -13,7 +13,7 @@
 
 \item{pathways}{Ids, row indices, or \code{NULL}.}
 
-\item{top}{Integer default count.}
+\item{top_n}{Integer default count.}
 }
 \value{
 A character vector of pathway ids, in plotting order.
