@@ -2,6 +2,24 @@
 
 ## API
 
+* `gs_coregulation()` runs public `fgsea::geseca()` on a general genes x
+  samples expression matrix and returns a `gs_result` with
+  `stat_type = "pct_var"`. It is experimental and is separate from
+  `gs_test()` because it takes a matrix and has no contrast.
+
+* `gs_stat_types()` gains `pct_var = "% variance explained"`, the plot-axis
+  label for GESECA's unsigned statistic.
+
+* `gs_coregulation()` records `direction = NA` on every row because percentage
+  of variance explained has no up/down sign. Consumers must rank or filter it
+  by `stat`, `p_value`, or `padj`; filtering its `direction` for `"up"`,
+  `"down"`, or `"ns"` returns no rows. `gs_top(by_direction = TRUE)` now keeps
+  an allowed missing direction as one group instead of silently dropping it.
+
+* `gs_to_master()` deliberately rejects a `pct_var` result by default because
+  its `nes` column is reserved for NES. `stat_as_nes = TRUE` remains the
+  explicit override and still returns the fixed 14-column ADR-002 schema.
+
 * `gatom_download_refs(dir = )` is the layer-prefixed GATOM reference
   downloader. The frozen `download_gatom_references(dest_dir = )` name remains
   as a deprecated compatibility shim until 1.0.0.
@@ -16,6 +34,12 @@
   `gsdb_register(species = "mouse")` records `"Mus musculus"` where it
   previously recorded `"mouse"`. An unrecognised label is still recorded as
   given, with underscores replaced by spaces.
+
+## Reproducibility
+
+* `gs_coregulation()` pins GESECA's stochastic work through the package RNG
+  owner and is declared by `bulkirna_stochastic()`. Its default seed is `123L`,
+  matching the general fgsea adapter; CoReSh retains its historical `1L`.
 
 ## CoReSh
 

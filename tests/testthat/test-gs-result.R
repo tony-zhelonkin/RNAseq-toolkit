@@ -31,9 +31,11 @@ test_that("stat_type is a closed vocabulary", {
                          method = "fgsea", stat_type = "odds_ratio"),
     "Unknown stat_type"
   )
-  expect_true(all(
-    c("NES", "t", "log2_fold_enrichment") %in% names(gs_stat_types())
-  ))
+  expect_identical(
+    names(gs_stat_types()),
+    c("NES", "t", "log2_fold_enrichment", "signed_log10p", "pct_var")
+  )
+  expect_identical(gs_stat_types()[["pct_var"]], "% variance explained")
 })
 
 test_that("validate_gs_result rejects a bad direction", {

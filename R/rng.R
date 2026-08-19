@@ -8,15 +8,16 @@
 .bulkirna_stochastic_registry <- function() {
   data.frame(
     name = c(
-      "coresh_match", "coresh_search", "gatom_module", "gs_test",
-      "run_gsea"
+      "coresh_match", "coresh_search", "gatom_module",
+      "gs_coregulation", "gs_test", "run_gsea"
     ),
-    seed_arg = c("seed", "seed", "seed", NA_character_, "seed"),
-    seed_default = c("1L", "1L", "42", "123L", "123"),
+    seed_arg = c("seed", "seed", "seed", "seed", NA_character_, "seed"),
+    seed_default = c("1L", "1L", "42", "123L", "123L", "123"),
     source_of_randomness = c(
       "GESECA multilevel permutations",
       "GESECA multilevel permutations",
       "BioNet BUM fit and the MWCS solver heuristic",
+      "GESECA multilevel permutations",
       "fgsea multilevel permutations",
       "fgsea multilevel permutations"
     ),
@@ -24,6 +25,10 @@
       "upstream's reference implementation passes the literal value 1L",
       "upstream's reference implementation passes the literal value 1L",
       "the historical default is retained to preserve published results",
+      paste0(
+        "a new general gene-set verb, so it follows the package's fgsea ",
+        "adapter default rather than CoReSh's historical 1L"
+      ),
       paste0(
         "the legacy default, accepted through `...` and documented in ",
         "`gs_test_fgsea_params`, is retained"
@@ -41,8 +46,9 @@
 #' package version. `seed_arg` is `NA` when the seed is accepted only through
 #' `...`; see the row's `note` for the documented parameter source.
 #'
-#' The defaults deliberately differ. They are historical reproducibility
-#' commitments, not a package-wide seed policy.
+#' The defaults deliberately differ. Existing functions retain historical
+#' reproducibility commitments; new functions record their method-family
+#' policy rather than imposing a package-wide seed.
 #'
 #' @param quiet Logical. If `FALSE`, print the registry and return it
 #'   invisibly. If `TRUE`, do not print and return it visibly.

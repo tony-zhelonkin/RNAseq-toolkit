@@ -21,8 +21,9 @@ package version. \code{seed_arg} is \code{NA} when the seed is accepted only thr
 \code{...}; see the row's \code{note} for the documented parameter source.
 }
 \details{
-The defaults deliberately differ. They are historical reproducibility
-commitments, not a package-wide seed policy.
+The defaults deliberately differ. Existing functions retain historical
+reproducibility commitments; new functions record their method-family
+policy rather than imposing a package-wide seed.
 }
 \examples{
 stochastic <- bulkirna_stochastic(quiet = TRUE)

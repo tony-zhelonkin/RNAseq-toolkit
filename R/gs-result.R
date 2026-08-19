@@ -14,14 +14,15 @@
 #'   \item{`database`}{character. Which `gsdb_*` provider the set came from.}
 #'   \item{`contrast`}{character. Comparison label, e.g. `"KO-WT"`. Pooling
 #'     across contrasts is `rbind()`, not a separate code path.}
-#'   \item{`method`}{character. `"fgsea"`, `"ora"`, or -- for a [gs_matrix]
-#'     tested with limma -- the scoring method that produced the matrix
-#'     (`"gsva"`, `"ssgsea"`, `"zscore"`, `"plage"`).}
+#'   \item{`method`}{character. `"fgsea"`, `"ora"`, `"geseca"`, or -- for a
+#'     [gs_matrix] tested with limma -- the scoring method that produced the
+#'     matrix (`"gsva"`, `"ssgsea"`, `"zscore"`, `"plage"`).}
 #'   \item{`n_genes`}{integer. Set size in the database.}
 #'   \item{`n_genes_tested`}{integer. Set size after intersecting with the data.}
 #'   \item{`stat`}{numeric. The effect size. What it *is* is named by `stat_type`.}
 #'   \item{`stat_type`}{character. One of [gs_stat_types()].}
-#'   \item{`direction`}{character. `"up"`, `"down"`, or `"ns"`.}
+#'   \item{`direction`}{character. `"up"`, `"down"`, or `"ns"`; `NA` when a
+#'     method's statistic is unsigned.}
 #'   \item{`p_value`}{numeric. Raw p-value.}
 #'   \item{`padj`}{numeric. Multiplicity-adjusted p-value.}
 #' }
@@ -55,7 +56,8 @@ gs_stat_types <- function() {
     NES                  = "NES",
     t                    = "t statistic",
     log2_fold_enrichment = "log2 fold enrichment",
-    signed_log10p        = "signed -log10 p"
+    signed_log10p        = "signed -log10 p",
+    pct_var              = "% variance explained"
   )
 }
 

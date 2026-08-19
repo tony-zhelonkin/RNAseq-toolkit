@@ -39,6 +39,45 @@ fake_gs_matrix <- function(n_path = 3L, n_samp = 4L) {
   )
 }
 
+fake_coregulation_input <- function(n_genes = 600L, n_samples = 16L) {
+  set.seed(8041)
+  genes <- paste0("G", seq_len(n_genes))
+  expr <- matrix(
+    stats::rnorm(n_genes * n_samples),
+    nrow = n_genes,
+    dimnames = list(genes, paste0("S", seq_len(n_samples)))
+  )
+  latent <- as.numeric(scale(sin(seq(0, 3 * pi, length.out = n_samples))))
+  coregulated <- genes[seq_len(25L)]
+  expr[coregulated, ] <- matrix(
+    latent, nrow = length(coregulated), ncol = n_samples, byrow = TRUE
+  ) + matrix(stats::rnorm(length(coregulated) * n_samples, sd = 0.15),
+             nrow = length(coregulated))
+
+  scrambled <- genes[seq.int(1L, n_genes, length.out = 25L)]
+  random_sets <- stats::setNames(
+    lapply(seq_len(14L), function(i) sample(genes, 25L)),
+    paste0("RANDOM_", seq_len(14L))
+  )
+  sets <- c(
+    list(COREGULATED = coregulated, SCRAMBLED = scrambled),
+    random_sets
+  )
+  list(
+    expr = expr,
+    db = gsdb_register(
+      sets,
+      database = "coreg_demo",
+      species = "Homo sapiens",
+      pathway_names = stats::setNames(
+        paste("Pretty", names(sets)), names(sets)
+      )
+    ),
+    coregulated = coregulated,
+    scrambled = scrambled
+  )
+}
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 # `tests/fixtures/` is in .Rbuildignore, so it ships with the source tree but not

@@ -109,6 +109,7 @@ from `gs_stat_types()`:
 | `t` | GSVA → limma | `t statistic` |
 | `log2_fold_enrichment` | ORA (`fgsea::fora`, `foldEnrichment`) | `log2 fold enrichment` |
 | `signed_log10p` | reserved (camera/roast, no effect size) | `signed -log10 p` |
+| `pct_var` | GESECA | `% variance explained` |
 
 Rules:
 
@@ -118,8 +119,10 @@ Rules:
    error this column exists to kill.
 3. Adding a value means adding it to `gs_stat_types()` in `R/gs-result.R` — a
    Step A file, so it goes through the handback.
-4. `direction` is `"up"` / `"down"` / `"ns"`, derived from `sign(stat)` by
-   `gs_direction()`. Not a factor, not `"UP"`, not `1`/`-1`.
+4. Signed statistics use `"up"` / `"down"` / `"ns"`, derived from
+   `sign(stat)` by `gs_direction()`. The unsigned GESECA `pct_var` statistic
+   uses `NA`, so a direction filter cannot silently call every result up. Not
+   a factor, not `"UP"`, not `1`/`-1`.
 
 `gs_matrix` scores are *not* a `stat_type`; they carry `score_type` (`"gsva"`,
 `"ssgsea"`, `"zscore"`, `"plage"`), and become `stat_type = "t"` only once

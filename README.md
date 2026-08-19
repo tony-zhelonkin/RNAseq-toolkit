@@ -82,7 +82,7 @@ compute functions return data, and renderers turn that data into plots.
 | Layer | Functions | Produces |
 |---|---|---|
 | **Providers** | `gsdb_msigdb()` `gsdb_load()` `gsdb_from_file()` `gsdb_register()` `gsdb_list()` `gsdb_info()` | `gs_db` |
-| **Compute** | `gs_test()` `gs_score()` | `gs_result`, `gs_matrix` |
+| **Compute** | `gs_test()` `gs_score()` `gs_coregulation()` | `gs_result`, `gs_matrix` |
 | **Result ops** | `gs_filter()` `gs_top()` `gs_split()` `gs_leading_edge()` `gs_read()` `gs_write()` `gs_to_master()` `gs_validate_master()` | `gs_result`, `tibble` |
 | **Renderers** | `gs_plot_dot()` `gs_plot_bar()` `gs_plot_heatmap()` `gs_plot_running()` | `ggplot` |
 
@@ -90,6 +90,10 @@ compute functions return data, and renderers turn that data into plots.
 runs preranked GSEA through fgsea, a character vector of genes runs over-representation
 through `fora()`, and a `gs_matrix` runs the matrix path. `gs_stat_types()` names the
 statistic each method returns.
+
+`gs_coregulation()` runs GESECA on a genes x samples matrix. It returns an
+unsigned `pct_var` result, with `direction = NA` rather than labelling every
+positive percentage as up.
 
 `gs_score()` is the per-sample counterpart (GSVA, ssGSEA). It returns a `gs_matrix`, which
 `gs_plot_heatmap()` consumes.
@@ -138,7 +142,7 @@ from CRAN.
 
 ## Legacy names
 
-21 of the 77 exports are shims for superseded API names. Each one works, warns once,
+21 of the 78 exports are shims for superseded API names. Each one works, warns once,
 and names its replacement:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`

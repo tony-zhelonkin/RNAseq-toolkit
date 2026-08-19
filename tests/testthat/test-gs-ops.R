@@ -48,6 +48,16 @@ test_that("gs_top applies n per group", {
   expect_equal(nrow(gs_top(r, n = 1, per = character(0))), 1L)
 })
 
+test_that("gs_top keeps an allowed missing direction as its own group", {
+  r <- res3()
+  r$direction <- NA_character_
+  r <- bulkiRNA:::gs_result(as.data.frame(r))
+
+  top <- gs_top(r, n = 2L, by_direction = TRUE, per = character(0))
+  expect_equal(nrow(top), 2L)
+  expect_true(all(is.na(top$direction)))
+})
+
 test_that("gs_split is the inverse of the rbind that pools", {
   a <- res3()
   b <- res3()
