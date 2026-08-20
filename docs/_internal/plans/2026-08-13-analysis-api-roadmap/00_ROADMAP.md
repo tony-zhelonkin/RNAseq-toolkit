@@ -1343,3 +1343,74 @@ immediately — ADR-003's seam working exactly as it was built to.
 **A name now tells you what you are allowed to rely on, and a test fails if that stops being true.**
 Which was the whole point of the phase, and is worth stating plainly because none of it shipped a
 feature.
+
+---
+
+## §17. Phase 4 resumed — Meta-Aging migrated, DC-nexus scoped
+
+The recipe, the call mapping and the measured pitfalls live in
+[06_CONSUMER_MIGRATION.md](06_CONSUMER_MIGRATION.md). This section records what the step decided and
+what it cost, not how to repeat it.
+
+**The owner narrowed the scope.** Phase 4's three named consumers were `14839-DM-cGAS`, STING-JR and
+DC-nexus. STING-JR was surveyed and then **excluded by decision**; Meta-Aging, which was never on the
+list, replaced it. The survey is kept because STING-JR is the largest consumer by an order of
+magnitude — 19 files and 94 call sites across four sub-repos — and because it is the TF reference
+project, so the argument for migrating it first was that its conventions would land before the
+activity layer is designed. That argument is now moot and Phases 10–11 stay parked.
+
+**The consequence for `v1.0.0` is real and needs a decision.** The 21 shims exist because consumers
+call the old names. With STING-JR excluded, finishing DC-nexus does not empty the set. So `v1.0.0` is
+now either "migrate STING-JR after all" or "ship with the shims present" — and the second reopens S4,
+which recorded all 21 as removed in `1.0.0`.
+
+**Scope measured, not estimated.** A bare `grep` for the 21 names across STING-JR returned 1,732
+matches; the true figure is 94. The difference is the vendored `RNAseq-toolkit` submodule, which holds
+the **definitions** and is checked out six times in that project, plus `.ref/` copies of other
+projects and `.slice/` frozen pipelines. **Overcounting by 18× would have made this phase look
+intractable.** The exclusion list is in §0 of the migration document.
+
+**A fourth version authority, which ADR-001 did not cover.** The step resumed against `bulkiRNA 0.3.1`
+in the shared library — before `gs_to_master()` existed. The development tree was at 0.5.0.9000 with
+every gate green, so nothing in the repository pointed at it. ADR-001 says the package version is the
+unit of reproducibility; it did not say **which installed copy** a consumer loads. Checking that is
+now the first precondition of a migration.
+
+**Meta-Aging: what the verification bought.** `14616-DM/02_analysis/scripts/06_gsea_master.R`, commit
+`d6633dd` on `migrate/bulkirna`. Running it found four things that reading it had not:
+
+1. `gs_to_master(db = )` takes the gene-set object, not a label. Passing the label inside the script's
+   own `tryCatch(..., NULL)` produced **zero rows and no error**. The dominant pain-point shape, for
+   the third time, now inside a consumer's error handling rather than the library's.
+2. The `database` column would have silently become `msigdb_C3_TFT_GTRD` instead of the project's
+   `CollecTRI_TF`, breaking every downstream join while leaving the column present and populated.
+3. `gs_validate_master()` **refused** the project's `neg_log_padj` cap at 16 — *"the retired
+   cap-at-16 convention is not allowed."* The attempt to preserve the old numbers failed the gate.
+   ADR-002 holding against a live consumer, which is a stronger test than any in the suite.
+4. The config's own `msigdbr` TODO was wrong in both directions: under 26.1.0, `CP:KEGG` must become
+   `CP:KEGG_LEGACY`, while `CP:WIKIPATHWAYS` did not move, contrary to the note predicting both would.
+   `gsdb_msigdb()` raised `Unknown subcollection` rather than returning an empty set, so this surfaced
+   loudly.
+
+**The fidelity measurement, and why it needed splitting.** Compared against the pre-migration
+`master_unified.csv`, raw NES differences reached 4.7 — alarming until the rows were split by whether
+`set_size` had changed. **On MitoPathways and MitoXplorer, version-pinned inside the package and so
+carrying no reference drift, NES and padj reproduce exactly: max absolute difference 0 across 272
+rows, `genes_full_set` identical 272 of 272.** Median absolute NES difference across all
+unchanged-`set_size` rows is 9e-4. The rest tracks MSigDB content drift, where only 11% of GO_BP sets
+kept their size. A single global tolerance would have hidden the defects and the drift in one number.
+
+**What Phase 4 exposed about the surface**, both now `v1.0.0` blockers in §4 of the handoff:
+
+- `convert_human_to_mouse`'s registered successor covers MSigDB only, and the real call site is a
+  custom GMX. **The deprecation registry is tested for presence and shape, never for whether the
+  successor can do the job.**
+- No exported accessor returns the master-table columns, so a consumer reads
+  `inst/extdata/master-schema-v1.csv` directly — and that record's row order is not the column order
+  `gs_validate_master()` requires.
+
+**Two limits on what was verified, stated rather than glossed.** The full job is 1,312 GSEA runs, so
+the run was two contrasts against all eight collections. And `OmnipathR` is absent from both images,
+so the CollecTRI and PROGENy blocks could not execute at all; they were removed from a scratch copy and
+left untouched in the committed script. Those blocks stay hand-written because the activity layer is
+parked, which is the recurring cost of that decision: every consumer pays it separately.

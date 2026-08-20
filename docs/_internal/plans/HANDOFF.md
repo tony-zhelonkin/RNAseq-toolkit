@@ -1,6 +1,6 @@
 # bulkiRNA — handoff and plan of record
 
-**Updated:** 2026-08-19 · **Branch:** `feat/bulkirna-package` · **Last release:** `v0.5.0` tagged
+**Updated:** 2026-08-20 · **Branch:** `feat/bulkirna-package` · **Last release:** `v0.5.0` tagged
 **Gates, freshly run:** 1,697 tests passing · golden 20/20 · `R CMD check` 0/0/0 (vignettes rebuild)
 **Surface:** 79 exports — 46 stable, 12 experimental, 21 deprecated · 24 signature-frozen · 7 stochastic
 
@@ -15,6 +15,7 @@ This is the entry point. Everything else is reachable from here.
 | [2026-08-13-analysis-api-roadmap/03_DEFERRED.md](2026-08-13-analysis-api-roadmap/03_DEFERRED.md) | TF activity, PROGENy, WGCNA — parked, with findings intact |
 | [2026-08-13-analysis-api-roadmap/04_NAME_AUDIT.md](2026-08-13-analysis-api-roadmap/04_NAME_AUDIT.md) | Why each public name and argument is spelled as it is |
 | [2026-08-13-analysis-api-roadmap/05_RETURN_AUDIT.md](2026-08-13-analysis-api-roadmap/05_RETURN_AUDIT.md) | What every export returns, with the reasoned exceptions |
+| [2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) | **Phase 4's recipe:** the call mapping, the four ways a migrated script fails while looking fine, and how to verify one |
 | [2026-08-11-coresh-extraction/00_PLAN.md](2026-08-11-coresh-extraction/00_PLAN.md) | CoReSh extraction, C0–C6 |
 | [../adr/](../adr/) | The four architectural decisions |
 | [../../../AGENTS.md](../../../AGENTS.md) | The rules an agent must follow in this repo |
@@ -132,6 +133,26 @@ allowlist, and at zero the two sides had different shapes. The same inversion is
 `v1.0.0`, when the 21 shims go and every shim allowlist becomes permanently empty. Checked early and
 fixed; the helpers now carry "do not delete as dead code" and the reason.
 
+**10. A stale installed copy of the package makes every downstream claim unverifiable.** Phase 4
+resumed against `bulkiRNA 0.3.1` in the shared library, which predates `gs_to_master()` — the exact
+verb the migration targets. The development tree said 0.5.0.9000 and all the gates were green, so
+nothing in the repo pointed at the problem. **The library a consumer loads is a fourth version
+authority, and ADR-001 did not cover it.** Now the first precondition in
+[06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) §1.
+
+**11. A registry can name a successor that does not cover the call site.** `bulkirna_api()` gives
+`convert_human_to_mouse`'s successor as `gsdb_msigdb(species = ..., db_species = "HS")`, which is
+right for MSigDB and only for MSigDB. The real consumer calls it on a T2G parsed from a custom GMX,
+and no export ortholog-maps an arbitrary `gs_db`. The registry is machine-readable, tested, and
+non-empty, and was still wrong for this use — **the deprecation metadata is tested for presence and
+shape, not for whether the successor can do the job.** Found by migrating, which is the only way it
+could have been found.
+
+**12. The shape recurred a third time, in a consumer's own error handling.** The script being migrated
+wrapped its normalisation in `tryCatch(..., error = function(e) NULL)`. With the §3.1 defect above,
+that turned a hard type error into zero rows and no message — the migration's first run reported
+`Normalized rows: 0` and carried on. `gs_validate_master()` is what stopped it, several steps later.
+
 ---
 
 ## 2. The ADRs, with premise, rejected alternatives, and what each has since had to survive
@@ -191,7 +212,7 @@ open question in `03_DEFERRED.md`.
 | 1 Skeleton, internal `source()` removed | ✅ |
 | 2 Prove the dev loop | ✅ against real data |
 | 3 Install into the image | ✅ `scdock-r-dev:v0.5.13`, 16/16 optional deps |
-| **4 Migrate heavy consumers** | 🟡 **1 of 3 — `14839-DM-cGAS` done; STING-JR and DC-nexus remain** |
+| **4 Migrate heavy consumers** | 🟡 **`14839-DM-cGAS` and Meta-Aging done · DC-nexus in progress · STING-JR excluded by the owner.** Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
 | 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 🚫 blocked on the skills refactor |
 | 5 Bind the skills | 🚫 blocked on the SciAgent-toolkit refactor |
 | 6 Retire the submodule | ⬜ waits on Phase 4 |
@@ -246,16 +267,27 @@ pathway — at rank 4. Validated against biology, not against itself.
 
 ## 4. Next immediate steps
 
-1. **Phase 4 — STING-JR, then DC-nexus.** The critical path to `v1.0.0`: the 21 shims exist only
-   because those two consumers still call the old names. **STING-JR first**, because it is also the TF
-   reference project, so migrating it puts its conventions in front of us before the activity layer is
-   designed. Migrating a consumer means committing in a live research tree, so it needs the owner's
-   go-ahead per project.
-2. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
+1. **Phase 4 — finish DC-nexus.** The critical path to `v1.0.0`: the 21 shims exist only because
+   consumers still call the old names. Two files remain, both scoped and measured —
+   `DC_Dictionary/02_analysis/00_main/pipeline/A2c_pathway_gsea.R` (19 sites, and the first consumer
+   to exercise the **plotting** layer as well as compute) and the three `DC_hum_verse`
+   `coresh-slice` scripts (18 sites). Branch `migrate/bulkirna` exists in `DC_Dictionary`. Follow
+   [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md); §3 is four
+   defects that pass a reading.
+   **STING-JR is excluded by the owner's decision**, its survey kept in §0 of that document in case
+   that changes. Since the shims cannot be removed while it calls them, `v1.0.0` now needs a
+   decision: migrate STING-JR after all, or ship `v1.0.0` with the shims still present.
+2. **Close the two gaps Phase 4 exposed**, both small and both `v1.0.0` blockers:
+   an ortholog verb for arbitrary `gs_db` objects, or a narrowed `superseded_by` for
+   `convert_human_to_mouse`; and an exported accessor for the master-table columns, so consumers stop
+   reading `inst/extdata/master-schema-v1.csv` directly.
+3. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step, and it is the only remaining
    independent check on the CoReSh port.
-3. **Phase 6** — retire the submodule, once no consumer sources it.
-4. **Then reconsider Phases 10–11** with `03_DEFERRED.md` in hand: TF activity, PROGENy, WGCNA. The
+4. **Phase 6** — retire the submodule, once no consumer sources it. Note the vendored checkout appears
+   at two different paths (`01_modules/RNAseq-toolkit` and, inside `DC_Dictionary`,
+   `01_scripts/RNAseq-toolkit`), both at `752481f`.
+5. **Then reconsider Phases 10–11** with `03_DEFERRED.md` in hand: TF activity, PROGENy, WGCNA. The
    sequencing argument for parking them was that a default in a package is load-bearing in a way a
    default in a script is not, and those three are where the methodological drift is worst. That
    argument is unchanged; what has changed is that the surface they would sit on has stopped moving.
