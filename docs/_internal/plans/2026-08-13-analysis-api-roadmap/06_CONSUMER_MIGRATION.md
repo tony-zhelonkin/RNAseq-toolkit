@@ -62,13 +62,39 @@ packageVersion("bulkiRNA"); setdiff(c("gs_ranks","gs_test","gs_to_master",
   "gsdb_load","gs_validate_master"), getNamespaceExports("bulkiRNA"))
 ```
 
-Reinstall with `R CMD INSTALL --library=/data1/users/antonz/pipeline/.rlib-bulkirna .` from the
-package root. That path is in the pipeline directory, not a research tree.
+**The consumer's own image must ship it.** This is where the first attempt went wrong, so the reasoning
+is worth keeping.
 
-**The consumer's own image must be able to load it.** Confirmed for `scdock-r-dev:v0.5.10`, which is
-what Meta-Aging and DC-nexus both use: same R 4.5.3, so the 0.5.0 install loads unmodified.
+`scdock-r-dev:v0.5.10` — which **8 of 9 projects** used — ships no `bulkiRNA` at all, so the migrated
+script failed at `library(bulkiRNA)`. The first fix mounted the installed library read-only and
+prepended it with `R_LIBS`. It worked and was still wrong: it depended on a host path outside the
+project, and because the library is built for one R minor version it could not be applied to the
+`dev-archr` service (R 4.4.1 against 4.5.3), so the two services in one compose file diverged. **A fix
+that cannot be applied uniformly is a warning that it is the wrong fix.**
 
-**Known environment gap:** `OmnipathR` is absent from both `scdock-r-dev:v0.5.10` and `v0.5.13`, and
+**Bump the image instead.** `scdock-r-dev:v0.5.13` ships `bulkiRNA`, and for these consumers the bump
+is safe and checked rather than assumed:
+
+- Seven packages are dropped between v0.5.10 and v0.5.13 — `EnhancedVolcano`, `GPArotation`, `mnormt`,
+  `psych`, `reactome.db`, `sankey`, `simplegraph`. **Check these against the consumer**; neither
+  Meta-Aging nor DC-nexus references any.
+- `ggpubr` 0.6.3 → 1.0.0 and `rstatix` 0.7.3 → 1.1.0 are major bumps. Neither project uses either.
+- 55 packages are added, including `bulkiRNA`, `gatom`, `WGCNA`, `homologene`, `org.Mm.eg.db` and
+  `orthogene` — the last two of which DC-nexus needs.
+
+**The residual version skew is the real open problem.** v0.5.13 ships **0.4.0** while the package tree
+is at 0.5.0, so a consumer runs a different version from the one its migration was verified against —
+which is the drift ADR-001 exists to prevent, reappearing one level down. Measured rather than
+assumed: running the migrated script under both versions gives identical row counts, identical numeric
+columns, identical `core_enrichment` and `genes_full_set`, and a byte-identical
+`gsea_summary_stats.csv`. The only difference is **12 `pathway_name` values**, where 0.4.0 lowercases a
+leading small word (`"the Nlrp3 Inflammasome"`) and 0.5.0 capitalises it. No published number moves.
+
+Closing it properly is one line — `scbio-docker/docker/base/R/install_core.R:174`, currently
+`"tony-zhelonkin/bulkiRNA@v0.4.0"` — plus a ~150-minute rebuild affecting every project on the shared
+image. That is a standing owner decision, not a migration step.
+
+**Known environment gap the bump does not fix:** `OmnipathR` is absent from both v0.5.10 and `v0.5.13`, and
 the consumers' devcontainers add it in `postcreate`. Any script with a decoupleR
 `get_collectri()`/`get_progeny()` block therefore cannot be run end to end in a bare container. This
 is pre-existing and unrelated to the migration, but it caps what can be verified — say so rather than
