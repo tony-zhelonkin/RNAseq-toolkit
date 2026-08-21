@@ -19,7 +19,16 @@ error_audit_stop_calls <- function(r_dir) {
           !is.list(node)) return(invisible(NULL))
       children <- as.list(node)
       if (is.call(node)) children <- children[-1L]
-      for (child in children) walk(child)
+      # A formal declared without a default, and a skipped index such as the
+      # first slot of `x[, 1]`, are both the empty symbol. Binding one to a
+      # variable gives that variable missing-argument semantics, so it must be
+      # tested by index rather than after assignment. Nearly every function
+      # here has such a formal, so the walker aborted before asserting
+      # anything: this audit reported an error, never a result.
+      for (i in seq_along(children)) {
+        if (identical(children[[i]], quote(expr = ))) next
+        walk(children[[i]])
+      }
       invisible(NULL)
     }
     walk(expression)
@@ -64,7 +73,9 @@ test_that("every stop call suppresses calls and names an argument or reason", {
     ))
   }
   stops <- error_audit_stop_calls(r_dir)
-  expect_gt(length(stops), 0L, info = "The source parser must find stop() calls.")
+  # expect_gt() takes no `info`, so the reason rides on expect_true().
+  expect_true(length(stops) > 0L,
+              info = "The source parser must find stop() calls.")
 
   no_argument_exceptions <- c(
     "coresh.R:.coresh_validate_object#3" = paste(

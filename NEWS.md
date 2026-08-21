@@ -1,4 +1,4 @@
-# bulkiRNA 0.5.0.9000
+# bulkiRNA 0.6.0.9000
 
 ## API
 

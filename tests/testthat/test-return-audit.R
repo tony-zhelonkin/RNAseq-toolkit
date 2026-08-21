@@ -278,7 +278,10 @@ test_that("every live export has one asserted return class or one reason", {
     ),
     coresh_validate = function() suppressMessages(coresh_validate(chunk_dir)),
     de_bfc_plot = function() de_bfc_plot(de),
-    de_md_plot = function() de_md_plot(de),
+    # de_md_plot()'s first argument is a limma fit, not a DE table, and `coef`
+    # has no default. Passing `de_results` skips the topTable() call, and with a
+    # character `coef` and an AveExpr column `fit` is never touched.
+    de_md_plot = function() de_md_plot(NULL, "treated", de_results = de),
     de_volcano = function() de_volcano(de),
     ensure_dir = function() ensure_dir(file.path(root, "created")),
     filter_confounder_genes = function() filter_confounder_genes(

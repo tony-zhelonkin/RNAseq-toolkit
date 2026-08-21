@@ -187,7 +187,7 @@ test_that("coresh_loadings names available platforms when one is absent", {
     coresh_loadings(
       chunk_path, "GSE_MULTI", query, top_n = 20L, gpl = "GPL_MISSING"
     ),
-    "GPL_MISSING.*Available platforms: GPL_A, GPL_Z"
+    "GPL_MISSING.*choose one of: GPL_A, GPL_Z"
   )
 })
 
