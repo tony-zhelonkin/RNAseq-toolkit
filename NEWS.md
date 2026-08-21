@@ -1,4 +1,12 @@
-# bulkiRNA 0.6.0.9000
+# bulkiRNA 0.6.0
+
+## Reproducibility
+
+* A release version now identifies exactly one commit, enforced by a test
+  rather than a release checklist. Between releases the version is
+  `A.B.C.9000`, where `A.B.C` names the *next* release, so a development tree
+  cannot claim a released number. `0.5.0` previously described both the
+  `v0.5.0` tag and 50 later commits carrying 15 additional exports.
 
 ## API
 
