@@ -1414,3 +1414,73 @@ the run was two contrasts against all eight collections. And `OmnipathR` is abse
 so the CollecTRI and PROGENy blocks could not execute at all; they were removed from a scratch copy and
 left untouched in the committed script. Those blocks stay hand-written because the activity layer is
 parked, which is the recurring cost of that decision: every consumer pays it separately.
+
+---
+
+## §18. The version-identity failure, and what an external review made of it
+
+Found while preparing the image pin for Phase 4. Recorded here because the conclusion was *not* to
+refactor, and a decision not to act needs its reasoning kept as much as a decision to act.
+
+**The measurement.** `DESCRIPTION` read `Version: 0.5.0`. So did the `v0.5.0` tag. `HEAD` stood 50
+commits and ~3,032 changed lines of `R/` beyond it, adding nine files — `api.R`, `rng.R`, `species.R`,
+`coresh.R`, `coresh-sets.R`, `gs-coregulation.R`, `gsdb-coresh.R`, `gene-ids.R`, `gatom-download.R` —
+and growing the surface from 64 to 79 exports. Tags `v0.4.0` and `v0.5.0` both carry 64 exports and
+neither has `bulkirna_api`.
+
+**How it surfaced, which matters.** I proposed bumping the image pin `v0.4.0 → v0.5.0` as an upgrade
+and only caught it by counting exports at each ref. Nothing in the repository objected: all gates were
+green, because every gate tests content and none tests identity.
+
+**The consultation.** `gpt-5.6-sol`, given the repository read-only, was asked whether this indicates
+an architectural defect and whether the design should be reorganised. Its verdict, adopted:
+
+> a release-identity gate failure, not a defect in the package's computational architecture … That is
+> release architecture, not package restructuring.
+
+It advised **against** reorganising `R/`, against moving reproducibility ownership back to the image,
+against re-cutting `v0.5.0`, and against making an export count the identity check — *"materially
+different implementations can have identical exports."* It also corrected the framing this section
+started from: `v0.4.0 → v0.5.0` is a no-op **in export surface only**, since that release does carry
+behaviour changes including a formatter and GATOM.
+
+**The pattern it named**, which is the durable part: the project *"is excellent at testing object
+content, but weaker at testing identity and deployment transitions"*, because those live between
+repositories, tags, builds and installed libraries, where package tests do not reach. Every content
+invariant here fails a test when violated; every identity invariant was prose. ADR-001 is amended with
+the missing inverse obligation.
+
+**Four more instances of the same asymmetry**, three of which were new:
+
+| Instance | Status |
+|---|---|
+| `write_session_provenance()` records the version but not the source commit, so it faithfully writes an ambiguous `0.5.0` | ADR-001 amendment 4 |
+| `install_core.R` records install failures and continues, so the report is observational rather than a gate | open |
+| ADR-004 calls the GATOM ad-hoc download tier retired while `gatom_download_refs()` still implements it | already recorded as debt |
+| "Compute never plots" is a convention, not a dependency-direction test | open, not implicated here |
+
+**The one that explains the vanished packages.** The image documentation claims a committed
+`renv.lock` makes subsequent builds deterministic. Verified, and it is false twice over:
+`install_renv_project.R` restores from `/opt/settings/renv.lock` when present, the Dockerfile copies
+three R scripts into that directory and **no lockfile**, so every build takes the unlocked branch;
+and the tracked `renv.lock` contains **exactly one package, `renv` itself**. CRAN is pinned to the
+RSPM snapshot `2026-04-15`, but Bioconductor, both r-universe remotes and every GitHub install float.
+**That is the mechanism by which seven transitive packages disappeared between v0.5.10 and v0.5.13
+with no commit recording the loss.** ADR-001 had noted the missing `COPY` in passing, as support for
+rejecting a different option.
+
+**The agreed sequence**, replacing "bump the pin":
+
+1. Add the version-identity gate; it fails on contact.
+2. Set the development version to `0.6.0.9000` — stricter than the usual `x.y.z.9000`-after-`x.y.z`
+   convention, and deliberately so: it names the next release and makes a stale version detectable.
+3. Run every gate, then cut `v0.6.0`. The 64 → 79 expansion warrants a minor release, not `0.5.1`.
+4. Pin the image to the **full commit SHA** that `v0.6.0` resolves to, presented as `0.6.0`.
+5. Include the explicit declarations for `OmnipathR` and the seven recovered packages.
+6. Rebuild **once**, with a final verification that fails on a wrong version, a wrong `RemoteSha`, or
+   a missing required package.
+7. Move consumers to that image deliberately.
+
+Do not spend the ~150 minutes to change `v0.4.0` to `v0.5.0`: it installs the genuine old 64-export
+release and preserves the misunderstanding. `v0.5.13` remains usable meanwhile, provided nobody
+represents it as carrying the current tree.
