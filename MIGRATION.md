@@ -9,11 +9,11 @@ For projects that `source()`d the toolkit from a submodule.
 - `stable` follows semantic versioning; incompatible changes require a major release after
   any applicable deprecation cycle.
 - `experimental` may change or disappear without a major version bump.
-- `deprecated` remains callable and warns, but is scheduled for removal in **v1.0.0**.
+- `deprecated` was a `0.x` tier. It is empty as of **1.0.0**: the 21 names were removed from
+  the public API and their implementations kept as non-exported golden-baseline fixtures.
 
-The separate `frozen` column records the 24 signatures inherited from the script library. A
-frozen name is not necessarily recommended: all deprecated shims are frozen so their old
-calls remain reproducible until removal. `superseded_by` may describe a sequence or technique,
+The separate `frozen` column recorded the 24 signatures inherited from the script library.
+Twenty-one of those left the public API in 1.0.0, so it now lists the remaining 3. `superseded_by` may describe a sequence or technique,
 and says plainly when part of an old behaviour has no replacement.
 
 ## 1. Replace the sourcing
@@ -31,11 +31,11 @@ library(bulkiRNA)
 
 GSEA now runs through `fgsea` directly, so `clusterProfiler` leaves the dependency list.
 
-## 2. Every old name still works
+## 2. Every old name worked through 0.x, and none works in 1.0.0
 
-All deprecated functions are exported through v0.x and are scheduled for removal in v1.0.0.
-Each warns once through `.Deprecated()` and names its migration path, so a project runs after
-step 1 alone. A migration path may use several functions, and two deliberately note behaviour
+Through the `0.x` series each old name was exported, warned once through `.Deprecated()`, and
+named its migration path, so a project ran after step 1 alone. **In 1.0.0 they are gone from
+the public API**, so step 1 is no longer sufficient and the table below is mandatory. A migration path may use several functions, and two deliberately note behaviour
 with no successor. Step 4 covers the two changes that reach further.
 
 | Old | New |

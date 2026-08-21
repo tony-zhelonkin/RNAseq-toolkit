@@ -45,6 +45,36 @@
   schema
 }
 
+#' List master-table columns in emission order
+#'
+#' Returns the columns declared by the versioned master-table schema in the
+#' order [gs_to_master()] emits them and [gs_validate_master()] expects.
+#' Optional columns come first, followed by the required columns.
+#'
+#' The shipped schema CSV lists `entity_type` last while `gs_to_master()` emits
+#' it first, so take the order from here rather than from the file.
+#'
+#' @param schema_version Character(1) master-table schema version.
+#' @param optional Whether to include the optional columns. `gs_to_master()`
+#'   emits them only when given an `entity_type`, so the default describes a
+#'   table built without one.
+#' @return A character vector of master-table column names in emission order.
+#' @examples
+#' gs_master_columns()
+#' gs_master_columns(optional = TRUE)
+#' @export
+gs_master_columns <- function(schema_version = "1", optional = FALSE) {
+  if (!is.logical(optional) || length(optional) != 1L || is.na(optional)) {
+    stop("`optional` must be TRUE or FALSE.", call. = FALSE)
+  }
+  schema <- .gs_master_schema(schema_version)
+  required <- schema$column[schema$required]
+  if (!optional) {
+    return(required)
+  }
+  c(schema$column[!schema$required], required)
+}
+
 #' Test whether a master-table column is coercible to its declared type
 #'
 #' Coercion is considered safe when it does not turn a non-missing input into a

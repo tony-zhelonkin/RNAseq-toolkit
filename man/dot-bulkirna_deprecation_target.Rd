@@ -2,21 +2,20 @@
 % Please edit documentation in R/api.R
 \name{.bulkirna_deprecation_target}
 \alias{.bulkirna_deprecation_target}
-\title{Read a successor from a deprecation shim}
+\title{Read a successor from a legacy fixture}
 \usage{
 .bulkirna_deprecation_target(name)
 }
 \arguments{
-\item{name}{Name of a deprecated export.}
+\item{name}{Name of a legacy fixture.}
 }
 \value{
 A character scalar or \code{NA_character_}.
 }
 \description{
-The first expression in every legacy shim is its \code{.Deprecated()} call. For
-shims that use \code{.Deprecated(new =)} (including an unnamed first argument),
-evaluate that argument so the API registry cannot drift from the warning.
-Message-only shims deliberately return \code{NA_character_}; their prose-level
-successor is supplied by \code{bulkirna_api()}.
+The first expression in every legacy fixture is its \code{.Deprecated()} call.
+For fixtures that use \code{.Deprecated(new =)} (including an unnamed first
+argument), evaluate that argument. Message-only fixtures return
+\code{NA_character_}.
 }
 \keyword{internal}

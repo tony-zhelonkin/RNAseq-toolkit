@@ -30,26 +30,22 @@ deprecation cycle.
 \item \code{experimental} functions may change or be removed without a major release.
 CoReSh dataset-taking functions use the \verb{(gse, gpl)} pair as the dataset
 key; a GSE accession alone is not unique in that compendium.
-\item \code{deprecated} functions remain callable and warn, but are scheduled for
-removal in the version recorded in \code{removed_in}.
+\item \code{deprecated} functions, when present, remain callable and warn until the
+version recorded in \code{removed_in}.
 }
 
-\code{frozen} records the 24 signatures carried forward from the script-library
-API. It does not mean that a function is recommended: all deprecated
-shims are frozen until their documented removal. Conversely, most stable
-functions were introduced after the freeze and therefore have
-\code{frozen = FALSE}.
+\code{frozen} records the remaining exported signatures carried forward from the
+script-library API. Most stable functions were introduced after the freeze
+and therefore have \code{frozen = FALSE}.
 
 \code{stochastic} records whether calling the function consumes randomness, so
 its result depends on a seed. \code{\link[=bulkirna_stochastic]{bulkirna_stochastic()}} reports the seed
 interface, default, and source of randomness for each such function.
 
-The \code{superseded_by} field may name a technique or a sequence of calls rather
-than a single function, and may say that no replacement exists when part of
-the deprecated behaviour was deliberately retired.
+The \code{superseded_by} and \code{removed_in} fields retain a stable registry schema
+even when the current public API has no deprecated entries.
 \code{layer} records the function's functional module. Stable and experimental
-functions retain their curated registry group; deprecated compatibility
-shims, which have no curated group, derive it from their name prefix.
+functions retain their curated registry group.
 }
 \examples{
 experimental <- bulkirna_api("experimental", quiet = TRUE)

@@ -113,7 +113,7 @@ gatom_download_refs <- function(
 #' \dontrun{
 #' download_gatom_references(dest_dir = "00_data/references/gatom")
 #' }
-#' @export
+#' @keywords internal
 download_gatom_references <- function(
     dest_dir = "00_data/references/gatom",
     species = "Mus_musculus",

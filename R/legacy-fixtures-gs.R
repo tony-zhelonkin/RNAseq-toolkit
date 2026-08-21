@@ -1,10 +1,7 @@
-#' Deprecated GSEA / gene-set-database functions
+#' Legacy gene-set baseline fixtures
 #'
-#' Frozen shims for the pre-refactor `scripts/GSEA/GSEA_processing/` API.
-#' Every function here reproduces its old formals **verbatim** (same names,
-#' same order, same defaults) and forwards to the new `gsdb_*` / `gs_*` API.
-#' Call `.Deprecated()` on entry; the target named there is the maintained
-#' replacement.
+#' These non-exported implementations are retained because the golden baseline
+#' captured at `752481f` verifies current behavior against them.
 #'
 #' @name deprecated-gs
 #' @keywords internal
@@ -20,7 +17,7 @@ NULL
 #'   is no toolkit checkout path to point at.
 #' @return A data frame with columns `database`, `name`, `bundled`,
 #'   `description`, `species`.
-#' @export
+#' @keywords internal
 list_reference_dbs <- function(toolkit_dir = NULL) {
   .Deprecated("gsdb_list")
   out <- gsdb_list()
@@ -47,7 +44,7 @@ list_reference_dbs <- function(toolkit_dir = NULL) {
 #'   change, not a bug in the shim.
 #' @return List with `T2G`, `T2N`, `source`, `created`, matching the object
 #'   the pre-refactor `load_reference_db()` returned.
-#' @export
+#' @keywords internal
 load_reference_db <- function(
     database,
     species = "Mus_musculus",
@@ -103,7 +100,7 @@ load_reference_db <- function(
 #' @param min_size Integer. Minimum genes per set (default: 5).
 #' @param max_size Integer. Maximum genes per set (default: 500).
 #' @return List with filtered `T2G` and `T2N`, same shape as `result`.
-#' @export
+#' @keywords internal
 filter_by_size <- function(result, min_size = 5, max_size = 500) {
   # Names a public path, not an internal. There is no exported successor
   # function: size filtering became an *argument* on every provider, so the
@@ -155,7 +152,7 @@ filter_by_size <- function(result, min_size = 5, max_size = 500) {
 #' @param gene_col Character. Name for the gene column (default:
 #'   `"gene_symbol"`).
 #' @return Data frame in TERM2GENE format with columns `gs_col`, `gene_col`.
-#' @export
+#' @keywords internal
 list_to_term2gene <- function(
     geneset_list,
     gs_col = "gs_name",
@@ -183,7 +180,7 @@ list_to_term2gene <- function(
 #' @param min_size Integer. Minimum genes per set to retain (default: 5).
 #' @param max_size Integer. Maximum genes per set to retain (default: 500).
 #' @return List with `T2G`, `T2N`, `source`, `created`.
-#' @export
+#' @keywords internal
 parse_gmx <- function(file, prefix = NULL, min_size = 5, max_size = 500) {
   .Deprecated("gsdb_from_file")
   if (!file.exists(file)) {
@@ -235,7 +232,7 @@ parse_gmx <- function(file, prefix = NULL, min_size = 5, max_size = 500) {
 #' @param min_size Integer. Minimum genes per set to retain (default: 5).
 #' @param max_size Integer. Maximum genes per set to retain (default: 500).
 #' @return List with `T2G`, `T2N`, `stats`, `source`, `created`.
-#' @export
+#' @keywords internal
 parse_mitoxplorer <- function(
     file,
     prefix = "MITOXPLORER",
@@ -294,7 +291,7 @@ parse_mitoxplorer <- function(
 #'   supported way to keep them. A warning is raised in that case.
 #' @param verbose Logical. Print mapping statistics (default: TRUE).
 #' @return `T2G` with mouse gene symbols.
-#' @export
+#' @keywords internal
 convert_human_to_mouse <- function(T2G, drop_unmapped = TRUE, verbose = TRUE) {
   # The mapper is internal; the user-facing equivalent is asking a provider for
   # mouse sets from the human MSigDB, which maps orthologs itself.
@@ -329,7 +326,7 @@ convert_human_to_mouse <- function(T2G, drop_unmapped = TRUE, verbose = TRUE) {
 #' point of "superseded by", not "identical to".
 #'
 #' @return A zero-row `gs_result`.
-#' @export
+#' @keywords internal
 empty_gsea_tibble <- function() {
   .Deprecated(msg = paste(
     "`empty_gsea_tibble()` is deprecated. gs_test() returns a gs_result;",
@@ -389,7 +386,7 @@ empty_gsea_tibble <- function() {
 #'   100000).
 #' @param seed Integer. Random seed set before testing (default: 123).
 #' @return A [gs_result()] with `ranks` and `gene_sets` attributes set.
-#' @export
+#' @keywords internal
 run_gsea <- function(
     DE_results,
     rank_metric   = "t",
@@ -466,7 +463,7 @@ run_gsea <- function(
 #'   membership, so there is nothing to intersect against a universe. Use
 #'   [gs_leading_edge()] with the original `gs_db` instead.
 #' @return A [gs_result()].
-#' @export
+#' @keywords internal
 normalize_gsea_results <- function(
     gsea_obj,
     database,
@@ -566,7 +563,7 @@ normalize_gsea_results <- function(
 #' @param helper_root Accepted and ignored: the new API needs no
 #'   `source()`-based helper resolution.
 #' @return List of [gs_result()] objects for each database, invisibly.
-#' @export
+#' @keywords internal
 run_gsea_analysis <- function(
     de_table,
     analysis_name,

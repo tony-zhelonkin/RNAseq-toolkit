@@ -75,7 +75,7 @@ return_audit_contract <- function() {
     return_audit_rows(
       c(
         "entrez_to_gene", "filter_confounder_genes", "format_pathway_name",
-        "gatom_genes", "gs_stat_types"
+        "gatom_genes", "gs_master_columns", "gs_stat_types"
       ),
       "vector", "character"
     ),
@@ -297,6 +297,7 @@ test_that("every live export has one asserted return class or one reason", {
     gatom_refs = function() gatom_refs("human", dir = refs_dir),
     gs_filter = function() gs_filter(res, padj = 0.2),
     gs_leading_edge = function() gs_leading_edge(res),
+    gs_master_columns = function() gs_master_columns(),
     gs_plot_bar = function() gs_plot_bar(plot_res),
     gs_plot_dot = function() gs_plot_dot(plot_res),
     gs_plot_heatmap = function() gs_plot_heatmap(mat),

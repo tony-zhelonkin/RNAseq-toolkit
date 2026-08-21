@@ -166,6 +166,13 @@ test_that("live export formals use the complete audited vocabulary", {
           "This renderer input selects and orders the samples displayed in a",
           "score heatmap."
         )
+      ),
+      optional_schema_columns = concept(
+        "optional",
+        paste(
+          "This schema accessor input chooses whether the optional columns are",
+          "included, matching whether gs_to_master() received an entity_type."
+        )
       )
     ),
     single_use(
@@ -263,7 +270,7 @@ test_that("live export formals use the complete audited vocabulary", {
   # unnamed list does not, so the two compared unequal on the passing case --
   # which only appeared once the last multi-spelling exception went away.
   #
-  # Since the argument unification there are 174 concepts for 174 formals, all
+  # Since the argument unification there is one concept per formal, all
   # singletons, so both sides are permanently empty and this normalisation *is*
   # the assertion rather than a defensive edge case. It stops being load-bearing
   # only if somebody reintroduces a second spelling for one concept -- which is

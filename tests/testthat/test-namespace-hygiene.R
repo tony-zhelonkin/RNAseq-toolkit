@@ -51,8 +51,10 @@ test_that("no deprecation message sends users to an internal function", {
   dir <- pkg_r_dir()
   skip_if(is.null(dir), "package R/ sources not reachable from the test dir")
 
-  files <- list.files(dir, "^deprecated-.*[.]R$", full.names = TRUE)
-  skip_if(!length(files), "no deprecation shim files")
+  # Renamed to legacy-fixtures-* at 1.0.0. Matching both spellings keeps this
+  # from going quietly inert the next time the files move.
+  files <- list.files(dir, "^(deprecated|legacy-fixtures)-.*[.]R$", full.names = TRUE)
+  expect_true(length(files) > 0L, info = "legacy fixture sources must be present")
   txt <- unlist(lapply(files, readLines, warn = FALSE))
   calls <- grep("\\.Deprecated\\(", txt, value = TRUE)
   expect_true(length(calls) > 0L)
@@ -91,8 +93,10 @@ test_that("every exported name is actually defined in R/", {
 test_that("every identifier a deprecation message names is reachable", {
   dir <- pkg_r_dir()
   skip_if(is.null(dir), "package R/ sources not reachable from the test dir")
-  files <- list.files(dir, "^deprecated-.*[.]R$", full.names = TRUE)
-  skip_if(!length(files), "no deprecation shim files")
+  # Renamed to legacy-fixtures-* at 1.0.0. Matching both spellings keeps this
+  # from going quietly inert the next time the files move.
+  files <- list.files(dir, "^(deprecated|legacy-fixtures)-.*[.]R$", full.names = TRUE)
+  expect_true(length(files) > 0L, info = "legacy fixture sources must be present")
 
   txt <- paste(unlist(lapply(files, readLines, warn = FALSE)), collapse = "\n")
   # Function-call shapes inside a .Deprecated() message: `foo()`, `pkg::foo()`,

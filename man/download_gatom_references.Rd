@@ -33,3 +33,4 @@ argument.
 download_gatom_references(dest_dir = "00_data/references/gatom")
 }
 }
+\keyword{internal}

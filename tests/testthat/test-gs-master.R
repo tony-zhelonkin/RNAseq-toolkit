@@ -55,6 +55,34 @@ test_that("master schema v1 has the contracted rows and order", {
   expect_true(all(nzchar(schema$description)))
 })
 
+test_that("gs_master_columns matches what gs_to_master actually emits", {
+  without <- gs_to_master(master_result())
+  with_entity_type <- gs_to_master(master_result(), entity_type = "pathway")
+
+  # Each mode is compared against a real table rather than against the
+  # documented order, so a drifting docstring cannot pass this.
+  expect_identical(gs_master_columns(), names(without))
+  expect_identical(gs_master_columns(optional = TRUE), names(with_entity_type))
+
+  # Selecting by the canonical order is the idiom the accessor exists for, so
+  # assert it works rather than inferring it from the column names.
+  expect_identical(names(without[, gs_master_columns()]), names(without))
+  expect_identical(
+    names(with_entity_type[, gs_master_columns(optional = TRUE)]),
+    names(with_entity_type)
+  )
+
+  expect_identical(
+    setdiff(gs_master_columns(optional = TRUE), gs_master_columns()),
+    "entity_type"
+  )
+})
+
+test_that("gs_master_columns rejects a non-logical optional", {
+  expect_error(gs_master_columns(optional = NA), "must be TRUE or FALSE")
+  expect_error(gs_master_columns(optional = "yes"), "must be TRUE or FALSE")
+})
+
 test_that("gs_to_master creates a valid master table", {
   master <- gs_to_master(
     master_result(),

@@ -19,3 +19,4 @@
 ^tests/README\.md$
 ^tests/VOLCANO_FIX_SUMMARY\.md$
 ^tests/.*\.pdf$
+^Rplots\.pdf$

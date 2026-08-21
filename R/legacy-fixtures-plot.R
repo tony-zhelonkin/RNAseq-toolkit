@@ -1,3 +1,6 @@
+# Legacy plot baseline fixtures are non-exported implementations retained for
+# verification against the golden baseline captured at `752481f`.
+
 #' Convert a bare `gseaResult` (or pass through a `gs_result`) for the plot
 #' shims
 #'
@@ -110,7 +113,7 @@
 #' @note `use_gradient = FALSE` (the old "binary colour" mode) has no
 #'   counterpart: `gs_plot_dot()` always uses the continuous diverging
 #'   gradient. Accepted and ignored; the plot always renders with a gradient.
-#' @export
+#' @keywords internal
 gsea_dotplot <- function(
     gsea_obj,
     filterBy = "p.adjust",
@@ -194,7 +197,7 @@ gsea_dotplot <- function(
 #' @return A ggplot object, as returned by [gs_plot_dot()].
 #' @note Forwards `aes_x = "gene_ratio"`, matching the old faceted dotplot's
 #'   GeneRatio x axis -- see the `gsea_dotplot()` note for the derivation.
-#' @export
+#' @keywords internal
 gsea_dotplot_facet <- function(
     gsea_obj,
     showCategory = 10,
@@ -265,7 +268,7 @@ gsea_dotplot_facet <- function(
 #'   post-selection `dplyr::arrange(NES)`. This changes only row order in the
 #'   data and the table `gs_save()` writes -- bar positions come from the y-axis
 #'   factor's levels and are already correct.
-#' @export
+#' @keywords internal
 gsea_barplot <- function(
     gsea_obj,
     padj_cutoff = 0.05,
@@ -352,7 +355,7 @@ gsea_barplot <- function(
 #'   converted `gs_result` as the `ranks` and `gene_sets` attributes, which
 #'   [gs_plot_running()] falls back to when its own `ranks`/`db` arguments are
 #'   `NULL` -- so this shim never duplicates that lookup logic itself.
-#' @export
+#' @keywords internal
 gsea_running_sum_plot <- function(gsea_obj,
                                   gene_set_ids = NULL,
                                   palette = NULL,
@@ -407,7 +410,7 @@ gsea_running_sum_plot <- function(gsea_obj,
 #'   public theme keeps its floor. No gate could have caught the difference:
 #'   the golden record for this case stores only the 144 theme element *names*,
 #'   never their sizes.
-#' @export
+#' @keywords internal
 custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
   .Deprecated("theme_bulki")
   .theme_bulki(base_size = base_size, base_family = base_family,
@@ -449,7 +452,7 @@ custom_minimal_theme_with_grid <- function(base_size = 12, base_family = "") {
 #'   body behind this shim) does not render a heatmap, so these four formals
 #'   are accepted and ignored. No heatmap is written where the old function
 #'   would have written one.
-#' @export
+#' @keywords internal
 plot_all_gsea_results <- function(
     gsea_list,
     analysis_name,
@@ -501,7 +504,7 @@ plot_all_gsea_results <- function(
 #' @param dir Output directory (optional).
 #'
 #' @return `path`, invisibly, as returned by `.gs_write_log()`.
-#' @export
+#' @keywords internal
 save_gsea_log <- function(
     gsea_obj,
     filename,
@@ -549,7 +552,7 @@ save_gsea_log <- function(
 #' @param ... Absorbs deprecated arguments such as `use_fdr`.
 #'
 #' @return A `ggplot2` object.
-#' @export
+#' @keywords internal
 create_standard_volcano <- function(
     de_results,
     decision_by = c("fdr", "p"),
@@ -618,7 +621,7 @@ create_standard_volcano <- function(
 #' @param show_quadrant_counts Logical. Annotate significant-gene counts.
 #'
 #' @return A `ggplot2` object.
-#' @export
+#' @keywords internal
 create_MD_plot <- function(
     fit,
     coef,

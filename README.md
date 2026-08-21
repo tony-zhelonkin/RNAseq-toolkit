@@ -142,8 +142,8 @@ from CRAN.
 
 ## Legacy names
 
-21 of the 78 exports are shims for superseded API names. Each one works, warns once,
-and names its replacement:
+**Removed from the public API in 1.0.0.** These 21 names were shims through the `0.x`
+series. They are no longer exported, so `library(bulkiRNA)` will not find them:
 
 `run_gsea()` `run_gsea_analysis()` `normalize_gsea_results()` `gsea_dotplot()`
 `gsea_dotplot_facet()` `gsea_barplot()` `gsea_running_sum_plot()` `plot_all_gsea_results()`
@@ -151,6 +151,11 @@ and names its replacement:
 `load_reference_db()` `list_reference_dbs()` `filter_by_size()` `parse_gmx()`
 `parse_mitoxplorer()` `list_to_term2gene()` `convert_human_to_mouse()`
 `empty_gsea_tibble()` `save_gsea_log()` `download_gatom_references()`
+
+Their implementations survive as non-exported fixtures. The golden harness captured its
+baseline at `752481f`, before any restructuring, and 17 of its 20 cases run through these
+functions — so they are what proves today's numbers still match the original script
+library. [MIGRATION.md](MIGRATION.md) names the replacement for each.
 
 Two changes reach past the shims, because the return type itself changed:
 

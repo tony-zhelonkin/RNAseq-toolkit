@@ -259,7 +259,8 @@ was.
 
 ### The rule when §12 and the freeze collide
 
-`02_api-inventory.md` §5 freezes **24 exported names** as of `752481f`.
+`02_api-inventory.md` §5 froze **24 exported names** as of `752481f`. 21 left the public API
+in 1.0.0 and survive as non-exported fixtures; 3 remain exported and frozen.
 `07_api-design.md` §7 lists the **~30 new exports**. The two lists are not the
 same set, and a name can be on the frozen list while having no place in the new
 surface. When that happens:

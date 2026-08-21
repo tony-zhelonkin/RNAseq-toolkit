@@ -16,9 +16,9 @@ to make a test pass -- see "Re-capturing a baseline" below.
 
 `golden/` holds 20 baselines recorded from the old `scripts/` library before it
 was deleted, each keyed to a frozen legacy function name. `verify_golden.R`
-calls those names on the **installed package**, so it compares the old recorded
-behaviour against the new implementations reached through the deprecation shims
-in `R/deprecated-gs.R` and `R/deprecated-plot.R`.
+calls those names through package internals, so it compares the old recorded
+behaviour against the retained implementations in `R/legacy-fixtures-gs.R` and
+`R/legacy-fixtures-plot.R`.
 
 That distinction is the whole value of the gate. Until it was migrated, the
 harness `source()`d the old scripts, so a green 20/20 proved only that the old

@@ -1,12 +1,11 @@
 # These helpers normalise zero-length input so a comparison of two empty
 # structures passes rather than failing on a names-or-type mismatch. That is not
-# defensive padding. At v1.0.0 the 21 deprecated shims go and
+# defensive padding. At v1.0.0 the 21 deprecated exports go and
 # `bulkirna_api(lifecycle = "deprecated")` returns zero rows, so the shim
 # allowlists below become permanently empty -- at which point the empty case
 # stops being the untested path and becomes the only path, and this
-# normalisation is the whole assertion. Verified by emptying the deprecated
-# tier: 57 assertions pass, 0 fail. Do not delete these as dead code, and do
-# not inline them into a comparison that only works on non-empty input.
+# normalisation is the whole assertion. Do not delete these as dead code or
+# inline them into a comparison that only works on non-empty input.
 api_expect_set_allowlist <- function(observed, expected, info = NULL) {
   normalise <- function(x) sort(unique(as.character(x)))
   expect_identical(normalise(observed), normalise(expected), info = info)
@@ -49,6 +48,7 @@ test_that("the API registry covers the complete namespace exactly once", {
       "removed_in")
   )
   expect_equal(nrow(api), length(exports))
+  expect_equal(nrow(api), 59L)
   expect_equal(anyDuplicated(api$name), 0L)
   expect_setequal(api$name, exports)
   expect_identical(api$name, sort(api$name))
@@ -61,13 +61,9 @@ test_that("each export has one stability lifecycle and one layer", {
   expect_false(anyNA(api$layer))
   expect_true(all(nzchar(api$layer)))
   expect_true(all(api$lifecycle %in% c("stable", "experimental", "deprecated")))
-  expect_identical(
-    api$layer[api$name == "download_gatom_references"],
-    "gatom"
-  )
-  expect_false(any(
-    api$lifecycle == "deprecated" & api$layer == "deprecated"
-  ))
+  expect_equal(sum(api$lifecycle == "stable"), 47L)
+  expect_equal(sum(api$lifecycle == "experimental"), 12L)
+  expect_equal(sum(api$lifecycle == "deprecated"), 0L)
 })
 
 test_that("experimental status covers CoReSh, coregulation and gene-id helpers", {
@@ -85,22 +81,13 @@ test_that("experimental status covers CoReSh, coregulation and gene-id helpers",
   expect_identical(api$layer[api$name == "gsdb_coresh"], "gsdb")
 })
 
-test_that("the historical signature freeze remains an independent axis", {
+test_that("the remaining historical signature freeze is recorded", {
   api <- bulkirna_api(quiet = TRUE)
-  frozen <- c(
-    "normalize_gsea_results", "run_gsea", "create_standard_volcano",
-    "format_pathway_name", "gsea_running_sum_plot", "list_to_term2gene",
-    "gsea_barplot", "gsea_dotplot", "load_reference_db",
-    "custom_minimal_theme_with_grid", "gsea_dotplot_facet", "create_MD_plot",
-    "empty_gsea_tibble", "ensure_dir", "run_gsea_analysis", "save_gsea_log",
-    "plot_all_gsea_results", "convert_human_to_mouse", "parse_gmx",
-    "parse_mitoxplorer", "filter_by_size", "build_dge",
-    "list_reference_dbs", "download_gatom_references"
-  )
+  frozen <- c("build_dge", "ensure_dir", "format_pathway_name")
 
   expect_equal(sum(api$frozen), length(frozen))
   expect_setequal(api$name[api$frozen], frozen)
-  expect_true(all(api$frozen[api$lifecycle == "deprecated"]))
+  expect_true(all(api$lifecycle[api$frozen] == "stable"))
   api_expect_set_allowlist(
     api$name[api$frozen & api$lifecycle == "stable"],
     c("build_dge", "ensure_dir", "format_pathway_name")
@@ -112,11 +99,14 @@ test_that("the historical signature freeze remains an independent axis", {
   )
 })
 
-test_that("deprecated metadata names a successor and removal version", {
+test_that("deprecated metadata columns remain empty at v1.0.0", {
   api <- bulkirna_api(quiet = TRUE)
   deprecated <- api[api$lifecycle == "deprecated", ]
   maintained <- api[api$lifecycle != "deprecated", ]
 
+  expect_equal(nrow(deprecated), 0L)
+  expect_true(all(is.na(api$superseded_by)))
+  expect_true(all(is.na(api$removed_in)))
   expect_true(all(!is.na(deprecated$superseded_by)))
   expect_true(all(nzchar(deprecated$superseded_by)))
   expect_true(all(deprecated$removed_in == "1.0.0"))
@@ -129,26 +119,10 @@ test_that("deprecated metadata names a successor and removal version", {
   expect_true(all(no_deprecated$removed_in == "1.0.0"))
 })
 
-test_that("machine-readable successors come from the deprecation calls", {
+test_that("machine-readable successor checks accept the empty tier", {
   api <- bulkirna_api(quiet = TRUE)
   deprecated <- api$name[api$lifecycle == "deprecated"]
-  # Message-only shims carry no machine-readable target; every other target is
-  # parsed out of the call itself.
-  message_only <- c(
-    "filter_by_size", "parse_mitoxplorer", "convert_human_to_mouse",
-    "plot_all_gsea_results", "save_gsea_log", "empty_gsea_tibble"
-  )
-  # One literal anchor, so the loop below cannot pass with a helper that reads
-  # the wrong argument and still agrees with itself.
-  if (length(deprecated)) {
-    expect_true("run_gsea" %in% deprecated)
-    expect_identical(
-      api$superseded_by[api$name == "run_gsea"],
-      "gs_ranks() and gs_test()"
-    )
-  }
-
-  api_expect_machine_readable_targets(api, deprecated, message_only)
+  api_expect_machine_readable_targets(api, deprecated, character(0L))
   api_expect_machine_readable_targets(
     api[0L, , drop = FALSE],
     character(0L),
@@ -156,30 +130,10 @@ test_that("machine-readable successors come from the deprecation calls", {
   )
 })
 
-test_that("message-only shims describe the complete migration path", {
-  api <- bulkirna_api(quiet = TRUE)
-  expected <- c(
-    filter_by_size = paste0(
-      "the min_size/max_size arguments on gsdb_msigdb(), gsdb_load() and ",
-      "gsdb_from_file()"
-    ),
-    parse_mitoxplorer = paste0(
-      "gsdb_load(\"mitoxplorer\"), or gsdb_from_file() for an arbitrary ",
-      "file"
-    ),
-    convert_human_to_mouse =
-      "gsdb_msigdb(species = \"Mus musculus\", db_species = \"HS\")",
-    plot_all_gsea_results = paste0(
-      "gs_plot_dot(), gs_plot_bar(), gs_plot_running() and gs_save()"
-    ),
-    save_gsea_log =
-      "gs_save(); the free-text log has no replacement, by design"
-  )
-
-  observed <- api$superseded_by[match(names(expected), api$name)]
+test_that("message-only successor checks accept the empty tier", {
   api_expect_named_allowlist(
-    stats::setNames(observed, names(expected)),
-    expected
+    character(0L),
+    NULL
   )
   api_expect_named_allowlist(
     character(0L),
@@ -215,7 +169,9 @@ test_that("G4 widens a stable vocabulary with an experimental verb", {
 api_expect_deprecated_first <- function(deprecated) {
   checked <- character(0L)
   for (name in deprecated) {
-    fun <- getExportedValue("bulkiRNA", name)
+    # Namespace lookup, not getExportedValue(): since 1.0.0 these are internal
+    # fixtures, which getExportedValue() cannot see.
+    fun <- get(name, envir = asNamespace("bulkiRNA"), inherits = FALSE)
     first <- body(fun)[[2L]]
     expect_true(
       is.call(first) && identical(first[[1L]], as.name(".Deprecated")),
@@ -229,7 +185,9 @@ api_expect_deprecated_first <- function(deprecated) {
 api_expect_deprecated_warnings <- function(deprecated) {
   checked <- character(0L)
   for (name in deprecated) {
-    fun <- getExportedValue("bulkiRNA", name)
+    # Namespace lookup, not getExportedValue(): since 1.0.0 these are internal
+    # fixtures, which getExportedValue() cannot see.
+    fun <- get(name, envir = asNamespace("bulkiRNA"), inherits = FALSE)
     # The test above establishes that this is the shim's first statement.
     # Install a body-truncated copy under the real shim name. This preserves
     # .Deprecated()'s call-derived `old` value without allowing delegated work
@@ -256,19 +214,40 @@ api_expect_deprecated_warnings <- function(deprecated) {
   expect_identical(checked, deprecated)
 }
 
-test_that("every deprecated export calls .Deprecated first", {
-  api <- bulkirna_api(quiet = TRUE)
-  deprecated <- api$name[api$lifecycle == "deprecated"]
+# The 21 names demoted to internal fixtures at 1.0.0. A closed historical set:
+# it can never grow, so a literal is the anchor. The golden baseline at 752481f
+# runs through these, so their deprecation contract still has to hold.
+API_LEGACY_FIXTURES <- c(
+  "convert_human_to_mouse", "create_MD_plot", "create_standard_volcano",
+  "custom_minimal_theme_with_grid", "download_gatom_references",
+  "empty_gsea_tibble", "filter_by_size", "gsea_barplot", "gsea_dotplot",
+  "gsea_dotplot_facet", "gsea_running_sum_plot", "list_reference_dbs",
+  "list_to_term2gene", "load_reference_db", "normalize_gsea_results",
+  "parse_gmx", "parse_mitoxplorer", "plot_all_gsea_results", "run_gsea",
+  "run_gsea_analysis", "save_gsea_log"
+)
 
-  api_expect_deprecated_first(deprecated)
+test_that("the legacy fixtures are internal and exactly the expected set", {
+  expect_length(API_LEGACY_FIXTURES, 21L)
+  exports <- getNamespaceExports("bulkiRNA")
+  ns <- asNamespace("bulkiRNA")
+
+  # Present in the namespace, absent from the public surface. Fails if a
+  # demotion is reverted or a fixture is deleted outright.
+  for (name in API_LEGACY_FIXTURES) {
+    expect_true(exists(name, envir = ns, inherits = FALSE), info = name)
+    expect_false(name %in% exports, info = name)
+  }
+  expect_false(any(API_LEGACY_FIXTURES %in% bulkirna_api(quiet = TRUE)$name))
+})
+
+test_that("every legacy fixture calls .Deprecated first", {
+  api_expect_deprecated_first(API_LEGACY_FIXTURES)
   api_expect_deprecated_first(character(0L))
 })
 
-test_that("every deprecated export warns before doing any work", {
-  api <- bulkirna_api(quiet = TRUE)
-  deprecated <- api$name[api$lifecycle == "deprecated"]
-
-  api_expect_deprecated_warnings(deprecated)
+test_that("every legacy fixture warns before doing any work", {
+  api_expect_deprecated_warnings(API_LEGACY_FIXTURES)
   api_expect_deprecated_warnings(character(0L))
 })
 

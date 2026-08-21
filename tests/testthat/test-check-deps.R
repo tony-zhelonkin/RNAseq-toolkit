@@ -140,7 +140,7 @@ test_that("the registry cannot silently drift from DESCRIPTION's Suggests", {
   # Never user-facing: needed to test or to build this package's own
   # documentation, not to use any feature. `bulkirna_check_deps()` answers
   # "what must I install to use this?", and the answer never includes knitr.
-  dev_only <- c("testthat", "knitr", "rmarkdown")
+  dev_only <- c("testthat", "knitr", "rmarkdown", "withr")
   expected <- setdiff(declared, dev_only)
   reported <- bulkirna_check_deps("all", quiet = TRUE)$package
 

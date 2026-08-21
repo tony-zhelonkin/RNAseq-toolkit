@@ -9,25 +9,21 @@
 #' * `experimental` functions may change or be removed without a major release.
 #'   CoReSh dataset-taking functions use the `(gse, gpl)` pair as the dataset
 #'   key; a GSE accession alone is not unique in that compendium.
-#' * `deprecated` functions remain callable and warn, but are scheduled for
-#'   removal in the version recorded in `removed_in`.
+#' * `deprecated` functions, when present, remain callable and warn until the
+#'   version recorded in `removed_in`.
 #'
-#' `frozen` records the 24 signatures carried forward from the script-library
-#' API. It does not mean that a function is recommended: all deprecated
-#' shims are frozen until their documented removal. Conversely, most stable
-#' functions were introduced after the freeze and therefore have
-#' `frozen = FALSE`.
+#' `frozen` records the remaining exported signatures carried forward from the
+#' script-library API. Most stable functions were introduced after the freeze
+#' and therefore have `frozen = FALSE`.
 #'
 #' `stochastic` records whether calling the function consumes randomness, so
 #' its result depends on a seed. [bulkirna_stochastic()] reports the seed
 #' interface, default, and source of randomness for each such function.
 #'
-#' The `superseded_by` field may name a technique or a sequence of calls rather
-#' than a single function, and may say that no replacement exists when part of
-#' the deprecated behaviour was deliberately retired.
+#' The `superseded_by` and `removed_in` fields retain a stable registry schema
+#' even when the current public API has no deprecated entries.
 #' `layer` records the function's functional module. Stable and experimental
-#' functions retain their curated registry group; deprecated compatibility
-#' shims, which have no curated group, derive it from their name prefix.
+#' functions retain their curated registry group.
 #'
 #' @param lifecycle `"all"`, or one or more of `"stable"`, `"experimental"`,
 #'   and `"deprecated"`.
@@ -78,8 +74,9 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
     gs = c(
       "gs_filter", "gs_leading_edge", "gs_plot_bar", "gs_plot_dot",
       "gs_plot_heatmap", "gs_plot_running", "gs_ranks", "gs_read",
-      "gs_save", "gs_score", "gs_split", "gs_stat_types", "gs_test",
-      "gs_to_master", "gs_top", "gs_validate_master", "gs_write"
+      "gs_master_columns", "gs_save", "gs_score", "gs_split",
+      "gs_stat_types", "gs_test", "gs_to_master", "gs_top",
+      "gs_validate_master", "gs_write"
     ),
     de = c(
       "de_bfc_plot", "de_md_plot", "de_pca", "de_pca_3d", "de_volcano",
@@ -110,24 +107,13 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
     )
   )
 
-  deprecated <- c(
-    "convert_human_to_mouse", "create_MD_plot", "create_standard_volcano",
-    "custom_minimal_theme_with_grid", "empty_gsea_tibble", "filter_by_size",
-    "gsea_barplot", "gsea_dotplot", "gsea_dotplot_facet",
-    "gsea_running_sum_plot", "list_reference_dbs", "list_to_term2gene",
-    "load_reference_db", "normalize_gsea_results", "parse_gmx",
-    "parse_mitoxplorer", "plot_all_gsea_results", "run_gsea",
-    "run_gsea_analysis", "save_gsea_log", "download_gatom_references"
-  )
+  deprecated <- character(0L)
 
   stable_names <- unlist(stable, use.names = FALSE)
   experimental_names <- unlist(experimental, use.names = FALSE)
   names_all <- c(stable_names, experimental_names, deprecated)
 
-  deprecated_layer <- sub("_.*$", "", deprecated)
-  known_layers <- c("gs", "gsdb", "de", "gatom", "coresh", "gsea")
-  deprecated_layer[!deprecated_layer %in% known_layers] <- "top-level"
-  deprecated_layer[deprecated == "download_gatom_references"] <- "gatom"
+  deprecated_layer <- character(0L)
   layer <- c(
     rep(names(stable), lengths(stable)),
     rep(names(experimental), lengths(experimental)),
@@ -139,43 +125,12 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
     rep("deprecated", length(deprecated))
   )
 
-  frozen_names <- c(
-    "normalize_gsea_results", "run_gsea", "create_standard_volcano",
-    "format_pathway_name", "gsea_running_sum_plot", "list_to_term2gene",
-    "gsea_barplot", "gsea_dotplot", "load_reference_db",
-    "custom_minimal_theme_with_grid", "gsea_dotplot_facet", "create_MD_plot",
-    "empty_gsea_tibble", "ensure_dir", "run_gsea_analysis", "save_gsea_log",
-    "plot_all_gsea_results", "convert_human_to_mouse", "parse_gmx",
-    "parse_mitoxplorer", "filter_by_size", "build_dge",
-    "list_reference_dbs", "download_gatom_references"
-  )
-
-  successors <- vapply(
-    deprecated, .bulkirna_deprecation_target, character(1L)
-  )
-  message_only <- c(
-    "filter_by_size", "parse_mitoxplorer", "convert_human_to_mouse",
-    "empty_gsea_tibble", "plot_all_gsea_results", "save_gsea_log"
-  )
-  stopifnot(all(is.na(successors[message_only])))
-  successors[message_only] <- c(
-    "the min_size/max_size arguments on gsdb_msigdb(), gsdb_load() and gsdb_from_file()",
-    "gsdb_load(\"mitoxplorer\"), or gsdb_from_file() for an arbitrary file",
-    "gsdb_msigdb(species = \"Mus musculus\", db_species = \"HS\")",
-    paste0(
-      "gs_test(); filter its result to zero rows for an empty gs_result; ",
-      "there is no exported constructor, by design"
-    ),
-    "gs_plot_dot(), gs_plot_bar(), gs_plot_running() and gs_save()",
-    "gs_save(); the free-text log has no replacement, by design"
-  )
+  frozen_names <- c("build_dge", "ensure_dir", "format_pathway_name")
 
   superseded_by <- rep(NA_character_, length(names_all))
   names(superseded_by) <- names_all
-  superseded_by[deprecated] <- successors[deprecated]
 
   removed_in <- rep(NA_character_, length(names_all))
-  removed_in[names_all %in% deprecated] <- "1.0.0"
 
   stochastic_names <- .bulkirna_stochastic_registry()$name
 
@@ -194,15 +149,14 @@ bulkirna_api <- function(lifecycle = "all", quiet = FALSE) {
   out
 }
 
-#' Read a successor from a deprecation shim
+#' Read a successor from a legacy fixture
 #'
-#' The first expression in every legacy shim is its `.Deprecated()` call. For
-#' shims that use `.Deprecated(new =)` (including an unnamed first argument),
-#' evaluate that argument so the API registry cannot drift from the warning.
-#' Message-only shims deliberately return `NA_character_`; their prose-level
-#' successor is supplied by `bulkirna_api()`.
+#' The first expression in every legacy fixture is its `.Deprecated()` call.
+#' For fixtures that use `.Deprecated(new =)` (including an unnamed first
+#' argument), evaluate that argument. Message-only fixtures return
+#' `NA_character_`.
 #'
-#' @param name Name of a deprecated export.
+#' @param name Name of a legacy fixture.
 #' @return A character scalar or `NA_character_`.
 #' @keywords internal
 .bulkirna_deprecation_target <- function(name) {

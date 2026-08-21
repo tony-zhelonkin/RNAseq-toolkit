@@ -1,9 +1,15 @@
 # bulkiRNA — handoff and plan of record
 
-**Updated:** 2026-08-21 · **Branch:** `feat/bulkirna-package` · **Last release:** `v0.6.0` = `e42c2de`
-**Development version:** `0.7.0.9000` · a release version now names exactly one commit, enforced by a test
-**Gates, measured at the release commit:** 1,742 tests + 7 identity assertions · golden 20/20 · `R CMD check` OK
-**Surface:** 79 exports — 46 stable, 12 experimental, 21 deprecated · 24 signature-frozen · 7 stochastic
+**Updated:** 2026-08-21 · **Branch:** `feat/bulkirna-package` · **Last release:** `v1.0.0` = `0ceda46`
+**Development version:** none yet. `DESCRIPTION` reads `1.0.0` at the tag; the next commit must bump
+to `1.1.0.9000`, because the identity gate requires a `.9000` version off a release commit.
+**Gates, measured at the release commit:** 1,784 tests, 0 failures, 6 environmental skips ·
+golden 20/20 · 7 identity assertions ·
+`devtools::check(error_on = "note")` → 0 errors, 0 notes, 1 warning (`qpdf` absent from the image).
+**Quote the invocation with the verdict:** `check()` returns rather than failing, so a run printing
+warnings still reads as a pass without `error_on=`.
+**Surface:** 59 exports — 47 stable, 12 experimental, **0 deprecated** · 3 signature-frozen · 6 stochastic
+**Retained, not exported:** the 21 legacy names, as golden-baseline fixtures.
 
 > **Do not copy gate numbers forward.** They were carried between sessions once and were stale: the
 > suite was red on two tests while being reported green. Re-run before quoting.
@@ -20,6 +26,7 @@ This is the entry point. Everything else is reachable from here.
 | [2026-08-13-analysis-api-roadmap/04_NAME_AUDIT.md](2026-08-13-analysis-api-roadmap/04_NAME_AUDIT.md) | Why each public name and argument is spelled as it is |
 | [2026-08-13-analysis-api-roadmap/05_RETURN_AUDIT.md](2026-08-13-analysis-api-roadmap/05_RETURN_AUDIT.md) | What every export returns, with the reasoned exceptions |
 | [2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) | **Phase 4's recipe:** the call mapping, the four ways a migrated script fails while looking fine, and how to verify one |
+| [2026-08-10-bulkirna-package/07_SUBMODULE_RETIREMENT.md](2026-08-10-bulkirna-package/07_SUBMODULE_RETIREMENT.md) | **Phase 6's procedure**, per repository, with rollback and stop points. Its measured input is `07_SUBMODULE_STATE.txt`. Not executed |
 | [2026-08-11-coresh-extraction/00_PLAN.md](2026-08-11-coresh-extraction/00_PLAN.md) | CoReSh extraction, C0–C6 |
 | [../adr/](../adr/) | The four architectural decisions |
 | [../../../AGENTS.md](../../../AGENTS.md) | The rules an agent must follow in this repo |
@@ -214,7 +221,37 @@ needed the image moved forward for the migrated scripts to run, and both already
 uncommitted work — their own image bump, changed ports, changed data mounts. The edits were made and
 left uncommitted, because committing them would have swept someone else's in-progress changes into my
 commit. `14616-DM`'s equivalent file was clean, so there the bump is committed. Same action, opposite
-treatment, decided by what else was in the file.
+treatment, decided by what else was in the file. **The same rule reappeared one level down at the
+submodule cleanup:** six repositories have parent gitlinks that already differ from their recorded
+value, so advancing one would absorb an unrelated commit range. That is why Phase 6 is not done.
+
+**21. Renaming a file can switch off a test that greps for it.** `test-namespace-hygiene.R` located
+the legacy sources with `list.files(dir, "^deprecated-.*[.]R$")` and `skip_if(!length(files))`.
+Renaming them to `legacy-fixtures-*` made both checks skip, and a skip reads as success in the
+summary line. Caught only because the suite's skip count moved from 6 to 8. **A guard that locates
+its subject by filename needs the filename in the pattern to be as durable as the guard.**
+
+**22. Emptying the input to an audit reads as passing it.** When the deprecated tier went to zero
+rows, four `test_that` blocks in `test-api.R` kept passing while asserting nothing — one no longer
+even referenced the object under test. The cause was mechanical: the audit resolved each function
+with `getExportedValue()`, which cannot see internals, so pointing it at the demoted fixtures would
+have errored and emptying it was the path of least resistance. In the process the literal anchor whose
+own comment said it existed "so the loop below cannot pass with a helper that reads the wrong argument
+and still agrees with itself" was deleted. **An audit that iterates a derived set should assert the
+set's size**, which is why the repaired version is anchored to a literal list of the closed 21.
+
+**23. A reviewer's finding can be stale before you read it.** One review reported the new accessor as
+failing its own tests. It was correct when measured and already fixed by the time the report arrived,
+because a parallel fan-out means findings are timestamped against a moving tree. Re-check a finding
+against the current tree before acting, and against the current tree before dismissing it.
+
+**24. "`R CMD check` OK" was recorded without the setting that makes it a gate.** At `v1.0.0` the
+check surfaced two warnings and a note that **predate this release**: `withr` used through `::` in
+two test files since `ba910b2` and never declared, and a stray top-level `Rplots.pdf` from 2026-08-12.
+Neither came from the 1.0.0 change, so the prior gate line was inaccurate. The lesson is the setting,
+not the packages: `devtools::check()` reports and returns, so a run that prints warnings still looks
+like a pass unless `error_on=` makes it fail. **Record the invocation next to the verdict.** Both are
+fixed here and the check now runs at `error_on = "note"`.
 
 ---
 
@@ -276,10 +313,10 @@ open question in `03_DEFERRED.md`.
 | 2 Prove the dev loop | ✅ against real data |
 | 3 Install into the image | ✅ `scdock-r-dev:v0.5.14`, verified: `0.6.0` at `RemoteSha e42c2de` |
 | **4 Migrate heavy consumers** | ✅ **complete** — `14839-DM-cGAS`, Meta-Aging (`d6633dd`), `DC_Dictionary` (`86d78cf`), `DC_hum_verse` (`d7533c0`) · STING-JR excluded by the owner. Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
-| 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 🚫 blocked on the skills refactor |
-| 5 Bind the skills | 🚫 blocked on the SciAgent-toolkit refactor |
-| 6 Retire the submodule | ⬜ **unblocked** — Phase 4 is done; STING-JR still sources it |
-| 7 Distribution | ⬜ |
+| 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 ⛔ **externally blocked**, see below |
+| 5 Bind the skills | ⛔ **externally blocked**, see below |
+| 6 Retire the submodule | 🟡 procedure written and reviewed · blocked on six dirty gitlinks, not on work |
+| 7 Distribution | ⬜ · `v1.0.0` is tagged, so the surface it would distribute is now fixed |
 | **8 Stabilize the surface** | ✅ **S1–S6 complete** |
 | **9 One CoReSh/GESECA run** | ✅ **G1–G4** · 🚫 **G5's web-UI half needs a browser** |
 | 10–11 Activity layer, WGCNA, uniform surface | 🚫 parked by decision, findings intact |
@@ -350,19 +387,32 @@ remains outstanding as a decision, not as work.
    `convert_human_to_mouse`; and an exported accessor for the master-table columns, so consumers stop
    reading `inst/extdata/master-schema-v1.csv` directly — whose **row order is not the column order**
    `gs_validate_master()` requires, which is a trap in itself.
-3. **Wire the image lockfile in, or stop claiming it is used.** `install_renv_project.R` restores from
-   `/opt/settings/renv.lock` when present; the Dockerfile copies three R scripts into that directory
-   and no lockfile, so the restore branch is unreachable and every build re-resolves. The tracked
-   `renv.lock` holds exactly one package, `renv` itself, while `docs/build.md` calls subsequent builds
-   deterministic. **This is the mechanism behind pain point #15** and the reason the required-package
-   contract is a floor rather than a fix. CRAN is pinned to the RSPM snapshot `2026-04-15`;
-   Bioconductor, both r-universe remotes and every GitHub install float.
+3. **The RSPM snapshot pin does not apply to the CRAN stack.** `install_core.R:7` sets the
+   `2026-04-15` snapshot as the default `repos`, and then **all 11 install calls that matter override
+   it** with `repos = "https://cloud.r-project.org"` (9 in `install_core.R`, 2 in `install_httpgd.R`).
+   So the pin that looks like the determinism mechanism is bypassed. This sits beside the other dead
+   mechanism in the same file: `install_renv_project.R` restores `/opt/settings/renv.lock` when
+   present, and the Dockerfile copies no lockfile there, so that branch never runs. `docs/build.md`
+   no longer claims determinism (`scbio-docker` `3dd9b49`), but the installer is unchanged.
+   Bioconductor is constrained to release `3.22`, not to versions; three r-universe sources float;
+   GitHub installs float except `bulkiRNA`, which is commit-pinned. **Removing the overrides is the
+   cheap fix and needs a build to verify** — they may exist because the snapshot lacks some package.
+   **This is the mechanism behind pain point #15.**
 4. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step, and it is the only remaining
    independent check on the CoReSh port.
-5. **Phase 6** — retire the submodule, once no consumer sources it. Note the vendored checkout appears
-   at two different paths (`01_modules/RNAseq-toolkit` and, inside `DC_Dictionary`,
-   `01_scripts/RNAseq-toolkit`), both at `752481f`.
+5. **Phase 6 — blocked on six dirty gitlinks, not on work.** Zero `source()` calls and zero legacy
+   function calls reach the vendored toolkit in either project; nine checkouts remain as dead weight.
+   A reviewed removal procedure exists at `/tmp/wsC/PROCEDURE.md` — **copy it somewhere durable before
+   `/tmp` is cleared.** It stops short of executing because six repositories already have parent
+   gitlinks differing from their recorded value: `14616-DM`, `14761-DM`, `14782-DM`, `DC_Dictionary`,
+   `DC_hum_verse`, `DC_mouse_cancer`. Advancing any of them absorbs an unrelated commit range —
+   `14616-DM`'s pending range mixes the bulkiRNA migration with someone else's catalogue work, and
+   `14782-DM` is on another actor's `feat/consensus-package` branch. **The owner must commit or stash
+   in those six first.** Two path spellings exist (`01_modules/RNAseq-toolkit` and, inside
+   `DC_Dictionary`, `01_scripts/RNAseq-toolkit`), all at `752481f` — the same commit the golden
+   baseline was captured at. `01_modules/SciAgent-toolkit` is adjacent in every relevant
+   `.gitmodules` and is out of bounds, so any edit there must be surgical.
 6. **Then reconsider Phases 10–11** with `03_DEFERRED.md` in hand: TF activity, PROGENy, WGCNA. The
    sequencing argument for parking them was that a default in a package is load-bearing in a way a
    default in a script is not, and those three are where the methodological drift is worst. That

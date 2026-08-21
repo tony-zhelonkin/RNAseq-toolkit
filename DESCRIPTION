@@ -1,6 +1,6 @@
 Package: bulkiRNA
 Title: Bulk RNA-seq Differential Expression and Gene-Set Analysis
-Version: 0.7.0.9000
+Version: 1.0.0
 Authors@R:
     person("Anton", "Zhelonkin", email = "antonz@uchicago.edu", role = c("aut", "cre"))
 Description: A compact toolkit for bulk RNA-seq differential expression and
@@ -51,6 +51,7 @@ Suggests:
     readxl,
     rmarkdown,
     testthat (>= 3.1.9),
+    withr,
     yaml
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0

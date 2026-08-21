@@ -1,4 +1,43 @@
-# bulkiRNA 0.7.0.9000
+# bulkiRNA 1.0.0
+
+## API
+
+* The 21 deprecated names have left the public API. Their implementations
+  remain as non-exported fixtures for verification against the golden baseline
+  captured at `752481f`. Code that calls these names after
+  `library(bulkiRNA)` will fail to find them.
+
+* `gs_master_columns()` returns the versioned master-table columns in emission
+  order, so consumers stop reading `inst/extdata/master-schema-v1.csv`, whose
+  row order is not the column order. It takes `optional`, matching the fact
+  that `gs_to_master()` emits `entity_type` only when given one: the default
+  describes a table built without it, and `optional = TRUE` puts it first.
+
+* `bulkirna_api()` returns 59 rows, none deprecated. Its `frozen` column lists
+  3 names rather than 24, because 21 of the frozen signatures were deprecated
+  and left the public API together. `superseded_by` and `removed_in` are
+  therefore `NA` throughout; both columns are kept so the registry's shape is
+  stable.
+
+* `bulkirna_stochastic()` returns 6 rows. `run_gsea()` leaves it by becoming
+  internal. It still consumes randomness, so the registry now describes public
+  seed interfaces only.
+
+* Removing `convert_human_to_mouse()` from the registry also removes its
+  MSigDB-only `superseded_by` claim, which did not cover custom gene sets.
+
+## Documentation
+
+* `README.md`, `MIGRATION.md` and `CONVENTIONS.md` no longer say the old names
+  work. The 21 help pages are marked internal, so the public index stops
+  documenting functions that cannot be called.
+
+## Packaging
+
+* `withr` is declared in `Suggests`. Two test files have used it through `::`
+  since `ba910b2` without declaring it, which `R CMD check` reported as an
+  unstated dependency. It is classified dev-only, so `bulkirna_check_deps()`
+  does not report it as a requirement for using the package.
 
 # bulkiRNA 0.6.0
 

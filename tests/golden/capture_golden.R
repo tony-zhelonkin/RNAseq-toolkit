@@ -40,8 +40,10 @@ dir.create(OUT, showWarnings = FALSE, recursive = TRUE)
 # shims in R/deprecated-gs.R and R/deprecated-plot.R. Every case below still
 # calls a frozen name, unchanged -- that is the point. Until this switch, a
 # green run only proved the old code still worked.
+# export_all = TRUE since 1.0.0: the legacy names left the public API and are
+# now non-exported fixtures, kept precisely so these cases stay runnable.
 suppressWarnings(suppressMessages(
-  pkgload::load_all(".", quiet = TRUE, export_all = FALSE)
+  pkgload::load_all(".", quiet = TRUE, export_all = TRUE)
 ))
 # The shims all emit .Deprecated() by design; the harness calls them on purpose.
 options(warn = -1)
