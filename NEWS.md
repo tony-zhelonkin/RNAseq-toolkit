@@ -1,12 +1,6 @@
+# bulkiRNA 0.7.0.9000
+
 # bulkiRNA 0.6.0
-
-## Reproducibility
-
-* A release version now identifies exactly one commit, enforced by a test
-  rather than a release checklist. Between releases the version is
-  `A.B.C.9000`, where `A.B.C` names the *next* release, so a development tree
-  cannot claim a released number. `0.5.0` previously described both the
-  `v0.5.0` tag and 50 later commits carrying 15 additional exports.
 
 ## API
 
@@ -75,6 +69,12 @@
   annotate human genes through the mouse annotation package.
 
 ## Reproducibility
+
+* A release version now identifies exactly one commit, enforced by a test
+  rather than a release checklist. Between releases the version is
+  `A.B.C.9000`, where `A.B.C` names the *next* release, so a development tree
+  cannot claim a released number. `0.5.0` previously described both the
+  `v0.5.0` tag and 50 later commits carrying 15 additional exports.
 
 * `gsdb_coresh()` pins the compendium search with CoReSh's historical
   `seed = 1L`. Its returned database records the snapshot tag even though the
