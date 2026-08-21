@@ -1,8 +1,12 @@
 # bulkiRNA — handoff and plan of record
 
-**Updated:** 2026-08-20 · **Branch:** `feat/bulkirna-package` · **Last release:** `v0.5.0` tagged
-**Gates, freshly run:** 1,697 tests passing · golden 20/20 · `R CMD check` 0/0/0 (vignettes rebuild)
+**Updated:** 2026-08-21 · **Branch:** `feat/bulkirna-package` · **Last release:** `v0.6.0` = `e42c2de`
+**Development version:** `0.7.0.9000` · a release version now names exactly one commit, enforced by a test
+**Gates, measured at the release commit:** 1,742 tests + 7 identity assertions · golden 20/20 · `R CMD check` OK
 **Surface:** 79 exports — 46 stable, 12 experimental, 21 deprecated · 24 signature-frozen · 7 stochastic
+
+> **Do not copy gate numbers forward.** They were carried between sessions once and were stale: the
+> suite was red on two tests while being reported green. Re-run before quoting.
 
 This is the entry point. Everything else is reachable from here.
 
@@ -153,6 +157,42 @@ wrapped its normalisation in `tryCatch(..., error = function(e) NULL)`. With the
 that turned a hard type error into zero rows and no message — the migration's first run reported
 `Normalized rows: 0` and carried on. `gs_validate_master()` is what stopped it, several steps later.
 
+**13. Two enforcement tests had never executed.** `test-error-audit.R` walked the parse tree and passed
+the empty symbol into its own recursion; a formal declared without a default *is* that symbol, so it
+aborted on the first function it met. Both it and a newly written test called `expect_gt(info = )`,
+which testthat rejects as an unused argument. Neither had ever run, and the suite reported them as
+errors rather than failures — which reads past easily in a summary line. **The error audit passed on
+its first real run, so what it checks was already sound; only the check was broken.** Pain point #9's
+shape, live in two places while the gates were being described as green.
+
+**14. A version string that identifies two different code states.** `DESCRIPTION` read `0.5.0` while
+`HEAD` stood 50 commits and ~3,032 changed lines of `R/` past the `v0.5.0` tag, adding nine files and
+15 exports. ADR-001 forbade a version moving without a tag and never forbade code moving under a
+released version. Closed by [ADR-001's amendment](../adr/ADR-001-reproducibility-unit.md) and
+`test-version-identity.R`. **The general asymmetry is the durable lesson: every *content* invariant
+here fails a test when violated, while identity and deployment invariants were prose, because they
+live between repositories, tags, builds and installed libraries where package tests do not reach.**
+
+**15. Declared is not verified, on both sides of the image.** Seven R packages present in v0.5.10 and
+absent from v0.5.13 were never declared in the build at all — transitive arrivals that left when an
+upstream `DESCRIPTION` changed, with no commit recording the loss. `torch` was never declared either,
+so the image's GPU capability was whatever PyPI shipped on build day: both images landed
+`2.13.0+cu130`, needing driver ≥ 580 against this host's 565.57, and CUDA initialisation failed while
+`nvidia-smi` still showed the GPU. **`pip` and `install.packages()` both exit 0 after resolving a
+version nobody asked for**, so a pin is a request until something checks the result.
+
+**16. A briefing artifact can be silently truncated.** The signature reference handed to a delegated
+agent was generated with `deparse(args(f))[1]` — first line only — so every multi-line signature was
+cut mid-formal. The agent stopped and said so rather than guessing, which is the behaviour to want.
+The same artifact also propagated a wrong claim from a plan document: that `gsdb_from_file()` takes
+`database_label` for the join key, when `database` is the key and `database_label` is only a renderer
+display string.
+
+**17. A process-matching pattern can capture someone else's work.** `pgrep -f "codex exec"` matched a
+concurrent session's agent in a different project, so a delegated run that had died instantly was
+reported as running, twice. A `pkill` on the same pattern could have killed that session's work.
+**Match on the working directory, not the command name.**
+
 ---
 
 ## 2. The ADRs, with premise, rejected alternatives, and what each has since had to survive
@@ -267,6 +307,18 @@ pathway — at rank 4. Validated against biology, not against itself.
 
 ## 4. Next immediate steps
 
+**In flight when this was written** — check both before starting anything:
+
+- **`scdock-r-docker` v0.5.14 build**, launched from `feat/bulkirna-v0.5.0`, log `/tmp/v0514-build.log`.
+  Carries the torch `cu128` pin, `verify_base.py`, `OmnipathR`, the seven restored R packages, the
+  `bulkiRNA` commit pin and the required-package contract. **On completion, verify before trusting:**
+  `torch.cuda.is_available()` under `--gpus all`, `bulkiRNA` version `0.6.0` with `RemoteSha`
+  `e42c2de`, and the nine required packages loadable. Then move `14616-DM`'s devcontainer from
+  `v0.5.13` to `v0.5.14`, and DC-nexus's when its migration lands.
+- **`A2c_pathway_gsea.R` migration**, delegated to a sandboxed agent in `/tmp/dcdict` — a 580 KB sparse
+  workspace, because that submodule's worktree is 357 GB and cannot be cloned. Its output is a file to
+  review, not a commit; the gates are mine to run.
+
 1. **Phase 4 — finish DC-nexus.** The critical path to `v1.0.0`: the 21 shims exist only because
    consumers still call the old names. Two files remain, both scoped and measured —
    `DC_Dictionary/02_analysis/00_main/pipeline/A2c_pathway_gsea.R` (19 sites, and the first consumer
@@ -280,14 +332,22 @@ pathway — at rank 4. Validated against biology, not against itself.
 2. **Close the two gaps Phase 4 exposed**, both small and both `v1.0.0` blockers:
    an ortholog verb for arbitrary `gs_db` objects, or a narrowed `superseded_by` for
    `convert_human_to_mouse`; and an exported accessor for the master-table columns, so consumers stop
-   reading `inst/extdata/master-schema-v1.csv` directly.
-3. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
+   reading `inst/extdata/master-schema-v1.csv` directly — whose **row order is not the column order**
+   `gs_validate_master()` requires, which is a trap in itself.
+3. **Wire the image lockfile in, or stop claiming it is used.** `install_renv_project.R` restores from
+   `/opt/settings/renv.lock` when present; the Dockerfile copies three R scripts into that directory
+   and no lockfile, so the restore branch is unreachable and every build re-resolves. The tracked
+   `renv.lock` holds exactly one package, `renv` itself, while `docs/build.md` calls subsequent builds
+   deterministic. **This is the mechanism behind pain point #15** and the reason the required-package
+   contract is a floor rather than a fix. CRAN is pinned to the RSPM snapshot `2026-04-15`;
+   Bioconductor, both r-universe remotes and every GitHub install float.
+4. **G5's other half** — the same query through <https://alserglab.wustl.edu/coresh>, compared
    accession by accession. Needs a browser, so it is the owner's step, and it is the only remaining
    independent check on the CoReSh port.
-4. **Phase 6** — retire the submodule, once no consumer sources it. Note the vendored checkout appears
+5. **Phase 6** — retire the submodule, once no consumer sources it. Note the vendored checkout appears
    at two different paths (`01_modules/RNAseq-toolkit` and, inside `DC_Dictionary`,
    `01_scripts/RNAseq-toolkit`), both at `752481f`.
-5. **Then reconsider Phases 10–11** with `03_DEFERRED.md` in hand: TF activity, PROGENy, WGCNA. The
+6. **Then reconsider Phases 10–11** with `03_DEFERRED.md` in hand: TF activity, PROGENy, WGCNA. The
    sequencing argument for parking them was that a default in a package is load-bearing in a way a
    default in a script is not, and those three are where the methodological drift is worst. That
    argument is unchanged; what has changed is that the surface they would sit on has stopped moving.

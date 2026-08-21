@@ -109,7 +109,7 @@ reporting a partial run as a pass.
 | `run_gsea(DE_results=, rank_metric=)` | `gs_ranks(x, metric=)` then `gs_test(ranks, db, contrast=)` | ranking and testing are separate verbs now; `gs_ranks()` defaults `genes` to `rownames(x)`, which matches the legacy preamble |
 | `normalize_gsea_results()` | `gs_to_master(res, db=, universe=, entity_type=)` | see §3.1 — `db` is the **object** |
 | `load_reference_db(database=, toolkit_dir=)$T2G` | `gsdb_load(database, species=)` | `mitopathways`, `mitoxplorer`, `mito_unified`, `transportdb` all ship in `inst/extdata`; no `toolkit_dir`, no network |
-| `parse_gmx(file=, prefix=)` | `gsdb_from_file(path, prefix=, database_label=)` | |
+| `parse_gmx(file=, prefix=)` | `gsdb_from_file(path, prefix=, database=)` | `database` is the join key that lands in `gs_result$database`; `database_label` is only a renderer display name. A consumer keying figures off the old `database = ` string wants the former |
 | `parse_mitoxplorer()` | `gsdb_load("mitoxplorer")` | |
 | `filter_by_size()` | `min_size`/`max_size` on the provider or on `gs_test()` | not interchangeable; see §3.4 |
 | `gsea_dotplot()` | `gs_plot_dot()` | |
@@ -141,13 +141,19 @@ object.
 `gsdb_msigdb()` labels itself from the collection: `msigdb_C3_TFT_GTRD`, not the project's
 `CollecTRI_TF`. Every figure and table that joins on `database` breaks silently — the column is
 present and populated, just with different strings. Relabel the **provider**, not the master rows, so
-the per-cell checkpoints carry the project's key too:
+the per-cell checkpoints carry the project's key too.
+
+`gsdb_load()` and `gsdb_msigdb()` expose no label argument, so set the attribute:
 
 ```r
 db <- gsdb_msigdb(species = "Mus musculus", collection = spec$collection,
                   subcollection = spec$subcollection)
 attr(db, "database") <- db_name
 ```
+
+`gsdb_from_file()` and `gsdb_register()` take `database = ` directly; prefer that over the attribute.
+Note `database` and `database_label` are different things — the first is the machine key that reaches
+`gs_result$database` and is what a join is on, the second is a renderer display string.
 
 ### 3.3 Checkpoint files change format under unchanged names
 

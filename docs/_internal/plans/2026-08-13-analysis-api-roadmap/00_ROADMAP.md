@@ -1484,3 +1484,104 @@ rejecting a different option.
 Do not spend the ~150 minutes to change `v0.4.0` to `v0.5.0`: it installs the genuine old 64-export
 release and preserves the misunderstanding. `v0.5.13` remains usable meanwhile, provided nobody
 represents it as carrying the current tree.
+
+---
+
+## §19. Closing the identity gap: v0.6.0, and the image that consumers actually load
+
+§18 diagnosed the version-identity failure and adopted a seven-step sequence. This section records
+executing it, and what executing it found.
+
+### The gate, delegated and then falsified
+
+`tests/testthat/test-version-identity.R` was written by a delegated agent against a brief; the gates
+were run here, because that agent has no Docker. **Falsified before being trusted**, which is the part
+that matters:
+
+| `DESCRIPTION` | Failing assertions |
+|---|---|
+| `0.5.0` — the state the repository was actually in | **3** |
+| `0.5.0.9000` — the conventional choice | 1 |
+| `0.6.0.9000` | 0 |
+
+Rule 3 — a tag's `DESCRIPTION` matches the tag — found one genuine historical exception, `v0.2.0`,
+whose commit predates the conversion to a package and has no `DESCRIPTION`. Recorded per-tag with a
+reason rather than by weakening the rule.
+
+### Running it exposed two enforcement tests that had never executed
+
+This is the session's most transferable finding, and it arrived only because a *new* test forced a
+full suite run.
+
+- **`test-error-audit.R` aborted on the first function it walked.** Its parse-tree walker passed the
+  empty symbol into its own recursion, and a formal declared without a default *is* that symbol. The
+  fix has a subtlety worth keeping: **binding the empty symbol to a variable gives that variable
+  missing-argument semantics**, so the child must be tested by index rather than after assignment.
+- **`expect_gt(info = )`** is rejected by testthat as an unused argument. Present in the S5 file and
+  independently reproduced by the delegated agent in the new one. Neither had ever run.
+- **`test-return-audit.R` probed `de_md_plot(de)`.** That function's first argument is a limma fit,
+  not a DE table, and `coef` has no default.
+- A `coresh_loadings` matcher still expected wording that S5 had rewritten to name the fix. The
+  current message is the better one, so the test followed it.
+
+**The error audit passed on its first real run**, so the hygiene it checks was already sound; only the
+check was broken. Meanwhile the session had been reporting "1,697 tests passing, gates green" —
+carried forward from a prior summary rather than re-run. The handoff now warns against copying gate
+numbers between sessions.
+
+Measured after repair: **1,749 passing, 0 failures, golden 20/20, `R CMD check` OK.**
+
+### The release, and the ordering it forced
+
+`v0.6.0` = `e42c2de`, on `origin` and `hub`. Setting `Version: 0.6.0` immediately turned the suite red
+with *"Release version 0.6.0 needs tag v0.6.0"*, which fixes the order of a release:
+
+1. Run every gate at the development version.
+2. Commit the release version — the suite is now transiently red, correctly, because an untagged
+   release version is invalid.
+3. Tag that commit; the gate passes.
+4. Open the next development version, `0.7.0.9000`.
+
+`0.6.0` rather than `0.5.1` because the surface went 64 → 79 exports. The tag is cut from
+`feat/bulkirna-package` rather than `main`; the image pins the resolved SHA, so this works, but the
+released commit not being on the default branch is a residual ambiguity of the kind this work exists
+to remove.
+
+### The image: three independent defects, one rebuild
+
+Pinning `@v0.5.0` would have been **a no-op in export surface** — that tag and `v0.4.0` both carry 64
+exports and neither has `bulkirna_api`. So the pin is the **commit** `e42c2de`, verified after install
+against both the version and remotes' `RemoteSha`. A tag can be moved; a SHA cannot.
+
+Two further defects, each the same shape as §18's:
+
+- **Seven R packages** present in v0.5.10 and absent from v0.5.13 were **never declared** in the build
+  at any point in its history. They arrived transitively and left when an upstream `DESCRIPTION`
+  changed, so no commit recorded the loss. "Do not drop anything" could not be honoured by leaving the
+  recipe alone — leaving it alone is *how* they disappeared.
+- **`torch` was never declared either.** Both v0.5.10 and v0.5.13 landed `2.13.0+cu130`, needing
+  driver ≥ 580 against this host's 565.57. Verified directly under `--gpus all`: `device_count` is 1,
+  so the GPU is visible, and CUDA initialisation fails with *"driver too old (found version 12070)"*.
+  **The GPU had been dead since at least the 2026-07-24 build**, not newly broken in v0.5.13. Pinned
+  to `2.11.0+cu128`, whose resolution against every existing pin was dry-run first.
+
+Both fixes ship with the gate that makes declaring meaningful: `verify_base.py` asserts every `==` pin
+resolved exactly, `+cu` suffix included, and a short required-package list in `install_core.R` is now
+fatal. The general failure report stays observational, because one flaky optional package should not
+cost a 150-minute rebuild.
+
+### What the rebuild does not fix
+
+`install_renv_project.R` restores from `/opt/settings/renv.lock` when present; the Dockerfile copies
+three R scripts into that directory and **no lockfile**, so the restore branch is unreachable and every
+build re-resolves. The tracked `renv.lock` holds one package, `renv` itself, while `docs/build.md`
+calls subsequent builds deterministic. The required-package contract is a floor, not a fix.
+
+### A distinction worth keeping: absent versus hidden
+
+A report that `scrublet` and `skimage` were missing turned out to be the inverse of the torch bug.
+Both are in `/opt/venvs/base`; `scrublet` is declared and `skimage` 0.26.0 arrives with it. The failing
+call ran in a project-local venv created without `--system-site-packages`, which sees none of the base
+stack. Same symptom, opposite cause, and no rebuild needed. **The distinguishing check is
+`sys.prefix`.** Both patterns exist in the estate: `DC-nexus/integration/venv` inherits,
+`Meta-Aging/14782-DM/.venv-pkg` does not.
