@@ -1,8 +1,7 @@
 # bulkiRNA — handoff and plan of record
 
 **Updated:** 2026-08-21 · **Branch:** `feat/bulkirna-package` · **Last release:** `v1.0.0` = `0ceda46`
-**Development version:** none yet. `DESCRIPTION` reads `1.0.0` at the tag; the next commit must bump
-to `1.1.0.9000`, because the identity gate requires a `.9000` version off a release commit.
+**Development version:** `1.1.0.9000`, naming the *next* release rather than this tree.
 **Gates, measured at the release commit:** 1,784 tests, 0 failures, 6 environmental skips ·
 golden 20/20 · 7 identity assertions ·
 `devtools::check(error_on = "note")` → 0 errors, 0 notes, 1 warning (`qpdf` absent from the image).
@@ -313,8 +312,8 @@ open question in `03_DEFERRED.md`.
 | 2 Prove the dev loop | ✅ against real data |
 | 3 Install into the image | ✅ `scdock-r-dev:v0.5.14`, verified: `0.6.0` at `RemoteSha e42c2de` |
 | **4 Migrate heavy consumers** | ✅ **complete** — `14839-DM-cGAS`, Meta-Aging (`d6633dd`), `DC_Dictionary` (`86d78cf`), `DC_hum_verse` (`d7533c0`) · STING-JR excluded by the owner. Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
-| 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 ⛔ **externally blocked**, see below |
-| 5 Bind the skills | ⛔ **externally blocked**, see below |
+| 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 🔒 **owner-gated**, not blocked on work |
+| 5 Bind the skills | 🔒 **owner-gated**, not blocked on work · largely the same work as C6 |
 | 6 Retire the submodule | 🟡 procedure written and reviewed · blocked on six dirty gitlinks, not on work |
 | 7 Distribution | ⬜ · `v1.0.0` is tagged, so the surface it would distribute is now fixed |
 | **8 Stabilize the surface** | ✅ **S1–S6 complete** |
@@ -417,6 +416,32 @@ remains outstanding as a decision, not as work.
    sequencing argument for parking them was that a default in a package is load-bearing in a way a
    default in a script is not, and those three are where the methodological drift is worst. That
    argument is unchanged; what has changed is that the surface they would sit on has stopped moving.
+
+---
+
+## 4b. The three skills, and why they are owner-gated rather than blocked
+
+Phase 5 and CoReSh C5/C6 are the same body of work seen from two plans. All of it lives in
+`scbio-docker/toolkits/SciAgent-toolkit/skills/`, measured 2026-08-21:
+
+| Item | Skill | Current state |
+|---|---|---|
+| C5 | `coresh-signature-search` | Still ships `scripts/{coresh_batch,extract_gene_loadings,symbols_to_entrez}.R`, sourced into one another. That logic is now `gsdb_coresh()` and the `coresh_*` verbs. |
+| C6 / Phase 5 | `bulk-rnaseq-gsea` | `references/msigdb.md` describes "the RNAseq-toolkit wrapper around `clusterProfiler::GSEA()`"; `references/visualization.md` cites `01_scripts/RNAseq-toolkit/scripts/GSEA/…` paths. |
+| C6 / Phase 5 | `annotate-bulk-rnaseq-data` | `SKILL.md:71` pins **RNAseq-toolkit v0.2.0** by name; `references/te-annotation.md` also pins TE-RNAseq-toolkit v0.1.0. |
+
+**These are not blocked on capability.** `00_PLAN.md` §8.5 point 5 records the technical prerequisite
+as discharged by Phase 3: nested submodules are forbidden and a skill can reach an installed
+`bulkiRNA` in the image, so "what remains is sequencing against the other track, not capability."
+The gate is two owner decisions: the recorded choice that C5/C6 *wait* on the wider SciAgent-toolkit
+refactor "until the owner says otherwise", and the standing instruction not to touch that submodule.
+**One instruction unblocks all three.** The only genuine external risk is colliding with whatever
+else is in flight in that repo.
+
+**Why it is worth doing despite being small.** §0's goal is that an agent need not be re-told these
+preferences, and a skill is the first thing an agent reads. Today two of these three will send it to
+`clusterProfiler` and to submodule paths no consumer uses, and one will pin it to `v0.2.0` while the
+package is at `v1.0.0`. The code no longer misdescribes itself; these three files still do.
 
 ---
 
