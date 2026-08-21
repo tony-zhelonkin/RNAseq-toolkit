@@ -193,6 +193,29 @@ concurrent session's agent in a different project, so a delegated run that had d
 reported as running, twice. A `pkill` on the same pattern could have killed that session's work.
 **Match on the working directory, not the command name.**
 
+**18. An omitted argument is not an absent default.** The toolkit's `run_gsea()` passed no size
+bounds, and its header said "No minSize/maxSize exposed" — which reads as *no filtering* and meant
+*`clusterProfiler`'s 10 and 500*. `gs_test()` has no such default, so a faithful argument-for-argument
+translation would have widened every gene-set universe and shifted every padj through the
+multiple-testing correction, with nothing in the diff to show it. **Check the callee's defaults for
+every argument the old call omitted**, not just the arguments it passed.
+
+**19. A count is not a membership check.** Three project data files were replaced by bundled
+providers, and the migrated script verified each by asserting the provider's set count. TransportDB
+gave 49 against 49 with **zero shared names**: a `.gmx` is column-oriented and had been read row-wise,
+the provider keys sets by dot-joined hierarchy path where the file names only the leaf, and one
+comparison was human symbols against mouse. All three errors are invisible to a count. Corrected, all
+three substitutions are sound — but the assertion that was in the code would have passed either way.
+**And the baseline is what the legacy path produced, not the file it read**: the MitoPathways file is
+human and the old code converted it, so the raw file was never what the analysis saw.
+
+**20. A file you must edit is not a file you may commit.** Both DC-nexus `docker-compose.yml` files
+needed the image moved forward for the migrated scripts to run, and both already held another actor's
+uncommitted work — their own image bump, changed ports, changed data mounts. The edits were made and
+left uncommitted, because committing them would have swept someone else's in-progress changes into my
+commit. `14616-DM`'s equivalent file was clean, so there the bump is committed. Same action, opposite
+treatment, decided by what else was in the file.
+
 ---
 
 ## 2. The ADRs, with premise, rejected alternatives, and what each has since had to survive
@@ -251,11 +274,11 @@ open question in `03_DEFERRED.md`.
 | 0 Inventory & freeze | ✅ |
 | 1 Skeleton, internal `source()` removed | ✅ |
 | 2 Prove the dev loop | ✅ against real data |
-| 3 Install into the image | ✅ `scdock-r-dev:v0.5.13`, 16/16 optional deps |
-| **4 Migrate heavy consumers** | 🟡 **`14839-DM-cGAS` and Meta-Aging done · DC-nexus in progress · STING-JR excluded by the owner.** Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
+| 3 Install into the image | ✅ `scdock-r-dev:v0.5.14`, verified: `0.6.0` at `RemoteSha e42c2de` |
+| **4 Migrate heavy consumers** | ✅ **complete** — `14839-DM-cGAS`, Meta-Aging (`d6633dd`), `DC_Dictionary` (`86d78cf`), `DC_hum_verse` (`d7533c0`) · STING-JR excluded by the owner. Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
 | 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 🚫 blocked on the skills refactor |
 | 5 Bind the skills | 🚫 blocked on the SciAgent-toolkit refactor |
-| 6 Retire the submodule | ⬜ waits on Phase 4 |
+| 6 Retire the submodule | ⬜ **unblocked** — Phase 4 is done; STING-JR still sources it |
 | 7 Distribution | ⬜ |
 | **8 Stabilize the surface** | ✅ **S1–S6 complete** |
 | **9 One CoReSh/GESECA run** | ✅ **G1–G4** · 🚫 **G5's web-UI half needs a browser** |
@@ -307,28 +330,21 @@ pathway — at rank 4. Validated against biology, not against itself.
 
 ## 4. Next immediate steps
 
-**In flight when this was written** — check both before starting anything:
+**Both jobs that were in flight have landed and been verified.** `scdock-r-dev:v0.5.14` is built and
+checked: `torch.cuda.is_available()` is `TRUE` under `--gpus all` with `2.11.0+cu128`, `bulkiRNA` is
+`0.6.0` at `RemoteSha e42c2de`, all nine required packages load, 79 exports, and `verify_base.py`
+passed inside the build across 24 pins. `scrublet` and `skimage` import from `/opt/venvs/base`.
+`14616-DM` is on `v0.5.14` (commit `16e79bc`).
 
-- **`scdock-r-docker` v0.5.14 build**, launched from `feat/bulkirna-v0.5.0`, log `/tmp/v0514-build.log`.
-  Carries the torch `cu128` pin, `verify_base.py`, `OmnipathR`, the seven restored R packages, the
-  `bulkiRNA` commit pin and the required-package contract. **On completion, verify before trusting:**
-  `torch.cuda.is_available()` under `--gpus all`, `bulkiRNA` version `0.6.0` with `RemoteSha`
-  `e42c2de`, and the nine required packages loadable. Then move `14616-DM`'s devcontainer from
-  `v0.5.13` to `v0.5.14`, and DC-nexus's when its migration lands.
-- **`A2c_pathway_gsea.R` migration**, delegated to a sandboxed agent in `/tmp/dcdict` — a 580 KB sparse
-  workspace, because that submodule's worktree is 357 GB and cannot be cloned. Its output is a file to
-  review, not a commit; the gates are mine to run.
+**Phase 4 is complete.** All four consumer groups are migrated; only the owner's STING-JR exclusion
+remains outstanding as a decision, not as work.
 
-1. **Phase 4 — finish DC-nexus.** The critical path to `v1.0.0`: the 21 shims exist only because
-   consumers still call the old names. Two files remain, both scoped and measured —
-   `DC_Dictionary/02_analysis/00_main/pipeline/A2c_pathway_gsea.R` (19 sites, and the first consumer
-   to exercise the **plotting** layer as well as compute) and the three `DC_hum_verse`
-   `coresh-slice` scripts (18 sites). Branch `migrate/bulkirna` exists in `DC_Dictionary`. Follow
-   [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md); §3 is four
-   defects that pass a reading.
-   **STING-JR is excluded by the owner's decision**, its survey kept in §0 of that document in case
-   that changes. Since the shims cannot be removed while it calls them, `v1.0.0` now needs a
-   decision: migrate STING-JR after all, or ship `v1.0.0` with the shims still present.
+1. **The `v1.0.0` shim decision is now the critical path.** Phase 4 is done, so nothing further will
+   reduce the 21 shims: they exist because STING-JR still calls the old names, and it is excluded by
+   the owner's decision (survey kept in §0 of
+   [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md)). The choice
+   is to migrate STING-JR after all, or ship `v1.0.0` with the shims present — and the second
+   **reopens S4**, which recorded all 21 as removed in `1.0.0`.
 2. **Close the two gaps Phase 4 exposed**, both small and both `v1.0.0` blockers:
    an ortholog verb for arbitrary `gs_db` objects, or a narrowed `superseded_by` for
    `convert_human_to_mouse`; and an exported accessor for the master-table columns, so consumers stop

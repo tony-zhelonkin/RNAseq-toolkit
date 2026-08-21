@@ -1585,3 +1585,60 @@ call ran in a project-local venv created without `--system-site-packages`, which
 stack. Same symptom, opposite cause, and no rebuild needed. **The distinguishing check is
 `sys.prefix`.** Both patterns exist in the estate: `DC-nexus/integration/venv` inherits,
 `Meta-Aging/14782-DM/.venv-pkg` does not.
+
+---
+
+## 20. Phase 4 closes: the last three consumers, and what the data substitutions cost
+
+`scdock-r-dev:v0.5.14` built and passed every check it was committed to: `torch.cuda.is_available()`
+is `TRUE` under `--gpus all` on `2.11.0+cu128`, `bulkiRNA` reports `0.6.0` at `RemoteSha e42c2de`, the
+nine required packages load, and `verify_base.py` confirmed all 24 pins resolved exactly *inside the
+build*. The torch defect is closed with a gate that fails the build rather than a note asking someone
+to check. `14616-DM` moved onto it in `16e79bc`.
+
+`A2c_pathway_gsea.R` came back from the sandboxed agent and passed review: 19 sites, every legacy verb
+gone, all four §3 traps handled, 10 package verbs called and all 10 exported and none deprecated. The
+one thing I expected to be wrong was not — `gs_ranks()` has a named-numeric-vector branch, so handing
+it the output of `prepare_sc_ranks_presto()` is correct rather than a silent misuse. Committed as
+`86d78cf`. The three `DC_hum_verse` `coresh-slice` scripts were small enough to do directly:
+`d7533c0`. **Phase 4 is complete**, and with it the argument that motivated it — no consumer now
+retypes the compute layer.
+
+### The substitution that counts matched and content did not
+
+Three project data files were replaced by bundled providers, and the migrated script checked the
+substitution by asserting each provider's set count. That check passes while being worth nothing: on
+the first comparison TransportDB gave 49 sets against 49 sets and **zero shared names**. Three
+separate errors sat on top of each other — a `.gmx` read row-wise when the format is column-oriented,
+a naming scheme where the provider uses dot-joined hierarchy paths and the file names only the leaf,
+and a species difference (human file, mouse provider) that reads as total membership disagreement
+until the symbols are case-folded. Corrected, the three substitutions are: TransportDB exact,
+MitoXplorer exact for every set the size filter admits, MitoPathways the same 119 testable sets with
+**better** ortholog coverage than the conversion it replaced. The 30 project sets the provider lacks
+all have fewer than 10 genes and were never tested at `min_size = 10`.
+
+Two things generalise. First, **the right baseline is what the legacy path produced, not the file it
+started from** — the MitoPathways file is human and the old code converted it, so the raw file was
+never what the analysis saw. Second, the bundled provider turned out to be a strict *superset* of
+`convert_human_to_mouse()`'s output in all seven comparable sets, which reframes that `v1.0.0`
+blocker: the missing general ortholog verb is a documentation defect in `superseded_by`, not a
+capability the estate is waiting on.
+
+### An omitted argument is not an absent default
+
+`run_gsea()` passed no size bounds and said so in its header — "No minSize/maxSize exposed" — which
+reads as *no filtering* and meant *`clusterProfiler`'s 10 and 500*. `gs_test()` has no such default.
+Translating those calls argument-for-argument would have widened every gene-set universe and moved
+every padj through the multiple-testing correction, with nothing in the diff to show it. This is the
+same shape as the version-identity failure in §18 and the undeclared packages in §19: **the defect is
+in what nobody wrote down**, and it survives any review that compares the new call to the old call
+instead of to the old call's behaviour.
+
+### A file you must edit is not a file you may commit
+
+Both DC-nexus `docker-compose.yml` files needed the image moved to `v0.5.14` for the migrated scripts
+to run at all, and both already carried another actor's uncommitted work — their own image bump,
+changed ports, changed data mounts. The edits were made, because without them the migration does not
+execute; they were left uncommitted and reported, because committing them would have swept someone
+else's in-progress changes into my commit. `14616-DM` was different: its compose file was clean, so
+the bump is committed there. Same action, different treatment, decided by what else was in the file.

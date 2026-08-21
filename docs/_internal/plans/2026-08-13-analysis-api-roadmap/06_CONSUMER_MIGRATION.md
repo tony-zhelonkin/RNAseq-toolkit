@@ -33,8 +33,8 @@ Measured with those exclusions:
 |---|---|---|---|---|
 | Meta-Aging | `14616-DM` | 1 | 10 | ✅ migrated, `d6633dd` |
 | Meta-Aging | `14761-DM`, `14782-DM`, `neuroimmune-receptor-atlas` | 0 | 0 | nothing to do |
-| DC-nexus | `DC_Dictionary` | 1 | 19 | ⬜ branch created |
-| DC-nexus | `DC_hum_verse` | 3 | 18 | ⬜ |
+| DC-nexus | `DC_Dictionary` | 1 | 19 | ✅ migrated, `86d78cf` |
+| DC-nexus | `DC_hum_verse` | 3 | 18 | ✅ migrated, `d7533c0` |
 | DC-nexus | `DC_mouse_cancer` | 0 | 0 | nothing to do |
 | STING-JR | 4 sub-repos | 19 | 94 | 🚫 excluded by the owner |
 
@@ -46,6 +46,14 @@ consumer and the numbers will be wanted if that decision changes: `mouse_anchor`
 own repo, several on `dev` rather than `main`, and all with uncommitted work. "Migrate DC-nexus" means
 committing in two live research repositories. Work on a `migrate/bulkirna` branch per sub-repo, stage
 only the files you changed, and never `git add -A`.
+
+That last rule has a consequence worth stating, because it came up in both DC-nexus repos. The
+migration needs the devcontainer moved to an image that ships the package, but **both
+`docker-compose.yml` files already held another actor's uncommitted work** — an image bump of their
+own, changed port bindings, changed data mounts. Editing the image line there is necessary; committing
+it would carry their in-progress changes into a commit of mine. Those two edits were left in the
+working tree, uncommitted and reported, while the script migrations were committed on their own.
+**A file you must edit is not automatically a file you may commit.**
 
 ---
 
@@ -169,6 +177,13 @@ ranked genes. `gs_test(min_size=, max_size=)` filters at the same point; `gsdb_l
 filters the **raw** sets. They are not interchangeable, and moving the argument to the provider
 quietly changes which pathways are tested. Keep the bounds on `gs_test()`.
 
+**The harder half of this: a bound the old call never wrote down still applied.** The toolkit's
+`run_gsea()` passed no size arguments at all, and its header said so — "No minSize/maxSize exposed" —
+which reads like *no filtering*. It actually meant *`clusterProfiler`'s defaults of 10 and 500*.
+`gs_test()` has no such default, so translating the call literally, argument for argument, widens
+every gene-set universe and changes every padj through the multiple-testing correction. **Check the
+callee's defaults, not just the caller's arguments**, for every argument the old call omitted.
+
 ---
 
 ## 4. `convert_human_to_mouse()` has no successor for this use
@@ -185,6 +200,42 @@ For `DC_Dictionary` specifically this does not bite: the set being converted is 
 parse-then-convert step disappears rather than being translated. But the general gap is real, and one
 of two things must be true before `v1.0.0`: either an ortholog verb exists for arbitrary sets, or
 the registry's `superseded_by` for `convert_human_to_mouse` is narrowed to say it covers MSigDB only.
+
+**Measured, when the substitution was checked:** the bundled mouse provider is a strict **superset**
+of what `convert_human_to_mouse()` produced from the same source file — in all seven comparable sets
+the legacy gene list was contained in the bundled one, and OXPHOS went from 120 genes to 153. So
+where a bundled provider exists, dropping the conversion improves ortholog coverage rather than
+merely relocating it. That is an argument for narrowing the `superseded_by` text, not for building
+the general verb first.
+
+---
+
+## 4b. Verifying a bundled provider against the project's own file
+
+A bundled provider replacing a project data file is a **data** substitution, and the set count is not
+evidence. Both of these were measured, and the counts agreeing would have hidden both:
+
+- **Parse the format the format actually is.** `.gmx` is **column**-oriented — row 1 holds the set
+  names, row 2 the descriptions, rows 3+ the genes, one set per column. Read it row-wise like a
+  `.gmt` and every comparison silently returns 49 sets, 49 sets, and zero shared names.
+- **Reconcile the naming scheme before concluding anything.** `mitopathways` keys are dot-joined
+  hierarchy paths (`MITOPATHWAYS_Metabolism.Amino_acid_metabolism`); the project file names only the
+  leaf. Comparing raw names gives 7 matches out of 119; comparing on the leaf gives all 119.
+- **Case-fold, or a species difference reads as a membership difference.** The project MitoPathways
+  file is human symbols and the provider was asked for mouse, so shared-gene counts came back as
+  literal zero for sets that in fact overlap at Jaccard 0.87–0.97.
+
+What the three substitutions in this project turned out to be, once measured correctly:
+
+| Provider | Verdict |
+|---|---|
+| `transportdb` | Exact. 49/49 sets, membership identical after keying on the GMX's row-2 `TRANSPORTDB_*` ids. |
+| `mitoxplorer` | Exact for everything testable. 36/36 identical; the project file has 2 extra sets, of 2 and 3 genes, which `min_size = 10` never admits. |
+| `mitopathways` | Same testable coverage, better membership. 119 of the project's 149 sets; **all 30 absent sets have fewer than 10 genes**, so none was ever tested. Per-set membership is the superset described above, so **NES and padj will shift** for the sets that are tested. |
+
+The general rule: compare against **what the legacy path produced**, not against the raw input file.
+For MitoPathways the raw file is human and the legacy path converted it, so the raw file was never
+what the analysis saw.
 
 ---
 
