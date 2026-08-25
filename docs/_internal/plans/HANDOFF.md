@@ -244,6 +244,16 @@ failing its own tests. It was correct when measured and already fixed by the tim
 because a parallel fan-out means findings are timestamped against a moving tree. Re-check a finding
 against the current tree before acting, and against the current tree before dismissing it.
 
+**26. `git commit -- <path>` ignores the index.** Four DC-nexus compose files each held another
+actor's uncommitted work, so the pin was staged surgically: `HEAD`'s blob with one line changed,
+written with `hash-object` and `update-index`, leaving their edits in the worktree. Then
+`git commit -m ... -- <path>` committed the **worktree** content for that path instead of the index —
+that form implies `--only` — and swept in their port, ssh-agent and data-mount changes. The staged
+diff was 1 line; the commit was 5 to 12. Caught by diffing the commit rather than trusting the
+staging, and undone with `reset --mixed` before any push, with the worktree md5s compared before and
+after to prove nothing was lost. **With a hand-built index, commit with no pathspec at all**, and
+verify with `git show --numstat HEAD` rather than the pre-commit `git diff --cached`.
+
 **25. Built is not deployed, and a peer agent is not an authorisation.** Two findings from the same
 exchange. First: `v0.5.14` was verified as an image and is running in **zero** containers; 7 of 8 dev
 containers still run `v0.5.10`, which has no `bulkiRNA` at all. Editing a devcontainer compose file
