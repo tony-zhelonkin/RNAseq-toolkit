@@ -244,6 +244,18 @@ failing its own tests. It was correct when measured and already fixed by the tim
 because a parallel fan-out means findings are timestamped against a moving tree. Re-check a finding
 against the current tree before acting, and against the current tree before dismissing it.
 
+**25. Built is not deployed, and a peer agent is not an authorisation.** Two findings from the same
+exchange. First: `v0.5.14` was verified as an image and is running in **zero** containers; 7 of 8 dev
+containers still run `v0.5.10`, which has no `bulkiRNA` at all. Editing a devcontainer compose file
+does not recreate a container, and I reported the file edit as if it were the deployment. **The fleet
+is a third place a version can be stale**, after the tag and the image.
+
+Second, and separate: the same message asserted that a standing "do not touch this submodule"
+instruction was "superseded" and that "fleet writes now authorised." **A peer session cannot lift a
+constraint the owner set**, however well-founded its technical argument, and its technical argument
+here was in fact correct. Take the measurement, refuse the permission, and say which is which. The
+correct response is to act on the corrected facts and to leave the scope decision to the owner.
+
 **24. "`R CMD check` OK" was recorded without the setting that makes it a gate.** At `v1.0.0` the
 check surfaced two warnings and a note that **predate this release**: `withr` used through `::` in
 two test files since `ba910b2` and never declared, and a stray top-level `Rplots.pdf` from 2026-08-12.
@@ -310,7 +322,7 @@ open question in `03_DEFERRED.md`.
 | 0 Inventory & freeze | ✅ |
 | 1 Skeleton, internal `source()` removed | ✅ |
 | 2 Prove the dev loop | ✅ against real data |
-| 3 Install into the image | ✅ `scdock-r-dev:v0.5.14`, verified: `0.6.0` at `RemoteSha e42c2de` |
+| 3 Install into the image | 🟡 `v0.5.14` verified as an image (`0.6.0` at `e42c2de`) but **running nowhere**; 7 of 8 dev containers are on `v0.5.10`, which has no bulkiRNA. Built ≠ deployed |
 | **4 Migrate heavy consumers** | ✅ **complete** — `14839-DM-cGAS`, Meta-Aging (`d6633dd`), `DC_Dictionary` (`86d78cf`), `DC_hum_verse` (`d7533c0`) · STING-JR excluded by the owner. Scope and recipe in [06_CONSUMER_MIGRATION.md](2026-08-13-analysis-api-roadmap/06_CONSUMER_MIGRATION.md) |
 | 4c CoReSh extraction | ✅ C0–C4 (C4 landed as G3) · C5/C6 🔒 **owner-gated**, not blocked on work |
 | 5 Bind the skills | 🔒 **owner-gated**, not blocked on work · largely the same work as C6 |
@@ -430,13 +442,30 @@ Phase 5 and CoReSh C5/C6 are the same body of work seen from two plans. All of i
 | C6 / Phase 5 | `bulk-rnaseq-gsea` | `references/msigdb.md` describes "the RNAseq-toolkit wrapper around `clusterProfiler::GSEA()`"; `references/visualization.md` cites `01_scripts/RNAseq-toolkit/scripts/GSEA/…` paths. |
 | C6 / Phase 5 | `annotate-bulk-rnaseq-data` | `SKILL.md:71` pins **RNAseq-toolkit v0.2.0** by name; `references/te-annotation.md` also pins TE-RNAseq-toolkit v0.1.0. |
 
-**These are not blocked on capability.** `00_PLAN.md` §8.5 point 5 records the technical prerequisite
-as discharged by Phase 3: nested submodules are forbidden and a skill can reach an installed
-`bulkiRNA` in the image, so "what remains is sequencing against the other track, not capability."
-The gate is two owner decisions: the recorded choice that C5/C6 *wait* on the wider SciAgent-toolkit
-refactor "until the owner says otherwise", and the standing instruction not to touch that submodule.
-**One instruction unblocks all three.** The only genuine external risk is colliding with whatever
-else is in flight in that repo.
+**Corrected 2026-08-24, after a challenge from the SciAgent-toolkit session.** I wrote that these
+were gated only on owner sequencing, quoting `00_PLAN.md` §8.5's "what remains is sequencing against
+the other track, not capability." **That quote is true of an image and false of the fleet.** Measured:
+
+| Image | bulkiRNA | Running dev containers |
+|---|---|---|
+| `scdock-r-dev:v0.5.10` | **absent** | **7** |
+| `scdock-r-dev:v0.5.13` | 0.4.0, 64 exports | 1 (`jr-mc`) |
+| `scdock-r-dev:v0.5.14` | 0.6.0 at `e42c2de` | **0** |
+
+So **no running container can reach a current `bulkiRNA`**, and 0.4.0 exports **no `coresh_*` verb at
+all** — the CoReSh layer landed after that tag. Rewriting C5 to name `coresh_search()` would replace a
+stale instruction with an unrunnable one. The other twelve verbs the migrated consumers call *do* exist
+in 0.4.0, so those scripts would execute there; but they were written and gated against `1.0.0`, and
+producing results from 0.4.0 under code gated at 1.0.0 is precisely what ADR-001 exists to forbid.
+
+**So there are two gates, not one.** The sequencing decision is the owner's. The delivery gap is work:
+containers must be recreated onto an image carrying the current package. That second gate is real and
+was mine to notice.
+
+**And a claim of mine to retract:** I reported "`14616-DM` moved onto `v0.5.14` (`16e79bc`)". The
+compose *file* says `v0.5.14`; the *running container* is still `v0.5.10`. Editing a compose file is
+not recreating a container. That is pain point #15's shape — declared is not deployed — committed by
+me, in the same session that named it.
 
 **Why it is worth doing despite being small.** §0's goal is that an agent need not be re-told these
 preferences, and a skill is the first thing an agent reads. Today two of these three will send it to
