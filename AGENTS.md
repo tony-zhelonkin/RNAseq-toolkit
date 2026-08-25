@@ -21,11 +21,11 @@ happened.
 
 1. **Read [CONVENTIONS.md](CONVENTIONS.md)** — the code contract: naming, argument validation,
    error-message style, roxygen expectations.
-2. **Read the plan of record.**
-   [docs/_internal/plans/HANDOFF.md](docs/_internal/plans/HANDOFF.md) is the entry point: what
+2. **Read the plan of record.** It lives in the memory layer, a sibling repo — see
+   [docs/MEMORY.md](docs/MEMORY.md). `bulkiRNA-memory/plans/HANDOFF.md` is the entry point: what
    is in flight, what is parked, and why.
 3. **Do not re-derive a convention that is already recorded.**
-   [docs/_internal/plans/2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md](docs/_internal/plans/2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md)
+   `bulkiRNA-memory/plans/2026-08-13-analysis-api-roadmap/01_REFERENCE_PROJECTS.md`
    names the canonical previous implementation of each analysis, with paths, parameter choices
    and the reasoning behind them. **Read it instead of asking where prior work lives.**
 

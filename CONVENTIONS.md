@@ -3,8 +3,8 @@
 Repo-internal. `.Rbuildignore`d, not shipped. Read this before writing a line of
 `R/`; it is the contract the parallel module agents (B1–B5) share.
 
-Live state and the plan of record are `docs/_internal/plans/HANDOFF.md`, which is the entry
-point to every other plan document. The original API-design record is outside this repo in
+Live state and the plan of record are `bulkiRNA-memory/plans/HANDOFF.md` in the sibling memory
+repo ([docs/MEMORY.md](docs/MEMORY.md)), which is the entry point to every other plan document. The original API-design record is outside this repo in
 `/data1/users/antonz/pipeline/sciagent-rna/docs/` (`07_api-design.md`); it is history now, not
 the contract.
 
@@ -180,7 +180,7 @@ Raw source files stay in `data/references/` in the git checkout and are
 `.Rbuildignore`d. Anything requiring them (`rebuild = TRUE`) must fail with an
 explicit "source checkout required" message rather than a missing-file error.
 
-### Two tiers, and only two ([ADR-004](docs/_internal/adr/ADR-004-reference-data-tiers.md))
+### Two tiers, and only two (ADR-004, in `bulkiRNA-memory/adr/`)
 
 **If it can be re-fetched from a versioned source, it is refcache. If it cannot, it
 is bundled. Size is the tiebreaker, not the criterion.**
@@ -301,7 +301,7 @@ for the user, not a refactor decision.** Report it; do not act on it.
 A commit message says what changed and why, for someone reading this repo later.
 
 Keep deliberation out of it. Reasoning about what we might do next, which layer could
-eventually be removed, or how confident we are belongs in `docs/_internal/`, not in history.
+eventually be removed, or how confident we are belongs in the memory repo, not in history.
 
 **Never write a linkable issue reference to another project's repository.** GitHub reads
 `owner/repo#123` and full issue URLs in commit messages and cross-posts the whole commit body
